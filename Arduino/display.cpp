@@ -279,10 +279,10 @@ void Display::displayOutTemp()
   }
   else
   {
-      int m = minute();              // offset = hours past + minutes of hour
+     int m = minute();              // offset = hours past + minutes of hour
 
-      if(hd) m += (hd * 60);              // add hours ahead (up to 2)
-      outTemp = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, m, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
+     if(hd) m += (hd * 60);              // add hours ahead (up to 2)
+     outTemp = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, m, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
   }
 
   hvac.updateOutdoorTemp(outTemp);
@@ -503,7 +503,7 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
 void Display::Lines(bool bInit)
 {
   if(nex.getPage() != 5) // must be blank page
-	return;
+    return;
 
   #define LINES 25
   static Line line[LINES], delta;
@@ -513,25 +513,25 @@ void Display::Lines(bool bInit)
 
   if(bInit)
   {
-  	randomSeed(analogRead(0) + micros());
-	  memset(&line, 10, sizeof(line));
-	  memset(&delta, 1, sizeof(delta));
-	  return;
+    randomSeed(analogRead(0) + micros());
+    memset(&line, 10, sizeof(line));
+    memset(&delta, 1, sizeof(delta));
+    return;
   }
   // Erase oldest line
   nex.line(line[LINES - 1].x1, line[LINES - 1].y1, line[LINES - 1].x2, line[LINES - 1].y2, 0);
 
   // FIFO the lines
   for(int i = LINES - 2; i >= 0; i--)
-  	line[i+1] = line[i];
+    line[i+1] = line[i];
 
   if(--cnt <= 0)
   {
-	  cnt = 5; // every 5 runs
-	  delta.x1 = constrain(delta.x1 + random(-1,2), -4, 4); // random direction delta
-	  delta.x2 = constrain(delta.x2 + random(-1,2), -4, 4);
-	  delta.y1 = constrain(delta.y1 + random(-1,2), -4, 4);
-  	delta.y2 = constrain(delta.y2 + random(-1,2), -4, 4);
+    cnt = 5; // every 5 runs
+    delta.x1 = constrain(delta.x1 + random(-1,2), -4, 4); // random direction delta
+    delta.x2 = constrain(delta.x2 + random(-1,2), -4, 4);
+    delta.y1 = constrain(delta.y1 + random(-1,2), -4, 4);
+    delta.y2 = constrain(delta.y2 + random(-1,2), -4, 4);
   }
   line[0].x1 += delta.x1; // add delta to positions
   line[0].y1 += delta.y1;
@@ -566,32 +566,18 @@ void Display::addGraphPoints()
   static bool bInit = false;
   if(bInit == false)
   {
-	  memset(m_points, 0, sizeof(m_points));
-	  bInit = true;
+    memset(m_points, 0, sizeof(m_points));
+    bInit = true;
   }
   if(m_pointsAdded == 299)
-  	memcpy(&m_points, &m_points+(3*sizeof(uint16_t)), sizeof(m_points) - (3*sizeof(uint16_t)));
+    memcpy(&m_points, &m_points+(3*sizeof(uint16_t)), sizeof(m_points) - (3*sizeof(uint16_t)));
   static int base = 600; // 60.0 base
   m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 55 / 100; // 60~100 to scale to 0~220
   m_points[m_pointsAdded][1] = hvac.m_rh * 55 / 250;
   m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 55 / 100;
 
-	Serial.print("Line 0: ");
-	  Serial.print(m_points[m_pointsAdded][0]);
-	  Serial.print(" ");
-	  Serial.println(hvac.m_inTemp);
-  Serial.print("Line 1: ");
-	  Serial.print(m_points[m_pointsAdded][1]);
-	  Serial.print(" ");
-	  Serial.println(hvac.m_rh);
- Serial.print("Line 2: ");
-	  Serial.print(m_points[m_pointsAdded][2]);
-	  Serial.print(" ");
-	  Serial.println(hvac.m_targetTemp);
-    delay(5000);
-
   if(m_pointsAdded < 299) // 300x220
-  	m_pointsAdded++;
+    m_pointsAdded++;
 }
 
 // Draw the last 25 hours (todo: add run times)
@@ -605,30 +591,30 @@ void Display::fillGraph()
 
   for(int i = 1; i < m_pointsAdded; i++)  // inTemp
   {
-  	nex.line(i+9, y, i+10, m_points[i][0], 0xF800);
-	  y = m_points[i][0];
+    nex.line(i+9, y, i+10, m_points[i][0], 0xF800);
+    y = m_points[i][0];
   }
   y = m_points[0][1];
   for(int i = 1; i < m_pointsAdded; i++) // rh
   {
-	  nex.line(i+9, y, i+10, m_points[i][1], 0x0380);
-	  y = m_points[i][1];
+    nex.line(i+9, y, i+10, m_points[i][1], 0x0380);
+    y = m_points[i][1];
   }
   y = m_points[0][2];
   for(int i = 1; i < m_pointsAdded; i++) // on target
   {
-	  nex.line(i+9, y, i+10, m_points[i][2], 0x0031);
-	  y = m_points[i][2];
+    nex.line(i+9, y, i+10, m_points[i][2], 0x0031);
+    y = m_points[i][2];
   }
 
   uint16_t yO = hvac.m_EE.cycleThresh * 55 / 100;
   if(hvac.getMode() == Mode_Cool) // could be auto
-	  yO = -yO;
+    yO = -yO;
   y = m_points[0][2] + yO;
 
   for(int i = 1; i < m_pointsAdded; i++) // off target
   {
-	  nex.line(i+9, y, i+10, m_points[i][2] + yO, 0x0031);
-	  y = m_points[i][2] + yO;
+    nex.line(i+9, y, i+10, m_points[i][2] + yO, 0x0031);
+    y = m_points[i][2] + yO;
   }
 }
