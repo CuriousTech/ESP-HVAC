@@ -16,6 +16,7 @@ String timeFmt(void);
 void handleS(void);
 void handleJson(void);
 void handleEvents(void);
+void handleRemote(void);
 void handleNotFound(void);
 String dataJson(void);
 
