@@ -35,6 +35,8 @@ HVAC::HVAC()
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
   m_outTemp = 0;
+  m_inTemp = 0;
+  m_rh = 0;
   m_bFanRunning = false;
   m_outMax[0] = -50;      // set as invalid
   m_outMax[1] = -50;	    // set as invalid
@@ -112,16 +114,11 @@ void HVAC::service()
   if(m_bFanRunning || m_bRunning || m_furnaceFan)  // furance runs fan seperately
   {
     filterInc();
-    m_fanOnTimer++;			        	// running time counter
+    if(m_fanOnTimer < 0xFFFF)
+      m_fanOnTimer++;			        	// running time counter
 
-    if(m_fanOnTimer >= 60*60*12)        // 12 hours, add up and reset
-    {
-      m_fanOnTimer = 0;
-    }
     if(m_furnaceFan)                       // fake fan status for furnace fan
-    {
       m_furnaceFan--;
-    }
   }
 
   if(m_fanPostTimer)		        		// Fan conintuation delay
@@ -448,6 +445,7 @@ void HVAC::setMode(int8_t mode)
 void HVAC::enable()
 {
   m_bEnabled = true;
+  m_bRecheck = true;
 }
 
 bool HVAC::getFan()
