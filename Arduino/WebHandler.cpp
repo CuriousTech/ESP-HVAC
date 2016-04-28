@@ -10,6 +10,8 @@
 #include "WebHandler.h"
 #include "event.h"
 #include "HVAC.h"
+#include "JsonClient.h"
+#include "display.h" // for display.Note()
 
 //-----------------
 const char *controlPassword = "esp8266"; // device password for modifying any settings
@@ -20,6 +22,10 @@ WiFiManager wifi(0);  // AP page:  192.168.4.1
 extern MDNSResponder mdns;
 extern eventHandler event;
 extern HVAC hvac;
+extern Display display;
+
+void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
+JsonClient remoteStream(remoteCallback);
 
 int nWrongPass;
 uint32_t lastIP;
@@ -41,6 +47,7 @@ void startServer()
   server.on ( "/s", handleS );
   server.on ( "/json", handleJson );
   server.on ( "/events", handleEvents );
+  server.on ( "/remote", handleRemote );
   server.onNotFound ( handleNotFound );
   server.begin();
 }
@@ -49,6 +56,7 @@ void handleServer()
 {
   mdns.update();
   server.handleClient();
+  remoteStream.service();
 }
 
 void secondsServer() // called once per second
@@ -551,7 +559,7 @@ void handleJson()
 {
 //  Serial.println("handleJson\n");
   String s = hvac.settingsJson();
-  server.send ( 200, "text/json", s);
+  server.send ( 200, "text/json", s + "\n");
 }
 
 // event streamer (assume keep-alive) (esp8266 2.1.0 can't handle this)
@@ -591,6 +599,73 @@ void handleEvents()
 String dataJson()
 {
   return hvac.getPushData();
+}
+
+const char *jsonList1[] = { "state", "temp", "rh", "tempi", "rhi", NULL };
+const char *jsonList2[] = { "alert", NULL };
+
+void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue)
+{
+  switch(iEvent)
+  {
+    case 0: // state
+      switch(iName)
+      {
+        case 0: // temp
+          hvac.m_inTemp = (int)(atof(psValue)*10);
+          break;
+        case 1: // rh
+          hvac.m_rh = (int)(atof(psValue)*10);
+          break;
+        case 2: // tempi
+          hvac.m_inTemp = iValue;
+          break;
+        case 3: // rhi
+          hvac.m_rh = iValue;
+          break;
+      }
+      break;
+    case 1: // alert
+      display.Note(psValue);
+      break;
+  }
+}
+
+// remote streamer url/ip
+void handleRemote()
+{
+  char temp[100];
+  char ip[64];
+  char path[64];
+  String sKey;
+  int nPort;
+//  Serial.println("handleRemote");
+
+  ipString(server.client().remoteIP()).toCharArray(ip, 64); // default IP is client
+
+  for ( uint8_t i = 0; i < server.args(); i++ ) {
+    server.arg(i).toCharArray(temp, 100);
+    String s = wifi.urldecode(temp);
+//    Serial.println( i + " " + server.argName ( i ) + ": " + s);
+
+    if(server.argName(i) == "ip")
+       s.toCharArray(ip, 64);
+    else if(server.argName(i) == "path")
+       s.toCharArray(path, 64);
+    else if(server.argName(i) == "port")
+       nPort = s.toInt();
+    else if(server.argName(i) == "key")
+       sKey = s;
+  }
+
+  server.send ( 200, "text/html", "OK" );
+
+  if(sKey != controlPassword)
+    return;
+
+  remoteStream.begin(ip, path, nPort, true);
+  remoteStream.addList(jsonList1);
+  remoteStream.addList(jsonList2);
 }
 
 void handleNotFound() {
