@@ -109,6 +109,7 @@ public:
   int16_t   m_rh;
 	uint16_t  m_targetTemp;      // end temp for cycle
 	uint8_t   m_notif;
+  int8_t  m_outMin[2], m_outMax[2];
 
 private:
 	void	fanSwitch(bool bOn);
@@ -134,7 +135,6 @@ private:
 	uint16_t m_fanPostTimer;  // timer for delay
 	uint16_t m_idleTimer;     // time not running
 	int16_t m_overrideTimer;  // countdown for override in seconds
-	int8_t  m_outMin[2], m_outMax[2];
 	int8_t  m_ovrTemp;        // override delta of target
   uint16_t m_remoteTimeout; // timeout for remote sensor
   uint16_t m_remoteTimer;   // in seconds
