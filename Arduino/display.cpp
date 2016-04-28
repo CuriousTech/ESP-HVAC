@@ -2,15 +2,17 @@
 #include "Nextion.h"
 #include "HVAC.h"
 #include <Time.h>
-#include <ESP8266mDNS.h>
+#include <ESP8266mDNS.h> // for WiFi.RSSI()
 #include "WebHandler.h" // for timeFmt()
+#include "event.h"
 
-extern Nextion nex;
+Nextion nex;
 extern HVAC hvac;
+extern eventHandler event;
 
 void Display::init()
 {
-  nex.refreshItem("t0"); // Just to end any debug strings in the Nextion
+  nex.FFF(); // Just to end any debug strings in the Nextion
   screen( true ); // brighten the screen if it just reset
   refreshAll();
 }
@@ -22,7 +24,7 @@ void Display::oneSec()
   updateRunIndicator(false); // running stuff
   displayTime();    // time update every seconds
   updateModes();    // mode, heat mode, fan mode
-  updateTemps();    // 
+  updateTemps(false);    // 
   updateAdjMode(false); // update touched temp settings
   updateNotification(false);
   updateRSSI();     //
@@ -32,18 +34,11 @@ void Display::oneSec()
         screen(false);
   }
 
-  static uint8_t min_save = 60;
-  if(min_save != minute()) // only do stuff once per minute
+  if(--m_temp_counter <= 0)
   {
-    min_save = minute();
-
-    static int16_t ot_cnt = 5;
-    if(--ot_cnt <= 0)
-    {
-      displayOutTemp();
-      addGraphPoints();
-      ot_cnt = 5;         // update every 5 minutes
-    }
+    displayOutTemp();
+    addGraphPoints();
+    m_temp_counter = 5*60;         // update every 5 minutes
   }
 }
 
@@ -70,41 +65,46 @@ void Display::checkNextion() // all the Nextion recieved commands
           switch(btn)
           {
             case 6: // cool hi
-            case 23:
-              m_adjustMode = 0;
-              break;
             case 7: // cool lo
-            case 24:
-              m_adjustMode = 1;
-              break;
             case 8: // heat hi
-            case 25:
-              m_adjustMode = 2;
-              break;
             case 9: // heat lo
-            case 26:
-              m_adjustMode = 3;
+              m_adjustMode = btn-6;
               break;
+            case 23: // cool hi
+            case 24: // cool lo
+            case 25: // heat hi
+            case 26: // heat lo
+              m_adjustMode = btn-23;
+              break;
+
             case 10: // fan
             case 18: // Fan
               hvac.setFan( !hvac.getFan() );
+              updateModes(); // faster feedback
               break;
             case 11: // Mode
             case 19: // Mode
               hvac.setMode( (hvac.getSetMode() + 1) & 3 );
+              updateModes(); // faster feedback
               break;
             case 12: // Heat
             case 20: // Heat
               hvac.setHeatMode( (hvac.getHeatMode() + 1) % 3 );
+              updateModes(); // faster feedback
               break;
             case 13: // notification clear
               hvac.m_notif = Note_None;
               break;
             case 14: // forecast
-              break;
-            case 2: // time
               nex.setPage("graph");
               fillGraph();
+              m_backlightTimer = NEX_TIMEOUT;
+              break;
+            case 2: // time
+              nex.setPage("clock");
+              delay(50); // 100 works
+              updateClock();
+              m_backlightTimer = NEX_TIMEOUT;
               break;
             case 17: // DOW
               break;
@@ -124,7 +124,7 @@ void Display::checkNextion() // all the Nextion recieved commands
   }
 }
 
-void Display::updateTemps()
+void Display::updateTemps(bool bRef)
 {
   if(nex.getPage())
     return;
@@ -144,18 +144,15 @@ const char *_days_short[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 // time and dow on main page
 void Display::displayTime()
 {
+  if(nex.getPage()) return;
+
   static char lastDay = -1;
-  if(nex.getPage())
-  {
-    lastDay = -1;
-    return;
-  }
-  nex.itemText(0, timeFmt());
+  nex.itemText(8, timeFmt());
 
   if(weekday() != lastDay)   // update weekday
   {
     lastDay = weekday();
-    nex.itemText(15, _days_short[weekday()-1]);
+    nex.itemText(7, _days_short[weekday()-1]);
   }
 }
 
@@ -197,8 +194,9 @@ void Display::drawForecast(bool bRef)
   int16_t t = max;
   int16_t x;
 
-  if(bRef)
+  if(bRef) // new forecast
   {
+    m_temp_counter = 2; // Todo: just for first points
     nex.refreshItem("t19");
     nex.refreshItem("t20");
     nex.refreshItem("s0");
@@ -254,7 +252,6 @@ void Display::drawForecast(bool bRef)
     x2 = x1;
     y2 = y1;
   }
-
   displayOutTemp();
 }
 
@@ -290,6 +287,12 @@ void Display::displayOutTemp()
     nex.itemFp(1, outTemp);
 }
 
+void Display::Note(char *cNote)
+{
+  nex.itemText(12, cNote);
+  event.alert(cNote);
+}
+
 // update the notification text box
 void Display::updateNotification(bool bForce)
 {
@@ -320,6 +323,8 @@ void Display::updateNotification(bool bForce)
       break;
   }
   nex.itemText(12, s);
+  if(s != "")
+    event.alert(s);
 }
 
 // true: set screen backlight to bright or dim plus switch to thermostat
@@ -327,6 +332,9 @@ void Display::updateNotification(bool bForce)
 bool Display::screen(bool bOn)
 {
   static bool bOldOn = true;
+
+  if(bOldOn && nex.getPage()) // not in sync
+    bOldOn = false;
 
   if(bOn == false && nex.getPage() == 4) // last sequence was graph
     bOn = true;
@@ -371,9 +379,9 @@ bool Display::screen(bool bOn)
 void Display::refreshAll()
 {
   updateRunIndicator(true);
-  updateAdjMode(true);
   drawForecast(false);
   updateNotification(true);
+  updateAdjMode(true);
 }
 
 // Analog clock
@@ -382,7 +390,7 @@ void Display::updateClock()
   if(nex.getPage() != 1)
     return;
 
-  nex.refreshItem("t0"); // erases lines
+  nex.refreshItem("cl"); // erases lines
   delay(10);
   const float x = 159; // center
   const float y = 120;
@@ -431,15 +439,12 @@ void Display::updateModes() // update any displayed settings
     nex.itemText(11, sHeatModes[heatMode = hvac.getHeatMode()]);
 }
 
-void Display::updateAdjMode(bool bRefresh)  // current adjust indicator of the 4 temp settings
+void Display::updateAdjMode(bool bRef)  // current adjust indicator of the 4 temp settings
 {
   static uint8_t am = 5;
 
-  if(nex.getPage()) // must be page 0
+  if(nex.getPage() || (bRef == false && am == m_adjustMode) )
     return;
-  if(!bRefresh)
-    if(nex.getPage() || am == m_adjustMode)
-      return;
   am = m_adjustMode;
   nex.visible("p0", (m_adjustMode == 0) ? 1:0);
   nex.visible("p1", (m_adjustMode == 1) ? 1:0);
@@ -449,19 +454,28 @@ void Display::updateAdjMode(bool bRefresh)  // current adjust indicator of the 4
 
 void Display::updateRSSI()
 {
-  static uint8_t rssi_cnt = 5;
+  static uint8_t seccnt = 5;
+  static int16_t rssiT;
+  static int16_t rssi[5];
+  int16_t rssiAvg;
 
   if(nex.getPage()) // must be page 0
     return;
-  if(--rssi_cnt)
+  if(--seccnt)
     return;
-  rssi_cnt = 5;     // every 5 seconds
+  seccnt = 5;     // every 5 seconds
+ 
+  memcpy(&rssi, &rssi[1], sizeof(int16_t)*4);
+  rssi[4] = WiFi.RSSI();
 
-  static int16_t rssi;
-  if(rssi == WiFi.RSSI())
+  rssiAvg = 0;
+  for(int i = 0; i < 5; i++)
+    rssiAvg += rssi[i];
+
+  rssiAvg /= 5;
+  if(rssiAvg == rssiT)
     return;
-  rssi = WiFi.RSSI();
-  nex.itemText(22, String(rssi) + "dB");
+  nex.itemText(22, String(rssiT = rssiAvg) + "dB");
 }
 
 void Display::updateRunIndicator(bool bForce) // run and fan running
@@ -544,7 +558,7 @@ void Display::Lines(bool bInit)
   line[0].y2 = constrain(line[0].y2, 0, 240);
 
   b += random(-2, 3); // random RGB shift
-  g += random(-2, 3);
+  g += random(-3, 4); // green is 6 bits
   r += random(-2, 3);
 
   color = (((uint16_t)r << 8) & 0xF800) | (((uint16_t)g << 3) & 0x07E0) | ((uint16_t)b >> 3); // convert to 16 bit
@@ -569,12 +583,21 @@ void Display::addGraphPoints()
     memset(m_points, 0, sizeof(m_points));
     bInit = true;
   }
+  if( hvac.m_inTemp == 0)
+    return;
   if(m_pointsAdded == 299)
-    memcpy(&m_points, &m_points+(3*sizeof(uint16_t)), sizeof(m_points) - (3*sizeof(uint16_t)));
-  static int base = 600; // 60.0 base
-  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 55 / 100; // 60~100 to scale to 0~220
+    memcpy(&m_points, &m_points+(4*sizeof(uint8_t)), sizeof(m_points) - (4*sizeof(uint8_t)));
+
+  const int base = 600; // 60.0 base
+  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 81 / 110; // 60~90 scale to 0~220
   m_points[m_pointsAdded][1] = hvac.m_rh * 55 / 250;
-  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 55 / 100;
+  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 81 / 110;
+
+  int8_t tt = hvac.m_EE.cycleThresh;
+  if(hvac.getMode() == Mode_Cool) // Todo: could be auto
+    tt = -tt;
+
+  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 81 / 110;
 
   if(m_pointsAdded < 299) // 300x220
     m_pointsAdded++;
@@ -583,38 +606,50 @@ void Display::addGraphPoints()
 // Draw the last 25 hours (todo: add run times)
 void Display::fillGraph()
 {
-  nex.itemText(0, String(100)); // fixed for now
-  nex.itemText(1, String(80));
-  nex.itemText(2, String(60));
+  nex.text(279, 219, 33, 2, String(60));
+  nex.text(279, 142, 33, 2, String(70));
+  nex.text(279,  74, 33, 2, String(80));
+  nex.text(279,   8, 33, 2, String(90));
+
+  int16_t x = m_pointsAdded - 2 - (minute() / 5); // cetner over even hour
+  int8_t h = hour();
+
+  while(x > 0)
+  {
+    nex.text(x, 0, 16, 1, String(h)); // draw hour above chart
+    x -= 12 * 6; // left 6 hours
+    h -= 6;
+    if( h < 0) h += 24;
+  }
 
   uint16_t y = m_points[0][0];
+  const int yOff = 240-10;
 
   for(int i = 1; i < m_pointsAdded; i++)  // inTemp
   {
-    nex.line(i+9, y, i+10, m_points[i][0], 0xF800);
+    nex.line(i+9, yOff - y, i+10, yOff - m_points[i][0], 0xF800); // red
     y = m_points[i][0];
+    while(m_points[i][0] == m_points[i+1][0] && i < m_pointsAdded) i++; // optimize
   }
   y = m_points[0][1];
   for(int i = 1; i < m_pointsAdded; i++) // rh
   {
-    nex.line(i+9, y, i+10, m_points[i][1], 0x0380);
+    nex.line(i+9, yOff - y, i+10, yOff - m_points[i][1], 0x0380); // green
     y = m_points[i][1];
+    while(m_points[i][1] == m_points[i+1][1] && i < m_pointsAdded) i++;
   }
   y = m_points[0][2];
   for(int i = 1; i < m_pointsAdded; i++) // on target
   {
-    nex.line(i+9, y, i+10, m_points[i][2], 0x0031);
+    nex.line(i+9, yOff - y, i+10, yOff - m_points[i][2], 0x0031); // blue
     y = m_points[i][2];
+    while(m_points[i][2] == m_points[i+1][2] && i < m_pointsAdded) i++;
   }
-
-  uint16_t yO = hvac.m_EE.cycleThresh * 55 / 100;
-  if(hvac.getMode() == Mode_Cool) // could be auto
-    yO = -yO;
-  y = m_points[0][2] + yO;
-
+  y = m_points[0][3];
   for(int i = 1; i < m_pointsAdded; i++) // off target
   {
-    nex.line(i+9, y, i+10, m_points[i][2] + yO, 0x0031);
-    y = m_points[i][2] + yO;
+    nex.line(i+9, yOff - y, i+10, yOff - m_points[i][3], 0x0031);
+    y = m_points[i][3];
+    while(m_points[i][3] == m_points[i+1][3] && i < m_pointsAdded) i++;
   }
 }
