@@ -8,7 +8,7 @@ int Nextion::service(char *pBuf)
     return 0;
   int len = Serial.readBytesUntil(0xFF, pBuf, 63);
 
-  if(len < 3) // could be the other 2 FFs (may cause problems with short text)
+  if(len < 3) // could be the other 2 FFs
     return 0;
   pBuf[len] = 0; // change FF to NULL
   return len;
@@ -38,7 +38,7 @@ void Nextion::btnText(uint8_t id, String t)
 
 void Nextion::itemFp(uint8_t id, uint16_t val)
 {
-  String s = "t";
+  String s = "f";
   s += id;
   s += ".txt=\"";
   s += sDec(val);
@@ -165,7 +165,7 @@ void Nextion::setPage(String sPage)
     case 'c': m_page = 1; break;  // clock (analog)
     case 'S': m_page = 2; break;  // SSID list
     case 'k': m_page = 3; break;  // keyboard
-    case 'e': m_page = 4; break;  // empty (has background image)
+    case 'g': m_page = 4; break;  // graph
     case 'b': m_page = 5; break;  // blank (just color)
   }
 }
@@ -190,6 +190,26 @@ void Nextion::backColor(String sPageName, uint16_t color)
   String s = sPageName;
   s += ".bco=";
   s += color;
+  Serial.print(s);
+  FFF();
+}
+
+void Nextion::cls(uint16_t color)
+{
+  String s = "cls ";
+  s += color;
+  Serial.print(s);
+  FFF();
+}
+
+void Nextion::add(uint8_t comp, uint8_t ch, uint16_t val)
+{
+  String s = "add ";
+  s += comp;
+  s += ",";
+  s += ch;
+  s += ",";
+  s += val;
   Serial.print(s);
   FFF();
 }
