@@ -22,7 +22,8 @@ public:
 	  m_pointsAdded(0),
 	  m_adjustMode(0),
 	  m_backlightTimer(NEX_TIMEOUT),
-    m_updateFcst(2) // 1-2 minutes from boot
+    m_updateFcst(2), // 1-2 minutes from boot
+    m_temp_counter(10*60)
   {
     Lines(true);
   }
@@ -30,15 +31,16 @@ public:
   void oneSec(void);
   bool screen(bool bOn);
   void checkNextion(void); // all the Nextion recieved commands
-  void updateTemps(void);
+  void updateTemps(bool bRef);
   void drawForecast(bool bRef);
+  void Note(char *cNote);
 private:
   void refreshAll(void);
   void updateClock(void);
   void displayTime(void);
   void displayOutTemp(void);
   void updateModes(void); // update any displayed settings
-  void updateAdjMode(bool bRefresh);  // current adjust of the 4 temp settings
+  void updateAdjMode(bool bRef);  // current adjust of the 4 temp settings
   void updateRSSI(void);
   void updateNotification(bool bForce);
   void updateRunIndicator(bool bForce); // run and fan running
@@ -49,9 +51,10 @@ private:
 
   uint16_t m_backlightTimer;
   uint16_t m_pointsAdded;
-  uint8_t m_points[300][3];
+  uint8_t m_points[300][4];
 public:
   uint16_t m_updateFcst;
+  uint16_t m_temp_counter;
   uint8_t m_adjustMode;
 };
 
