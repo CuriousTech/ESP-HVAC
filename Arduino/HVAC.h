@@ -109,6 +109,7 @@ public:
   int16_t   m_rh;
 	uint16_t  m_targetTemp;      // end temp for cycle
 	uint8_t   m_notif;
+  bool      m_bRemoteConnected;
   int8_t  m_outMin[2], m_outMax[2];
 
 private:
