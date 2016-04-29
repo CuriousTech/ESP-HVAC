@@ -21,6 +21,8 @@ JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_
   m_bufcnt = 0;
   m_event = 0;
   m_bKeepAlive = false;
+  m_szHost[0] = 0;
+  m_szPath[0] = 0;
 }
 // add a json list {"event name", "valname1", "valname2", "valname3", NULL}
 // If first string is "" or NULL, the data is expected as JSON without an event name
@@ -36,12 +38,15 @@ bool JsonClient::addList(const char **pList)
 // begin with host, /path?param=x&param=x, port, streaming
 bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive)
 {
-  m_pHost = pHost;
-  m_pPath = pPath;
-  m_Port = port;
+  m_jsonCnt = 0;
+  m_event = 0;
   m_bufcnt = 0;
+  strncpy(m_szHost, pHost, sizeof(m_szHost) );
+  strncpy(m_szPath, pPath, sizeof(m_szPath) );
+  m_nPort = port;
   m_bKeepAlive = bKeepAlive;
   m_timeOut = millis() - 1000;
+  m_Status = JC_IDLE;
   return connect();
 }
 
@@ -97,7 +102,7 @@ bool JsonClient::service()
 void JsonClient::end()
 {
   m_client.stop();
-  m_pHost = NULL;
+  m_szHost[0] = 0;
   m_Status = JC_IDLE;
 }
 
@@ -117,7 +122,7 @@ void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // intege
 
 bool JsonClient::connect()
 {
-  if(m_pHost == NULL || m_pPath == NULL)
+  if(m_szHost[0] == 0 || m_szPath[0] == 0)
     return false;
 
   if(m_client.connected())
@@ -128,18 +133,23 @@ bool JsonClient::connect()
 
   m_timeOut = millis();
 
-  if( !m_client.connect(m_pHost, m_Port) )
+  if( !m_client.connect(m_szHost, m_nPort) )
   {
     m_Status = JC_NO_CONNECT;
     Serial.println("Connection failed");
+    Serial.print(m_szHost);
+    Serial.print(" ");
+    Serial.print(m_szPath);
+    Serial.print(" ");
+    Serial.println(m_nPort);
     return false;
   }
 
   m_client.print("GET ");
-  m_client.print(m_pPath);
+  m_client.print(m_szPath);
   m_client.println(" HTTP/1.1");
 
-  sendHeader("Host", m_pHost);
+  sendHeader("Host", m_szHost);
   sendHeader("Connection", m_bKeepAlive ? "keep-alive" : "close");
   sendHeader("Accept", "*/*");
 
