@@ -60,7 +60,8 @@ HVAC::HVAC()
   m_furnaceFan = 0;       // fake fan timer
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
-  
+  m_bRemoteConnected = false;
+
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
   pinMode(P_REV, OUTPUT);
@@ -101,11 +102,11 @@ void HVAC::filterInc()
 // Failsafe: shut everything off
 void HVAC::disable()
 {
-	digitalWrite(P_HEAT, LOW);
-	digitalWrite(P_COOL, LOW);
-	fanSwitch(false);
-	m_bRunning = false;
-	m_bEnabled = false;
+  digitalWrite(P_HEAT, LOW);
+  digitalWrite(P_COOL, LOW);
+  fanSwitch(false);
+  m_bRunning = false;
+  m_bEnabled = false;
 }
 
 // Service: called once per second
@@ -235,18 +236,18 @@ void HVAC::service()
 
 bool HVAC::stateChange()
 {
-   static bool bFan = false;
-   static uint8_t lastMode = 0;
-   static uint8_t nState = 0;
+  static bool bFan = false;
+  static uint8_t lastMode = 0;
+  static uint8_t nState = 0;
 
-   if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())   // erase prev highlight
-   {
-       lastMode = getMode();
-       nState = getState();
-       bFan = getFanRunning();
-       return true;
-   }
-   return false;
+  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())   // erase prev highlight
+  {
+    lastMode = getMode();
+    nState = getState();
+    bFan = getFanRunning();
+    return true;
+  }
+  return false;
 }
 
 // Control switching of system by temp
@@ -367,8 +368,8 @@ void HVAC::calcTargetTemp(int8_t mode)
       break;
   }
   m_targetTemp += m_ovrTemp; // override is normally 0, unless set remotely with a timeout
-//	Serial.print(" target=");
-//	Serial.println(m_targetTemp);
+// Serial.print(" target=");
+// Serial.println(m_targetTemp);
 }
 
 uint8_t HVAC::getState()
@@ -535,44 +536,45 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 
 bool HVAC::isRemoteTemp()
 {
-  return m_remoteTimer ? true:false;
+  return (m_remoteTimer || m_bRemoteConnected) ? true:false;
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-	if(m_remoteTimer == 0)	// only get local temp if no remote
-    	m_inTemp = Temp;
-	m_rh = rh;
+  if( m_bRemoteConnected )
+    return;
+  if(m_remoteTimer == 0)	// only get local temp if no remote
+    m_inTemp = Temp;
+  m_rh = rh;
 }
 
 // Update outdoor temp
 void HVAC::updateOutdoorTemp(int16_t outTemp)
 {
-	m_outTemp = outTemp;
+  m_outTemp = outTemp;
 }
 
 // Update min/max for next 24 hrs
 void HVAC::updatePeaks(int8_t min, int8_t max)
 {
-	if(m_outMax[0] != -50)      // preserve peaks longer
-	{
-		m_outMax[0] = m_outMax[1];
-		m_outMin[0] = m_outMin[1];
-	}
-	else                        // initial value
-	{
-		m_outMin[0] = min;
-		m_outMax[0] = max;
-	}
-	
-	m_outMin[1] = min;
-	m_outMax[1] = max;
+  if(m_outMax[0] != -50)      // preserve peaks longer
+  {
+    m_outMax[0] = m_outMax[1];
+    m_outMin[0] = m_outMin[1];
+  }
+  else                        // initial value
+  {
+    m_outMin[0] = min;
+    m_outMax[0] = max;
+  }
+  m_outMin[1] = min;
+  m_outMax[1] = max;
 }
 
 void HVAC::resetFilter()
 {
-	m_EE.filterMinutes = 0;
+  m_EE.filterMinutes = 0;
   if(m_notif == Note_Filter)
     m_notif = Note_None;
 }
@@ -580,81 +582,81 @@ void HVAC::resetFilter()
 // returns filter over 200 hours
 bool HVAC::checkFilter(void)
 {
-	return (m_EE.filterMinutes >= 60*200);
+  return (m_EE.filterMinutes >= 60*200);
 }
 
 void HVAC::resetTotal()
 {
-	m_runTotal = 0;
+  m_runTotal = 0;
 }
 
 // Current control settings
 String HVAC::settingsJson()
 {
-    String s = "{";
-    s += "\"m\":";   s += m_EE.Mode;
-    s += ",\"am\":";  s += m_AutoMode;
-    s += ",\"hm\":";  s += m_EE.heatMode;
-    s += ",\"fm\":";  s += m_bFanMode;
-    s += ",\"ot\":";  s += m_ovrTemp;
-    s += ",\"ht\":";  s += m_EE.eHeatThresh;
-    s += ",\"c0\":";  s += m_EE.coolTemp[0];
-    s += ",\"c1\":";  s += m_EE.coolTemp[1];
-    s += ",\"h0\":";  s += m_EE.heatTemp[0];
-    s += ",\"h1\":";  s += m_EE.heatTemp[1];
-    s += ",\"im\":";  s += m_EE.idleMin;
-    s += ",\"cn\":";  s += m_EE.cycleMin;
-    s += ",\"cx\":";  s += m_EE.cycleMax;
-    s += ",\"ct\":";  s += m_EE.cycleThresh;
-    s += ",\"fd\":";  s += m_EE.fanPostDelay[digitalRead(P_REV)];
-    s += ",\"ov\":";  s += m_EE.overrideTime;
-    s += "}";
-    return s;
+  String s = "{";
+  s += "\"m\":";   s += m_EE.Mode;
+  s += ",\"am\":";  s += m_AutoMode;
+  s += ",\"hm\":";  s += m_EE.heatMode;
+  s += ",\"fm\":";  s += m_bFanMode;
+  s += ",\"ot\":";  s += m_ovrTemp;
+  s += ",\"ht\":";  s += m_EE.eHeatThresh;
+  s += ",\"c0\":";  s += m_EE.coolTemp[0];
+  s += ",\"c1\":";  s += m_EE.coolTemp[1];
+  s += ",\"h0\":";  s += m_EE.heatTemp[0];
+  s += ",\"h1\":";  s += m_EE.heatTemp[1];
+  s += ",\"im\":";  s += m_EE.idleMin;
+  s += ",\"cn\":";  s += m_EE.cycleMin;
+  s += ",\"cx\":";  s += m_EE.cycleMax;
+  s += ",\"ct\":";  s += m_EE.cycleThresh;
+  s += ",\"fd\":";  s += m_EE.fanPostDelay[digitalRead(P_REV)];
+  s += ",\"ov\":";  s += m_EE.overrideTime;
+  s += "}";
+  return s;
 }
 
 // Constant changing values
 String HVAC::getPushData()
 {
-    String s = "{";
-    s += "\"r\":" ;  s += m_bRunning;
-    s += ",\"fr\":";  s += getFanRunning(),
-    s += ",\"s\":" ;  s += getState();
-    s += ",\"it\":";  s += m_inTemp;
-    s += ",\"rh\":";  s += m_rh;
-    s += ",\"tt\":";  s += m_targetTemp;
-    s += ",\"fm\":";  s += m_EE.filterMinutes;
-    s += ",\"ot\":";  s += m_outTemp;
-    s += ",\"ol\":";  s += m_outMin[1];
-    s += ",\"oh\":";  s += m_outMax[1];
-    s += ",\"ct\":";  s += m_cycleTimer;
-    s += ",\"ft\":";  s += m_fanOnTimer;
-    s += ",\"rt\":";  s += m_runTotal;
-    s += "}";
-    return s;
+  String s = "{";
+  s += "\"r\":" ;  s += m_bRunning;
+  s += ",\"fr\":";  s += getFanRunning(),
+  s += ",\"s\":" ;  s += getState();
+  s += ",\"it\":";  s += m_inTemp;
+  s += ",\"rh\":";  s += m_rh;
+  s += ",\"tt\":";  s += m_targetTemp;
+  s += ",\"fm\":";  s += m_EE.filterMinutes;
+  s += ",\"ot\":";  s += m_outTemp;
+  s += ",\"ol\":";  s += m_outMin[1];
+  s += ",\"oh\":";  s += m_outMax[1];
+  s += ",\"ct\":";  s += m_cycleTimer;
+  s += ",\"ft\":";  s += m_fanOnTimer;
+  s += ",\"rt\":";  s += m_runTotal;
+  s += "}";
+  return s;
 }
 
 static const char *cSCmds[] =
 {
-	"fanmode",
-	"mode",
-	"heatmode",
-	"resettotal",
-	"resetfilter",
-	"fanpostdelay",
-	"cyclemin",
-	"cyclemax",
-	"idlemin",
-	"cyclethresh",
-	"cooltempl",
-	"cooltemph",
-	"heattempl",
-	"heattemph",
-	"eheatthresh",
-	"override",
-	"overridetime",
-	"remotetemp",
-	"remotetime",
-	NULL
+  "fanmode",
+  "mode",
+  "heatmode",
+  "resettotal",
+  "resetfilter",
+  "fanpostdelay",
+  "cyclemin",
+  "cyclemax",
+  "idlemin",
+  "cyclethresh",
+  "cooltempl",
+  "cooltemph",
+  "heattempl",
+  "heattemph",
+  "eheatthresh",
+  "override",
+  "overridetime",
+  "remotetemp",
+  "remotetime",
+  NULL
 };
 
 int HVAC::CmdIdx(String s, const char **pCmds )
@@ -672,75 +674,75 @@ int HVAC::CmdIdx(String s, const char **pCmds )
 // POST set params as "set: fanmode=1"
 void HVAC::setVar(String sCmd, int val)
 {
-	switch( CmdIdx( sCmd, cSCmds ) )
-	{
-		case 0:     // fanmode
-			setFan( (val) ? true:false);
+  switch( CmdIdx( sCmd, cSCmds ) )
+  {
+    case 0:     // fanmode
+      setFan( (val) ? true:false);
       break;
-		case 1:     // mode
-			setMode( val );
+    case 1:     // mode
+      setMode( val );
       break;
-		case 2:     // heatmode
-			setHeatMode( val );
+    case 2:     // heatmode
+      setHeatMode( val );
       break;
-		case 3:     // resettotal
-			resetTotal();
-			break;
-		case 4:
-			resetFilter();
+    case 3:     // resettotal
+      resetTotal();
       break;
-		case 5:     // fanpostdelay
-			m_EE.fanPostDelay[digitalRead(P_REV)] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
-			break;
-		case 6:     // cyclemin
-			m_EE.cycleMin = constrain(val, 60, 60*20); // Limit 1 to 20 minutes
-			break;
-		case 7:     // cyclemax
-			m_EE.cycleMax = constrain(val, 60*2, 60*60); // Limit 2 to 60 minutes
-			break;
-		case 8:     // idlemin
-			m_EE.idleMin = constrain(val, 60, 60*30); // Limit 1 to 30 minutes
-			break;
-		case 9:    // cyclethresh
-			m_EE.cycleThresh = constrain(val, 5, 50); // Limit 0.5 to 5.0 degrees
-			break;
-		case 10:    // cooltempl
-			setTemp(Mode_Cool, val, 0);
-			m_bRecheck = true; // faster update
+    case 4:
+      resetFilter();
       break;
-		case 11:    // cooltemph
-			setTemp(Mode_Cool, val, 1);
-			m_bRecheck = true;
+    case 5:     // fanpostdelay
+      m_EE.fanPostDelay[digitalRead(P_REV)] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
       break;
-		case 12:    // heattempl
-			setTemp(Mode_Heat, val, 0);
-			m_bRecheck = true;
+    case 6:     // cyclemin
+      m_EE.cycleMin = constrain(val, 60, 60*20); // Limit 1 to 20 minutes
       break;
-		case 13:    // heattemph
-			setTemp(Mode_Heat, val, 1);
-			m_bRecheck = true;
+    case 7:     // cyclemax
+      m_EE.cycleMax = constrain(val, 60*2, 60*60); // Limit 2 to 60 minutes
       break;
-		case 14:    // eheatthresh
-			m_EE.eHeatThresh = constrain(val, 5, 50); // Limit 5 to 50 degrees F
-			break;
-		case 15:    // override
-			if(val <= 0)    // cancel
-			{
+    case 8:     // idlemin
+      m_EE.idleMin = constrain(val, 60, 60*30); // Limit 1 to 30 minutes
+      break;
+    case 9:    // cyclethresh
+      m_EE.cycleThresh = constrain(val, 5, 50); // Limit 0.5 to 5.0 degrees
+      break;
+    case 10:    // cooltempl
+      setTemp(Mode_Cool, val, 0);
+      m_bRecheck = true; // faster update
+      break;
+    case 11:    // cooltemph
+      setTemp(Mode_Cool, val, 1);
+      m_bRecheck = true;
+      break;
+    case 12:    // heattempl
+      setTemp(Mode_Heat, val, 0);
+      m_bRecheck = true;
+      break;
+    case 13:    // heattemph
+      setTemp(Mode_Heat, val, 1);
+      m_bRecheck = true;
+      break;
+    case 14:    // eheatthresh
+      m_EE.eHeatThresh = constrain(val, 5, 50); // Limit 5 to 50 degrees F
+      break;
+    case 15:    // override
+      if(val <= 0)    // cancel
+      {
         m_ovrTemp = 0;
-				m_overrideTimer = 0;
-				m_bRecheck = true;
-			}
-			else
-			{
-				m_ovrTemp = constrain(val, -90, 90); // Limit to -9.0 to +9.0 degrees F
-				m_overrideTimer = m_EE.overrideTime;
-				m_bRecheck = true;
-			}
-			break;
-		case 16:    // overridetime
-			m_EE.overrideTime = constrain(val, 60*1, 60*60*5); // Limit 1 min to 5 hours
-			break;
-		case 17: // remotetemp  (must be updated every "remotetime" interval or less or it will switch back to internal temperature)
+        m_overrideTimer = 0;
+        m_bRecheck = true;
+      }
+      else
+      {
+        m_ovrTemp = constrain(val, -90, 90); // Limit to -9.0 to +9.0 degrees F
+        m_overrideTimer = m_EE.overrideTime;
+        m_bRecheck = true;
+      }
+      break;
+    case 16:    // overridetime
+      m_EE.overrideTime = constrain(val, 60*1, 60*60*5); // Limit 1 min to 5 hours
+      break;
+    case 17: // remotetemp  (must be updated every "remotetime" interval or less or it will switch back to internal temperature)
       if(val > 0)
       {
          m_inTemp = constrain(val, 650, 880); // Limit 65 to 88 degrees F
@@ -751,8 +753,8 @@ void HVAC::setVar(String sCmd, int val)
          m_remoteTimer = 0;  // temp = 0 to cancel
       }
       break;
-		case 18: // remotetime
+    case 18: // remotetime
       m_remoteTimeout = constrain(val, 1, 60*5); // Limit 1 sec to 5 minutes
-		  break;
-	}
+      break;
+  }
 }
