@@ -56,7 +56,7 @@ void handleServer()
 {
   mdns.update();
   server.handleClient();
-  remoteStream.service();
+  hvac.m_bRemoteConnected = remoteStream.service();
 }
 
 void secondsServer() // called once per second
@@ -64,7 +64,7 @@ void secondsServer() // called once per second
   if(nWrongPass)
     nWrongPass--;
   if(hvac.stateChange())
-    event.push();
+    event.pushInstant();
   event.heartbeat();
 }
 
@@ -121,8 +121,6 @@ void parseParams()
   
   lastIP = ip;
 }
-
-#define min(a,b) ((a)<(b)?(a):(b))
 
 void handleRoot() // Main webpage interface
 {
