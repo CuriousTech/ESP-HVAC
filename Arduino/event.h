@@ -38,27 +38,29 @@ public:
   eventClient(){}
   void set(WiFiClient cl, int t, uint8_t nType);
   bool inUse(void);
-  void push(void);  // push the jscript data
+  void push(void);  // event: state, data: JSON.   Push the jscript data
   void pushInstant(void); // push changes instant if push=1
-  void print(String s);   // print anything
+  void print(String s);   // event: print, data: text  Print anything
   void beat(void);        // 10 second keepalive
-  void alert(String s);   // alert: text
-  String (*jsonCallback)(); // all the data for pushes
+  void alert(String s);   // event: alert, data: text
+  String (*jsonCallback)(void); // all the data for pushes
 private:
   WiFiClient m_client;
-  uint8_t  m_keepAlive;
-  uint8_t  m_nType;
-  uint16_t m_interval;
-  uint16_t m_timer;
+  uint8_t  m_keepAlive; // keep-alive timer (10 seconds)
+  uint8_t  m_nType;     // type 1 = critical connection
+  uint16_t m_interval;  // interval to send full json created from jsonCallback
+  uint16_t m_timer;     // timer for interval
 };
 
 class eventHandler
 {
 public:
-  eventHandler(String (*callback)(void)) : m_critical_timer(0), m_timeout(0)
+  eventHandler(String (*callback)(void) ) : m_critical_timer(0), m_timeout(0)
   {
     for(int i = 0; i < CLIENTS; i++)
+    {
       ec[i].jsonCallback = callback;
+    }
   }
   void set(WiFiClient c, int interval, uint8_t nType);
   void heartbeat(void);
