@@ -31,7 +31,7 @@ public:
   void oneSec(void);
   bool screen(bool bOn);
   void checkNextion(void); // all the Nextion recieved commands
-  void updateTemps(bool bRef);
+  void updateTemps(void);
   void drawForecast(bool bRef);
   void Note(char *cNote);
 private:
@@ -51,7 +51,7 @@ private:
 
   uint16_t m_backlightTimer;
   uint16_t m_pointsAdded;
-  uint8_t m_points[300][4];
+  uint8_t m_points[300][5];
 public:
   uint16_t m_updateFcst;
   uint16_t m_temp_counter;
