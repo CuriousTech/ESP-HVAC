@@ -16,135 +16,66 @@ int Nextion::service(char *pBuf)
 
 void Nextion::itemText(uint8_t id, String t)
 {
-  String s = "t";
-  s += id;
-  s += ".txt=\"";
-  s += t;
-  s += "\"";
-  Serial.print(s);
+  Serial.print(String("t") + id + ".txt=\"" + t + "\"");
   FFF();
 }
 
 void Nextion::btnText(uint8_t id, String t)
 {
-  String s = "b";
-  s += id;
-  s += ".txt=\"";
-  s += t;
-  s += "\"";
-  Serial.print(s);
+  Serial.print(String("b") + id + ".txt=\"" + t + "\"");
   FFF();
 }
 
-void Nextion::itemFp(uint8_t id, uint16_t val)
+void Nextion::itemFp(uint8_t id, uint16_t val) // 123 to 12.3
 {
-  String s = "f";
-  s += id;
-  s += ".txt=\"";
-  s += sDec(val);
-  s += "\"";
-  Serial.print(s);
+  Serial.print(String("f") + id + ".txt=\"" + (val / 10) + "." + (val % 10) + "\"" );
   FFF();
 }
 
 void Nextion::itemNum(uint8_t item, int16_t num)
 {
-  String s = "n";
-  s += item;
-  s += ".val=";
-  s += num;
-  Serial.print(s);
+  Serial.print(String("n") + item + ".val=" + num);
   FFF();
 }
 
 void Nextion::refreshItem(String id)
 {
-  Serial.print("ref ");
-  Serial.print(id);
+  Serial.print("ref " + id);
   FFF();
 }
 
-void Nextion::text(uint16_t x, uint16_t y, uint16_t w,  uint16_t xCenter, String s)
+void Nextion::text(uint16_t x, uint16_t y, uint16_t xCenter, uint16_t color, String sText)
 {
-  const uint8_t fontId = 1;
-  const uint16_t fontColor = 0xFFE0; // yellow
-  const uint16_t bkColor = 0; // black
-  const uint8_t yCenter = 1; // xCenter 0=left, 1=center, 2=right > yCenter top, center, bottom
-  const uint8_t sta = 0; // 0=crop, 1=bkColor
-  const uint8_t h = 16; // 16 for small font
-  
-  Serial.print("xstr ");
-  Serial.print(x);
-  Serial.print(",");
-  Serial.print(y);
-  Serial.print(",");
-  Serial.print(w);
-  Serial.print(",");
-  Serial.print(h);
-  Serial.print(",");
-  Serial.print(fontId);
-  Serial.print(",");
-  Serial.print(fontColor);
-  Serial.print(",");
-  Serial.print(bkColor);
-  Serial.print(",");
-  Serial.print(xCenter);
-  Serial.print(",");
-  Serial.print(yCenter);
-  Serial.print(",");
-  Serial.print(sta);
-  Serial.print(",\"");
-  Serial.print(s);
-  Serial.print("\"");
+  const uint16_t bkColor = m_page; // transparent source
+  const uint8_t h = 16; // 8x16 for small font + space
+  uint16_t w = sText.length() * 9;
+
+  Serial.print(String("xstr ") + x + "," + y + "," + w + ",16,1," + color + "," + bkColor +
+        "," + xCenter + ",1,0,\"" + sText + "\"");
   FFF();
 }
 
 void Nextion::fill(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
 {
-  Serial.print("fill ");
-  Serial.print(x);
-  Serial.print(",");
-  Serial.print(y);
-  Serial.print(",");
-  Serial.print(w);
-  Serial.print(",");
-  Serial.print(h);
-  Serial.print(",");
-  Serial.print(color);
+  Serial.print(String("fill ") + x + "," + y + "," + w + "," + h + "," + color);
   FFF();
 }
 
 void Nextion::line(uint16_t x, uint16_t y, uint16_t x2, uint16_t y2, uint16_t color)
 {
-  Serial.print("line ");
-  Serial.print(x);
-  Serial.print(",");
-  Serial.print(y);
-  Serial.print(",");
-  Serial.print(x2);
-  Serial.print(",");
-  Serial.print(y2);
-  Serial.print(",");
-  Serial.print(color);
+  Serial.print(String("line ") + x + "," + y + "," + x2 + "," + y2 + "," + color);
   FFF();
 }
 
 void Nextion::visible(String id, uint8_t on)
 {
-  Serial.print("vis ");
-  Serial.print(id);
-  Serial.print(",");
-  Serial.print(on);
+  Serial.print("vis " + id + "," + on);
   FFF();
 }
 
 void Nextion::itemPic(uint8_t id, uint8_t idx)
 {
-  String s = "p";
-  s += id;
-  s += ".pic=";
-  s += idx;
-  Serial.print(s);
+  Serial.print(String("p") + id + ".pic=" + idx);
   FFF();
 }
 
@@ -155,18 +86,16 @@ void Nextion::brightness(uint8_t level)
 
 void Nextion::setPage(String sPage)
 {
-  String s = "page ";
-  s += sPage;
-  Serial.print(s);
+  Serial.print("page " + sPage);
   FFF();
   switch(sPage.charAt(0))
   {
-    case 'T': m_page = 0; break;  // Theromosat
-    case 'c': m_page = 1; break;  // clock (analog)
-    case 'S': m_page = 2; break;  // SSID list
-    case 'k': m_page = 3; break;  // keyboard
-    case 'g': m_page = 4; break;  // graph
-    case 'b': m_page = 5; break;  // blank (just color)
+    case 'T': m_page = Page_Thermostat; break;  // Theromosat
+    case 'c': m_page = Page_Clock; break;  // clock (analog)
+    case 'S': m_page = Page_SSID; break;  // SSID list
+    case 'k': m_page = Page_Keyboard; break;  // keyboard
+    case 'g': m_page = Page_Graph; break;  // graph
+    case 'b': m_page = Page_Blank; break;  // blank (just color)
   }
 }
 
@@ -177,48 +106,26 @@ uint8_t Nextion::getPage()
 
 void Nextion::gauge(uint8_t id, uint16_t angle)
 {
-  String s = "z";
-  s += id;
-  s += ".val=";
-  s += angle;
-  Serial.print(s);
+  Serial.print(String("z") + id + ".val=" + angle);
   FFF();
 }
 
 void Nextion::backColor(String sPageName, uint16_t color)
 {
-  String s = sPageName;
-  s += ".bco=";
-  s += color;
-  Serial.print(s);
+  Serial.print(sPageName + ".bco=" + color);
   FFF();
 }
 
 void Nextion::cls(uint16_t color)
 {
-  String s = "cls ";
-  s += color;
-  Serial.print(s);
+  Serial.print(String("cls ") + color);
   FFF();
 }
 
 void Nextion::add(uint8_t comp, uint8_t ch, uint16_t val)
 {
-  String s = "add ";
-  s += comp;
-  s += ",";
-  s += ch;
-  s += ",";
-  s += val;
-  Serial.print(s);
+  Serial.print(String("add ") + comp + "," + ch + "," + val);
   FFF();
-}
-
-String Nextion::sDec(int t) // just 123 to 12.3 string
-{
-  String s = String( t / 10 ) + ".";
-  s += t % 10;
-  return s;
 }
 
 void Nextion::FFF()
@@ -239,7 +146,6 @@ void Nextion::dimmer()
   else
     m_brightness = m_newBrightness;
 
-  Serial.print("dim=");
-  Serial.print(m_brightness);
+  Serial.print("dim=" + m_brightness);
   FFF();
 }
