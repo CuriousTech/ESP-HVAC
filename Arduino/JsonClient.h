@@ -38,12 +38,12 @@ private:
   void  (*m_callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
 
   WiFiClient m_client;
-  const char *m_pHost;
-  const char *m_pPath;
+  char m_szHost[64];
+  char m_szPath[64];
   const char **m_jsonList[8];
   uint16_t m_bufcnt;
   uint16_t m_event;
-  uint16_t m_Port;
+  uint16_t m_nPort;
   char     m_buffer[JC_BUF_SIZE];
   unsigned long m_timeOut;
   uint8_t m_jsonCnt;
