@@ -34,7 +34,6 @@ void eventHandler::set(WiFiClient c, int interval, uint8_t nType)
     if(!ec[i].inUse())
     {
       ec[i].set(c, interval, nType);
-      ec[i].push();               // push the data on connection
       break;
     }
 }
@@ -108,7 +107,7 @@ void eventClient::set(WiFiClient cl, int t, uint8_t nType)
 {
   m_client = cl;
   m_interval = t;
-  m_timer = 0;
+  m_timer = 1; // send data in 1 second
   m_keepAlive = 10;
   m_nType = nType;
   m_client.print(":ok\n");
@@ -124,7 +123,7 @@ void eventClient::push()
   if(m_client.connected() == 0)
     return;
   m_keepAlive = 11; // anything sent resets keepalive
-  m_timer = 0;
+  m_timer = m_interval;
   String s = jsonCallback();
   m_client.print("event: state\ndata: " + s + "\n");
 }
@@ -150,10 +149,12 @@ void eventClient::beat()
   if(m_client.connected() == 0)
     return;
 
-  if(++m_timer >= m_interval) // push data on requested time interval
+  if(--m_timer == 0)
+  {
+    m_timer = m_interval; // push data on requested time interval
     push();
- 
-  if(--m_keepAlive <= 0)
+  }
+  if(--m_keepAlive == 0)
   {
     m_client.print("\n");     // send something to keep connection from timing out on other end
     m_keepAlive = 10;
