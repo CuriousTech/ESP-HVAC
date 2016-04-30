@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<head>
+
+<title>ESP-HVAC</title>
+
+<style type="text/css">
+.style1 {border-width: 0;}
+.style2 {text-align: right;}
+.style3 {background-color: #C0C0C0;}
+.style4 {text-align: right;background-color: #C0C0C0;}
+.style6 {border-style: solid;border-width: 1px;background-color: #C0C0C0;}
+</style>
+
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+
+<script type="text/javascript">
+<!--
+
+var Json,mode,autoMode,heatMode,fanMode,running,fan
+var states = new Array('Idle','Cooling','HP Heat','NG Heat')
+var heatmodes = new Array('HP','NG','Auto')
+
+function startEvents()
+{
+	eventSource = new EventSource("events?i=60&p=1")
+	eventSource.addEventListener('open',function(e){},false)
+	eventSource.addEventListener('error',function(e){},false)
+	eventSource.addEventListener('state',function(e){ // listen to frequent changed values
+		Json = JSON.parse(e.data)
+
+		running = +Json.r
+		fan = +Json.fr
+	
+		document.all.intemp.innerHTML = +Json.it/10
+		document.all.rh.innerHTML = +Json.rh/10
+		document.all.target.innerHTML = +Json.tt/10
+		document.all.outtemp.innerHTML = +Json.ot/10
+		document.all.cyctimer.innerHTML = secsToTime(+Json.ct)
+		document.all.runtotal.innerHTML = secsToTime(+Json.rt)
+
+		document.all.fan.innerHTML = fan?"Fan On":"Fan Off"
+		document.all.fanCell.setAttribute('class',fan?'style5':'style1')
+		document.all.fAuto.setAttribute('class', fanMode==0?'style5':'')
+		document.all.fOn.setAttribute('class', fanMode==1?'style5':'')
+		document.all.run.innerHTML = states[+Json.s]
+		document.all.runCell.setAttribute('class',running?'style5':'style1')
+	},false)
+}
+
+function readSettings() // read all settings
+{
+	$.getJSON("json", function(Json){
+	   	mode = +Json.m
+		autoMode = +Json.am
+		heatMode = +Json.hm
+		fanMode = +Json.fm
+		ovrActive = +Json.ot
+
+		document.all.mOff.setAttribute('class',mode==0?'style5':'')
+		document.all.mCool.setAttribute('class',mode==1?'style5':'')
+		document.all.mHeat.setAttribute('class',mode==2?'style5':'')
+		document.all.mAuto.setAttribute('class',mode==3?'style5':'')
+
+		document.all.hHP.setAttribute('class',heatMode==0?'style5':'')
+		document.all.hGas.setAttribute('class',heatMode==1?'style5':'')
+		document.all.hAuto.setAttribute('class',heatMode==2?'style5':'')
+	
+		document.all.cooll.value= +Json.c0/10
+		document.all.coolh.value= +Json.c1/10
+		document.all.heatl.value= +Json.h0/10
+		document.all.heath.value= +Json.h1/10
+		document.all.idlemin.value= +Json.im
+		document.all.cycmin.value= +Json.cn
+		document.all.cycmax.value= +Json.cx
+		document.all.thresh.value= +Json.ct/10
+		document.all.fandelay.value= +Json.fd
+		document.all.ovrtime.value= +Json.ov
+	
+		if( +document.all.ovrtemp.value==0) // set a better default
+			document.all.ovrtemp.value= -1.0
+		document.all.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
+	});
+}
+
+function setVar(varName, value)
+{
+	$.post("s",{key: document.all.myToken.value, set: varName+'='+value})
+}
+
+function setfan(n)
+{
+	fanMode=n
+	fan = fanMode?1:run
+	setVar('fanmode',fanMode?1:0)
+	document.all.fAuto.setAttribute('class',fanMode==0?'style5':'')
+	document.all.fOn.setAttribute('class',fanMode==1?'style5':'')
+	document.all.fan.innerHTML = "Fan "+(fanMode?"On":(fan?"On":"Off"))
+	document.all.fanCell.setAttribute('class',fan?'style5' : 'style1');
+}
+
+function setMode(m)
+{
+	setVar('mode',mode=m)
+	document.all.mOff.setAttribute('class',mode==0?'style5':'')
+	document.all.mCool.setAttribute('class',mode==1?'style5':'')
+	document.all.mHeat.setAttribute('class',mode==2?'style5':'')
+	document.all.mAuto.setAttribute('class',mode==3?'style5':'')
+}
+
+function setHeatMode(m)
+{
+	setVar('heatmode',heatMode=m)
+	document.all.hHP.setAttribute('class',heatMode==0?'style5':'')
+	document.all.hGas.setAttribute('class',heatMode==1?'style5':'')
+	document.all.hAuto.setAttribute('class',heatMode==2?'style5':'')
+}
+
+function setCoolHi()
+{
+	setVar('cooltemph',(+document.all.coolh.value * 10).toFixed())
+}
+
+function setCoolLo()
+{
+	setVar('cooltempl',(+document.all.cooll.value*10).toFixed())
+}
+
+function incCool(n)
+{
+	document.all.coolh.value= +document.all.coolh.value+n
+	document.all.cooll.value= +document.all.cooll.value+n
+
+	setVar('cooltemph',(+document.all.coolh.value*10).toFixed())
+	setVar('cooltempl',(+document.all.cooll.value*10).toFixed())
+}
+
+function setHeatHi()
+{
+	setVar('heattemph',(+document.all.heath.value*10).toFixed())
+}
+
+function setHeatLo()
+{
+	setVar('heattempl',(+document.all.heatl.value*10).toFixed())
+}
+
+function incHeat(n)
+{
+	document.all.heath.value= +document.all.heath.value+n
+	document.all.heatl.value= +document.all.heatl.value+n
+
+	setVar('heattemph',(+document.all.heath.value*10).toFixed())
+	setVar('heattempl',(+document.all.heatl.value*10).toFixed())
+}
+
+function setThresh()
+{
+	setVar('cyclethresh',(+document.all.thresh.value*10).toFixed())
+}
+
+function setFeanDelay()
+{
+	setVar('fanpostdelay', +document.all.fandelay.value)
+}
+
+function setIdleMin()
+{
+	setVar('idlemin',document.all.idlemin.value)
+}
+
+function setCycMin()
+{
+	setVar('cyclemin',document.all.cycmin.value)
+}
+
+function setCycMax()
+{
+	setVar('cyclemax',document.all.cycmax.value)
+}
+
+function setOvrTime()
+{
+	setVar('overridetime',document.all.ovrtime.value)
+}
+
+function setOvrTemp()
+{
+	setVar('override',(+document.all.ovrtemp.value *10).toFixed())
+}
+
+function cancelOvr()
+{
+	setVar('override',0)
+}
+
+function secsToTime( elap )
+{
+	d=0
+	m=0
+	h=Math.floor(elap/3600)
+	if(h >23)
+	{
+		d=Math.floor(h/24)
+		h-=(d*24)
+	}
+	else
+	{
+		m=Math.floor((elap-(h*3600))/60)
+		s=elap-(h*3600)-(m*60)
+		if(s<10) s='0'+s
+		if(h==0)
+		{
+			if( m < 10) m='  '+m
+			return '    '+m +':'+s
+		}
+	}
+	if(m<10) m='0'+m
+	if(h<10) h='  '+h
+	if(d) return d+'d '+h+'h'
+	return h+':'+m+':'+s
+}
+//--></script>
+</head>
+<body onload="{
+  myStorage1 = localStorage.getItem('myStoredText1')
+  if(myStorage1  != null){
+	document.all.myToken.style.visibility = 'hidden'  // hide sensitive data. remove these if irritating
+	document.all.hide.value='Show'
+	document.getElementById('myToken').value = myStorage1
+	readSettings()
+  }
+  
+  myStorage3 = localStorage.getItem('myStoredText3')
+  if(myStorage3  != null){
+	document.getElementById('ovrtemp').value = myStorage3
+  }
+  startEvents()
+}">
+<strong><em>CuriousTech HVAC Remote</em></strong><br>
+<table style="width: 320px">
+	<tr>
+		<td style="width: 70px">Password</td>
+		<td>
+<input id="myToken" name="access_token" type=text size=50 placeholder="5622ce6bba702ef6bd3456d5ed26aaa4a28d7c9" style="width: 265px"></td>
+	</tr>
+</table>
+<input type="button" value="Save" onClick="{
+   localStorage.setItem('myStoredText1', document.all.myToken.value)
+   alert( document.all.myToken.value + ' \nHas been stored')
+}">
+<input type="button" value="Hide" name="hide" onClick="{
+	if(document.all.myToken.style.visibility == 'hidden'){
+    document.all.myToken.style.visibility = 'visible'
+	document.all.hide.value='Hide'
+	}else{
+    document.all.myToken.style.visibility = 'hidden'
+	document.all.hide.value='Show'
+    }
+}">
+<input type="button" value="Refresh" onClick="{readSettings()}">
+<br>
+<br>
+<table style="width: 350px; height: 22px;" cellspacing="0">
+	<tr>
+		<td class="style3">In</td>
+		<td class="style4"><div id="intemp" class="style2">in</div></td>
+		<td class="style3">&deg</td>
+		<td class="style3">Trg</td>
+		<td class="style4"><div id="target" class="style2">trg</div></td>
+		<td class="style3">&deg</td>
+		<td class="style4"><div id="rh" class="style2">rh</div></td>
+		<td class="style3">%</td>
+		<td class="style3">Out</td>
+		<td class="style4"><div id="outtemp" class="style2">out</div></td>
+		<td class="style3">&deg</td>
+	</tr>
+</table>
+<br>
+<table style="width: 350px" class="style6" cellspacing="1" cellpadding="0">
+	<tr>
+		<td style="width: 81px" id="fanCell" class="style1"><div id="fan">Fan Off</div></td>
+		<td colspan="2" style="width: 200px" class="style1">
+		<input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}">
+		<input type="button" value="On" name="fOn" onClick="{setfan(1)}">
+		</td>
+	</tr>
+	<tr>
+		<td style="width: 44px" class="style1" id="runCell"><div id="run">off</div></td>
+		<td colspan="2">
+		<input type="button" value="Off" name="mOff" onClick="{setMode(0)}">
+		<input type="button" value="Cool" name="mCool" onClick="{setMode(1)}">
+		<input type="button" value="Heat" name="mHeat" onClick="{setMode(2)}">
+		<input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}">
+		</td>
+	</tr>
+	<tr>
+		<td></td>
+		<td colspan="2">
+		<input type="button" value="HP" name="hHP" onClick="{setHeatMode(0)}">
+		<input type="button" value="Gas" name="hGas" onClick="{setHeatMode(1)}">
+		<input type="button" value="Auto" name="hAuto" onClick="{setHeatMode(2)}">
+		</td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Cool Hi</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="coolh"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCoolHi()}"><input type="button" value="+1" onClick="{incCool(1)}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Cool Lo</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cooll"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCoolLo()}"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Heat Hi</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="heath"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHeatHi()}"><input type="button" value="+1" onClick="{incHeat(1)}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Heat Lo</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="heatl"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHeatLo()}"><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Threshold</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="thresh"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setThresh()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Fan Delay</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="fandelay"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setFanDelay()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Idle Min</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="idlemin"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setIdleMin()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">cycle Min</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cycmin"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCycMin()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">cycle Max</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cycmax"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCycMax()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">ovr Time</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="ovrtime"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setOvrTime()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" id="ovrCell" class="style1">ovrTemp</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="ovrtemp"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Start" onClick="{
+		localStorage.setItem('myStoredText3', document.all.ovrtemp.value)
+		setOvrTemp()}">
+		<input type="button" value="Cancel" onClick="{cancelOvr()}">
+		</td>
+	</tr>
+</table>
+
+<br>
+<table style="width: 350px">
+	<tr>
+		<td style="width: 80px" class="style3">Cycle</td>
+		<td style="width: 147px" class="style3">
+		<div id="cyctimer" style="width: 87px">cycle</div></td>
+		<td style="width: 81px" class="style3">Total</td>
+		<td class="style3"><div id="runtotal">total</div></td>
+	</tr>
+</table>
+<small>Copyright (c) 2016 CuriousTech.net</small>
+</body>
+</html>
