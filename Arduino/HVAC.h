@@ -9,7 +9,6 @@
 #define P_HEAT  15
 #define P_HUMID  0
 //-----------------
-
 #include <arduino.h>
 
 struct Forecast
@@ -33,7 +32,6 @@ enum Notif
   Note_Filter,
   Note_Network,
   Note_Forecast,
-  Note_EE,
   Note_Init,
 };
 
@@ -67,7 +65,7 @@ struct EEConfig
 	uint16_t fanPostDelay[2];	// delay to run auto fan after [hp][cool] stops
 	uint16_t overrideTime;	// time used for an override
 	uint8_t  heatMode;	// heating mode (gas, electric)
-	uint8_t  res;		//
+	int8_t   tz;        // current timezone and DST
 	uint16_t sum;
 };
 
