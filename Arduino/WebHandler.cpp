@@ -127,8 +127,6 @@ void handleRoot() // Main webpage interface
 //  Serial.println("handleRoot");
 
   parseParams();
-  server.send ( 200, "text/html", "" ); // Send this in chunks.  Data limit is around 2048 bytes.
-  WiFiClient client = server.client();
 
   String page =
    "<!DOCTYPE html>\n"
@@ -179,9 +177,7 @@ void handleRoot() // Main webpage interface
    "    document.all.fAuto.setAttribute('class', fanMode==0?'style5':'')\n"
    "    document.all.fOn.setAttribute('class', fanMode==1?'style5':'')\n"
    "    document.all.run.innerHTML = states[+Json.s]\n"
-   "    document.all.runCell.setAttribute('class',running?'style5':'style1')\n";
-  client.print(page);
-  page = 
+   "    document.all.runCell.setAttribute('class',running?'style5':'style1')\n"
    "  },false)\n"
    "}\n"
    "\n"
@@ -236,9 +232,7 @@ void handleRoot() // Main webpage interface
    "  document.all.fanCell.setAttribute('class',fan?'style5' : 'style1');\n"
    "}\n"
    "\n"
-   "function setMode(m)\n";
-  client.print(page);
-  page = 
+   "function setMode(m)\n"
    "{\n"
    "  setVar('mode',mode=m)\n"
    "  document.all.mOff.setAttribute('class',mode==0?'style5':'')\n"
@@ -305,9 +299,7 @@ void handleRoot() // Main webpage interface
    "\n"
    "function setIdleMin()\n"
    "{\n"
-   "  setVar('idlemin',document.all.idlemin.value)\n";
-  client.print(page);
-  page = 
+   "  setVar('idlemin',document.all.idlemin.value)\n"
    "}\n"
    "\n"
    "function setCycMin()\n"
@@ -387,9 +379,7 @@ void handleRoot() // Main webpage interface
    "  </tr>\n"
    "</table>\n"
    "<input type=\"button\" value=\"Save\" onClick=\"{\n"
-   "   localStorage.setItem('myStoredText1', document.all.myToken.value)\n";
-  client.print(page);
-  page = 
+   "   localStorage.setItem('myStoredText1', document.all.myToken.value)\n"
    "   alert( document.all.myToken.value + ' Has been stored')\n"
    "}\">\n"
    "<input type=\"button\" value=\"Hide\" name=\"hide\" onClick=\"{\n"
@@ -433,9 +423,7 @@ void handleRoot() // Main webpage interface
    "    <td colspan=\"2\">\n"
    "    <input type=\"button\" value=\"Off\" name=\"mOff\" onClick=\"{setMode(0)}\">\n"
    "    <input type=\"button\" value=\"Cool\" name=\"mCool\" onClick=\"{setMode(1)}\">\n"
-   "    <input type=\"button\" value=\"Heat\" name=\"mHeat\" onClick=\"{setMode(2)}\">\n";
-  client.print(page);
-  page = 
+   "    <input type=\"button\" value=\"Heat\" name=\"mHeat\" onClick=\"{setMode(2)}\">\n"
    "    <input type=\"button\" value=\"Auto\" name=\"mAuto\" onClick=\"{setMode(3)}\">\n"
    "    </td>\n"
    "  </tr>\n"
@@ -469,9 +457,7 @@ void handleRoot() // Main webpage interface
    "  </tr>\n"
    "  <tr>\n"
    "    <td style=\"width: 81px\" class=\"style1\">Threshold</td>\n"
-   "    <td style=\"width: 44px\" class=\"style1\"><input type=text size=5 value=0 id=\"thresh\"></td>\n";
-  client.print(page);
-  page = 
+   "    <td style=\"width: 44px\" class=\"style1\"><input type=text size=5 value=0 id=\"thresh\"></td>\n"
    "    <td style=\"width: 200px\" class=\"style1\"><input type=\"button\" value=\"Set\" onClick=\"{setThresh()}\"></td>\n"
    "  </tr>\n"
    "  <tr>\n"
@@ -503,9 +489,7 @@ void handleRoot() // Main webpage interface
    "    <td style=\"width: 81px\" id=\"ovrCell\" class=\"style1\">ovrTemp</td>\n"
    "    <td style=\"width: 44px\" class=\"style1\"><input type=text size=5 value=0 id=\"ovrtemp\"></td>\n"
    "    <td style=\"width: 200px\" class=\"style1\"><input type=\"button\" value=\"Start\" onClick=\"{\n"
-   "    localStorage.setItem('myStoredText3', document.all.ovrtemp.value)\n";
-  client.print(page);
-  page = 
+   "    localStorage.setItem('myStoredText3', document.all.ovrtemp.value)\n"
    "    setOvrTemp()}\">\n"
    "    <input type=\"button\" value=\"Cancel\" onClick=\"{cancelOvr()}\">\n"
    "    </td>\n"
@@ -525,7 +509,7 @@ void handleRoot() // Main webpage interface
    "<small>Copyright (c) 2016 CuriousTech.net</small>\n"
    "</body>\n"
    "</html>\n";
-  client.print(page);
+  server.send ( 200, "text/html", page );
 }
 
 void handleS() { // standard params, but no page
