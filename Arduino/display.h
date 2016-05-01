@@ -25,7 +25,6 @@ public:
     m_updateFcst(2), // 1-2 minutes from boot
     m_temp_counter(10*60)
   {
-    Lines(true);
   }
   void init(void);
   void oneSec(void);
@@ -46,7 +45,8 @@ private:
   void updateRunIndicator(bool bForce); // run and fan running
   void addGraphPoints(void);
   void fillGraph(void);
-	void Lines(bool bInit);
+  void drawPoints(uint8_t arr, uint16_t color);
+	void Lines(void);
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
   uint16_t m_backlightTimer;
