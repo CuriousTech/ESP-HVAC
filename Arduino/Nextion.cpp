@@ -40,7 +40,7 @@ void Nextion::itemNum(uint8_t item, int16_t num)
 
 void Nextion::refreshItem(String id)
 {
-  Serial.print("ref " + id);
+  Serial.print(String("ref ") + id);
   FFF();
 }
 
@@ -69,7 +69,7 @@ void Nextion::line(uint16_t x, uint16_t y, uint16_t x2, uint16_t y2, uint16_t co
 
 void Nextion::visible(String id, uint8_t on)
 {
-  Serial.print("vis " + id + "," + on);
+  Serial.print(String("vis ") + id + "," + on);
   FFF();
 }
 
@@ -86,7 +86,7 @@ void Nextion::brightness(uint8_t level)
 
 void Nextion::setPage(String sPage)
 {
-  Serial.print("page " + sPage);
+  Serial.print(String("page ") + sPage);
   FFF();
   switch(sPage.charAt(0))
   {
@@ -146,6 +146,6 @@ void Nextion::dimmer()
   else
     m_brightness = m_newBrightness;
 
-  Serial.print("dim=" + m_brightness);
+  Serial.print(String("dim=") + m_brightness);
   FFF();
 }
