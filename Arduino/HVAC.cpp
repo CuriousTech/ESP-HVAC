@@ -10,7 +10,7 @@
 
 #include "math.h"
 #include "HVAC.h"
-#include "Time.h"
+#include <Time.h>
 
 #define FF_DELAY 120            // internal furnace fan post-run delay
 
@@ -21,7 +21,7 @@ HVAC::HVAC()
   m_EE.cycleMin = 60;         // 60 seconds minimum for a cycle
   m_EE.cycleMax = 60*15;      // 15 minutes maximun for a cycle
   m_EE.idleMin  = 60*5;       // 5 minutes minimum between cycles
-  m_EE.cycleThresh =  17;	    // 1.7 degree cycle range
+  m_EE.cycleThresh =  17;      // 1.7 degree cycle range
   m_EE.coolTemp[1] = 820;     // 82.0 default temps
   m_EE.coolTemp[0] = 790;     // 79.0
   m_EE.heatTemp[1] = 740;     // 74.0
@@ -31,6 +31,7 @@ HVAC::HVAC()
   m_EE.fanPostDelay[1] = 120; // 2 minutes after compressor stops (cool)
   m_EE.overrideTime = 60*10;  // 10 mins default for override
   m_remoteTimeout   = 60*5;   // 5 minutes default
+  m_EE.tz = -5;
   m_EE.filterMinutes = 0;
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -39,7 +40,7 @@ HVAC::HVAC()
   m_rh = 0;
   m_bFanRunning = false;
   m_outMax[0] = -50;      // set as invalid
-  m_outMax[1] = -50;	    // set as invalid
+  m_outMax[1] = -50;      // set as invalid
   m_bFanMode = false;     // Auto=false, On=true
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
@@ -116,13 +117,13 @@ void HVAC::service()
   {
     filterInc();
     if(m_fanOnTimer < 0xFFFF)
-      m_fanOnTimer++;			        	// running time counter
+      m_fanOnTimer++;               // running time counter
 
     if(m_furnaceFan)                       // fake fan status for furnace fan
       m_furnaceFan--;
   }
 
-  if(m_fanPostTimer)		        		// Fan conintuation delay
+  if(m_fanPostTimer)                // Fan conintuation delay
   {
     if(--m_fanPostTimer == 0)
       if(!m_bRunning && m_bFanMode == false) // Ensure system isn't running and fanMode is auto
@@ -144,7 +145,7 @@ void HVAC::service()
   if(m_bRunning)
   {
     m_runTotal++;
-    if(++m_cycleTimer < 20)		        // Block changes for at least 20 seconds after a start
+    if(++m_cycleTimer < 20)           // Block changes for at least 20 seconds after a start
       return;
     if(m_cycleTimer >= m_EE.cycleMax)   // running too long (todo: skip for eHeat?)
     {
@@ -157,14 +158,14 @@ void HVAC::service()
     m_idleTimer++;                     // Time since stopped
   }
 
-  if(m_setMode != m_EE.Mode || m_setHeat != m_EE.heatMode)   	// requested HVAC mode change
+  if(m_setMode != m_EE.Mode || m_setHeat != m_EE.heatMode)    // requested HVAC mode change
   {
     if(m_bRunning)                      // cycleTimer is already > 20s here
       m_bStop = true;
     if(m_idleTimer >= 5)
     {
       m_EE.heatMode = m_setHeat;
-      m_EE.Mode = m_setMode;	        // User may be cycling through modes (give 5s)
+      m_EE.Mode = m_setMode;          // User may be cycling through modes (give 5s)
       calcTargetTemp(m_EE.Mode);
     }
   }
@@ -172,7 +173,7 @@ void HVAC::service()
   int8_t hm = (m_EE.heatMode == Heat_Auto) ? m_AutoHeat : m_EE.heatMode; // true heat mode
   int8_t mode = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode;      // tue heat/cool mode
 
-  if(m_bStart && !m_bRunning)	            // Start signal occurred
+  if(m_bStart && !m_bRunning)             // Start signal occurred
   {
     m_bStart = false;
     
@@ -208,7 +209,7 @@ void HVAC::service()
     m_cycleTimer = 0;
   }
 
-  if(m_bStop && m_bRunning)	        		// Stop signal occurred
+  if(m_bStop && m_bRunning)             // Stop signal occurred
   {
     m_bStop = false;
     digitalWrite(P_COOL, LOW);
@@ -216,7 +217,7 @@ void HVAC::service()
   
     if(m_bFanRunning && m_bFanMode == false) // Note: furance manages fan
     {
-      if(m_EE.fanPostDelay[digitalRead(P_REV)])			    // leave fan running to circulate air longer
+      if(m_EE.fanPostDelay[digitalRead(P_REV)])         // leave fan running to circulate air longer
         m_fanPostTimer = m_EE.fanPostDelay[digitalRead(P_REV)]; // P_REV == true if heating
       else
         fanSwitch(false);
@@ -253,10 +254,10 @@ bool HVAC::stateChange()
 // Control switching of system by temp
 void HVAC::tempCheck()
 {
-  if(m_inTemp == 0 || m_bEnabled == false)   	// hasn't been set yet
+  if(m_inTemp == 0 || m_bEnabled == false)    // hasn't been set yet
     return;
 
-  if(m_EE.Mode == Mode_Off)		// nothing to do
+  if(m_EE.Mode == Mode_Off)   // nothing to do
     return;
 
   if(m_bRunning)
@@ -284,7 +285,7 @@ void HVAC::tempCheck()
         break;
     }
   }
-  else	// not running
+  else  // not running
   {
     if(m_idleTimer < m_EE.idleMin)
       return;
@@ -300,7 +301,7 @@ void HVAC::tempCheck()
 bool HVAC::preCalcCycle(int8_t mode)
 {
   bool bRet = false;
-	
+  
   // Standard triggers for now
   switch(mode)
   {
@@ -326,7 +327,7 @@ bool HVAC::preCalcCycle(int8_t mode)
         calcTargetTemp(Mode_Heat);
         if(m_EE.heatMode == Heat_Auto)
         {
-          if(m_inTemp < m_outTemp - (m_EE.eHeatThresh * 10)) 	// Use gas when efficiency too low for pump  Todo: change this to outtemp threshold
+          if(m_inTemp < m_outTemp - (m_EE.eHeatThresh * 10))  // Use gas when efficiency too low for pump  Todo: change this to outtemp threshold
             m_AutoHeat = Heat_NG;
           else
             m_AutoHeat = Heat_HP;
@@ -439,7 +440,7 @@ void HVAC::setMode(int8_t mode)
   if(!m_bRunning)
   {
      if(m_idleTimer < m_EE.idleMin - 30)
- 	     m_idleTimer = m_EE.idleMin - 10;        // keep it from starting too quickly, but not too long
+       m_idleTimer = m_EE.idleMin - 10;        // keep it from starting too quickly, but not too long
   }
 }
 
@@ -457,7 +458,7 @@ bool HVAC::getFan()
 // User:Set fan mode
 void HVAC::setFan(bool bon)
 {
-  if(bon == m_bFanMode)			// requested fan operating mode change
+  if(bon == m_bFanMode)     // requested fan operating mode change
     return;
 
   m_bFanMode = bon;
@@ -544,7 +545,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
   if( m_bRemoteConnected )
     return;
-  if(m_remoteTimer == 0)	// only get local temp if no remote
+  if(m_remoteTimer == 0)  // only get local temp if no remote
     m_inTemp = Temp;
   m_rh = rh;
 }
