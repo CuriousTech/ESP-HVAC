@@ -2,6 +2,11 @@
 #define NEXTION_H
 #include <arduino.h>
 
+// from 8 bit components to 5-6-5 bits
+#define rgb(r,g,b) ( (((uint16_t)r << 8) & 0xF800) | (((uint16_t)g << 3) & 0x07E0) | ((uint16_t)b >> 3) )
+// from 5-6-5 to 16 bit value (max 31, 63, 31)
+#define rgb16(r,g,b) ( ((uint16_t)r << 11) | ((uint16_t)g << 5) | (uint16_t)b )
+
 enum Page
 {
   Page_Thermostat,
@@ -18,7 +23,7 @@ public:
   Nextion():
     m_newBrightness(99),
     m_brightness(99),
-    m_page(0)
+    m_page(10)
   {};
   int service(char *pBuff);
   void itemText(uint8_t id, String t);
