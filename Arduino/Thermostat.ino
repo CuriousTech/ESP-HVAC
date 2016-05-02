@@ -53,8 +53,6 @@ char    ZipCode[] = "41042";
 #define ENC_A    5  // Encoder is on GPIO4 and 5
 #define ENC_B    4
 //------------------------
-bool    bDHT;
-int8_t  updateDHT = 1;
 const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
 byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
 WiFiUDP Udp;
@@ -102,7 +100,18 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       newtz = atoi(p + 20); // tz minutes = atoi(p+23) but where?
       if(p[19] == '-') // its negative
         newtz = -newtz;
-
+/*
+    Serial.print("fc ");
+    Serial.print(d);
+    Serial.print(" ");
+    Serial.print(h);
+    Serial.print(" ");
+    Serial.print(hO);
+    Serial.print(" ");
+    Serial.print(hvac.m_fcData[idx-1].h);
+    Serial.print(" ");
+    Serial.println(newtz);
+*/
       if(idx == 1 && newtz != hvac.m_EE.tz) // DST change occurs this hour
       {
         hvac.m_EE.tz = newtz;
@@ -168,7 +177,6 @@ void setup()
 {
 //  pinMode(ESP_LED, OUTPUT);
   Serial.begin(115200);  // Nextion must be set with bauds=115200
-  Wire.begin(SDA, SCL);
 //  digitalWrite(ESP_LED, HIGH);
   startServer();
   eeRead(); // don't access EE before WiFi init
@@ -202,16 +210,8 @@ void loop()
     display.oneSec();
     hvac.service();   // all HVAC code
 
-    static int8_t shtTimer = 5; // 5 seconds
-    if(--shtTimer == 0)
-    {
-      shtTimer = 5;
-//    Serial.print("Temp: ");
-//    Serial.println(sht.GetTemperatureF());
-//    hvac.m_rh = sht.GetHumidity() * 10;
-//    hvac.m_inTemp = sht.GetTemperatureF() * 10;
-    }
-    
+    readSht();
+  
     if(min_save != minute()) // only do stuff once per minute
     {
       min_save = minute();
@@ -228,25 +228,6 @@ void loop()
       }
     }
  
-    if(bDHT)    // this is 1 sec after acquire
-    {
-   //       bDHT = false;
-   //       if(DHT.getStatus()  == DHTLIB_OK)
-     //     {
-//                hvac.updateIndoorTemp( (int)((DHT.getFahrenheit() + DHT_TEMP_ADJUST) * 10), (int)((DHT.getHumidity()+DHT_RH_ADJUST) * 10) );
-
-//                Serial.print("Temp: ");
-//                Serial.println( DHT.getFahrenheit() );
-       //   }
-
-            updateDHT = DHT_PERIOD;
-    }
-    else if(--updateDHT <= 0)
-    {
-//     DHT.acquire();
-       bDHT = true;
-    }
-
     if(bGettingForecast)
     {
       if(! (bGettingForecast = xml.service(Xtags)) )
@@ -271,12 +252,31 @@ void loop()
         }
       }
     }
-
-//    digitalWrite(ESP_LED, LOW); // strobe the led
-//    delay(20);
-//    digitalWrite(ESP_LED, HIGH);
   }
   delay(8); // rotary encoder and lines() need 8ms minimum
+}
+
+void readSht() // read the 2 registers in a state machine.  reads take about 65ms, but this is called every second.
+{
+    static uint8_t state = 0;
+
+    switch(state)
+    {
+      case 0:
+        sht.startRead(eTempNoHoldCmd);
+        break;
+      case 1:
+        hvac.m_inTemp = (int)(sht.GetTemperatureF() * 10);
+        break;
+      case 2:
+        sht.startRead(eRHumidityNoHoldCmd);
+        break;
+      case 3:
+        hvac.m_rh = (int)(sht.GetHumidity() * 10);
+        break;
+    }
+
+    if(++state > 10) state = 0; // about every 10 seconds start over
 }
 
 extern WiFiManager wifi;
