@@ -534,6 +534,7 @@ void handleEvents()
 //  Serial.println("handleEvents");
   uint16_t interval = 60; // default interval
   uint8_t nType = 0;
+  String key;
 
   for ( uint8_t i = 0; i < server.args(); i++ ) {
     server.arg(i).toCharArray(temp, 100);
@@ -552,11 +553,22 @@ void handleEvents()
       case 'c': // critical
         nType = 2;
         break;
+      case 'k': // key
+        key = s;
+        break;
     }
   }
 
+  if(nType == 2 && key != controlPassword) // demote to plain if no/incorrect password
+    nType = 0;
+
   event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
-  server.send( 200, "text/event-stream", "" );
+  String content = "HTTP/1.1 200 OK\r\n"
+      "Connection: keep-alive\r\n"
+      "Access-Control-Allow-Origin: *\r\n"
+      "Content-Type: text/event-stream\r\n\r\n";
+  server.sendContent(content);
+//  server.send( 200, "text/event-stream", "" );
 }
 
 // Pushed data
@@ -612,7 +624,7 @@ void handleRemote()
     String s = wifi.urldecode(temp);
 //    Serial.println( i + " " + server.argName ( i ) + ": " + s);
 
-    if(server.argName(i) == "ip")
+    if(server.argName(i) == "ip") // optional non-client source
        s.toCharArray(ip, 64);
     else if(server.argName(i) == "path")
        s.toCharArray(path, 64);
