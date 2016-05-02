@@ -527,7 +527,7 @@ void handleJson()
   server.send ( 200, "text/json", s + "\n");
 }
 
-// event streamer (assume keep-alive) (esp8266 2.1.0 can't handle this)
+// event streamer (assume keep-alive)
 void handleEvents()
 {
   char temp[100];
@@ -555,9 +555,8 @@ void handleEvents()
     }
   }
 
+  event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
   server.send( 200, "text/event-stream", "" );
-
-  event.set(server.client(), interval, nType);
 }
 
 // Pushed data
