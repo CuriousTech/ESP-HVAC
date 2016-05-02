@@ -107,7 +107,7 @@ void eventClient::set(WiFiClient cl, int t, uint8_t nType)
 {
   m_client = cl;
   m_interval = t;
-  m_timer = 1; // send data in 1 second
+  m_timer = 2; // send data in 2 seconds
   m_keepAlive = 10;
   m_nType = nType;
   m_client.print(":ok\n");
