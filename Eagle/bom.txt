@@ -5,9 +5,10 @@ AM2302/DHT22    Don't use with SHT21
 SHT21           Don't use with DHT22
 R1-R5        *  0805 470
 R6-R9        *  0805 10K (do not remove R9 - GPIO15 must be low on boot)
-R10-R13         0805 10K
+R10,R11         0805 10K
+R12,R13         0805 10K (SHT21 pullups - may need 4K7 or even 2K2)
 R14,R15         ADC voltage divider (not used)
-R16,R17         5K6
+R16,R17         5K6 (R16 can be as low as 1K - touch may not work with debug serial connected)
 R18             0 jumper (Do not use: Allows for I2C device in place of DHT22)
 C1          *   UWD1V150MCL1 35V 15uF
 C2          *   UCL1A221MCL1GS 10V 220uF
@@ -21,7 +22,7 @@ PRG,TXRX        2-pin headers.  Use for serial programming ESP, debug, Nextion s
 PIC10F      *   Not used.  Watchdog connected to SCL for monitor, RESET output.
 5VSWPP      *   MIC4680-5.0YM
 L1          *   SRU1048-680Y
-K1-K5       *   AQY282SZ  (3 main, 1 for HP, 1 for humidifier)
+K1-K5       *   AQY282SZ or AQY282S (3 main, 1 for HP, 1 for humidifier)
 B1          *   DF206S-G
 D1          *   B260A-13-F
 X1          *   39357-0008 Screw terimal, 8 position 3.5mm pitch
