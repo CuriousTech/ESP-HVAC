@@ -46,7 +46,8 @@ private:
   void addGraphPoints(void);
   void fillGraph(void);
   void drawPoints(uint8_t arr, uint16_t color);
-	void Lines(void);
+  void drawPointsTemp(void);
+  void Lines(void);
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
   uint16_t m_backlightTimer;
