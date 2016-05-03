@@ -10,7 +10,7 @@
 
 #include "math.h"
 #include "HVAC.h"
-#include <Time.h>
+#include <TimeLib.h>
 
 #define FF_DELAY 120            // internal furnace fan post-run delay
 
