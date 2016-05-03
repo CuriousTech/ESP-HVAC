@@ -26,7 +26,9 @@
 #include <Wire.h>
 #include "LibHumidity.h"
 #include "Arduino.h"
+#include "HVAC.h"
 
+extern HVAC hvac;
 /******************************************************************************
  * Constructors
  ******************************************************************************/
@@ -35,54 +37,18 @@
  * Initialize the sensor based on the specified type.
  **********************************************************/
 LibHumidity::LibHumidity(uint8_t sda, uint8_t sdc) {
-  l_sda = sda;
-  l_sdc = sdc;
+  m_sda = sda;
+  m_sdc = sdc;
 }
 
 void LibHumidity::init() {
-  Wire.begin(l_sda, l_sdc);
+  Wire.begin(m_sda, m_sdc);
   Wire.setClock(400000);
+  m_mil = millis();
 }
 
-/******************************************************************************
- * Global Functions
- ******************************************************************************/
 
 /**********************************************************
- * GetHumidity
- *  Gets the current humidity from the sensor.
- *
- * @return float - The relative humidity in %RH
- **********************************************************/
-float LibHumidity::GetHumidity(void) {
-
-  return calculateHumidity(readMem(), temp);
-}
-
-/**********************************************************
- * GetTemperatureC
- *  Gets the current temperature from the sensor.
- *
- * @return float - The temperature in Deg C
- **********************************************************/
-float LibHumidity::GetTemperatureC(void) {
-  return calculateTemperatureC(readMem());
-}
-
-/**********************************************************
- * GetTemperatureF
- *  Gets the current temperature from the sensor.
- *
- * @return float - The temperature in Deg F
- **********************************************************/
-float LibHumidity::GetTemperatureF(void) {
-  return calculateTemperatureF(readMem());
-}
-
-/**********************************************************
- * SetReadDelay
- *  Set the I2C Read delay from the sensor.
- *
  *  The SHT21 humidity sensor datasheet says:
  *  Parameter Resolution typ max Units
  *    14 bit      66        85      ms
@@ -98,20 +64,49 @@ float LibHumidity::GetTemperatureF(void) {
  *
  **********************************************************/
 
-void LibHumidity::startRead(uint8_t command) {
-  Wire.beginTransmission(eSHT21Address);   //begin
-  Wire.write(command);                      //send the pointer location
-  Wire.endTransmission();                  //end
-}
+void LibHumidity::service()
+{
+  static uint8_t state = 0;
 
-uint16_t LibHumidity::readMem(void) {
-  Wire.requestFrom(eSHT21Address, 3);
-  unsigned long m = millis();
-  while(millis() - m < 1000 && Wire.available() < 3) {
-      ; //wait
+  if(millis() - m_mil < 100)
+    return;
+
+  switch(state)
+  {
+    case 0:
+      Wire.beginTransmission(eSHT21Address);   //begin
+      Wire.write(eTempNoHoldCmd);              //send the pointer location
+      Wire.endTransmission();                  //end
+      break;
+    case 1:
+      Wire.requestFrom(eSHT21Address, 3);
+      break;
+    case 2:
+      if(Wire.available() < 3) return; // not ready
+      m_temp = ( Wire.read() << 8 ) | ( Wire.read() & 0xFFFC );
+      break;
+    case 3:
+      hvac.m_inTemp = (int)(calculateTemperatureF(m_temp) * 10);
+      break;
+    case 4:
+      Wire.beginTransmission(eSHT21Address);   //begin
+      Wire.write(eRHumidityNoHoldCmd);         //send the pointer location
+      Wire.endTransmission();                  //end
+      break;
+    case 5:
+      Wire.requestFrom(eSHT21Address, 3);
+      break;
+    case 6:
+      if(Wire.available() < 3) return; // not ready
+      m_rh = ( Wire.read() << 8 ) | ( Wire.read() & 0xFFFC );
+      break;
+    case 7:
+      hvac.m_rh = (int)(calculateHumidity(m_rh, m_temp) * 10);
+      break;
   }
 
-  return ( Wire.read() << 8 ) | ( Wire.read() & 0xFFFC );
+  if(++state > 100) state = 0; // about every 10 seconds start over
+  m_mil = millis();
 }
 
 /******************************************************************************
@@ -137,4 +132,3 @@ float LibHumidity::calculateHumidity(uint16_t analogHumValue, uint16_t analogTem
   humidityRH = -6.0 + 125.0/65536.0 * srh;       // RH= -6 + 125 * SRH/2^16
   return humidityRH;
 }
-
