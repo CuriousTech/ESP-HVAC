@@ -48,15 +48,16 @@ class LibHumidity
     float GetTemperatureF(void);
     void startRead(uint8_t reg);
     uint16_t readMem(void);
-
+    void service(void);
   private:
     float calculateHumidity(uint16_t analogHumValue, uint16_t analogTempValue);
     float calculateTemperatureC(uint16_t analogTempValue);
     float calculateTemperatureF(uint16_t analogTempValue);
-    uint8_t l_sda;
-    uint8_t l_sdc;
-    uint16_t temp;
-    uint16_t rh;
+    uint8_t m_sda;
+    uint8_t m_sdc;
+    uint16_t m_temp;
+    uint16_t m_rh;
+    unsigned long m_mil;
 };
 
 #endif
