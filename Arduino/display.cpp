@@ -1,7 +1,7 @@
 #include "display.h"
 #include "Nextion.h"
 #include "HVAC.h"
-#include <Time.h>
+#include <TimeLib.h>
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
 #include "event.h"
 
@@ -591,15 +591,15 @@ void Display::addGraphPoints()
     memcpy(&m_points, &m_points+(5*sizeof(uint8_t)), sizeof(m_points) - (5*sizeof(uint8_t)));
 
   const int base = 600; // 60.0 base   Todo: scale all this
-  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 81 / 110; // 60~90 scale to 0~220
+  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 121 / 110; // 60~90 scale to 0~220
   m_points[m_pointsAdded][1] = hvac.m_rh * 55 / 250;
-  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 81 / 110;
+  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 121 / 110;
 
   int8_t tt = hvac.m_EE.cycleThresh;
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
     tt = -tt;
 
-  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 81 / 110;
+  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 121 / 110;
 
   m_points[m_pointsAdded][4] = hvac.getState();
 
@@ -609,19 +609,23 @@ void Display::addGraphPoints()
 
 // Draw the last 25 hours (todo: add run times)
 void Display::fillGraph()
-{                       // Cyan
-  nex.text(292, 219, 2, rgb16(0, 63, 31), String(60));
-  nex.text(292, 142, 2, rgb16(0, 63, 31), String(70));
-  nex.text(292,  74, 2, rgb16(0, 63, 31), String(80));
-  nex.text(292,   8, 2, rgb16(0, 63, 31), String(90));
+{
+  nex.text(292, 219, 2, rgb16(0, 63, 31), String(65));
+  nex.line(10,  164+8, 310, 164+8, rgb16(10, 20, 10) );
+  nex.text(292, 164, 2, rgb16(0, 63, 31), String(70));
+  nex.line(10,  112+8, 310, 112+8, rgb16(10, 20, 10) );
+  nex.text(292, 112, 2, rgb16(0, 63, 31), String(75));
+  nex.line(10,  58+8, 310, 58+8, rgb16(10, 20, 10) );
+  nex.text(292,  58, 2, rgb16(0, 63, 31), String(80));
+  nex.text(292,   8, 2, rgb16(0, 63, 31), String(85));
 
   int16_t x = m_pointsAdded - (minute() / 5); // center over even hour
   int8_t h = hourFormat12();
 
-  while(x > 0)
+  while(x > 10)
   {
     nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
-    nex.text(x, 0, 1, 0x7FF, String(h)); // draw hour above chart
+    nex.text(x-3, 0, 1, 0x7FF, String(h)); // draw hour above chart
     x -= 12 * 6; // left 6 hours
     h -= 6;
     if( h <= 0) h += 12;
@@ -638,11 +642,38 @@ void Display::drawPoints(uint8_t arr, uint16_t color)
   uint8_t y = m_points[0][arr];
   const int yOff = 240-10;
 
-  for(int i = 1, x = 10; i < m_pointsAdded; i++)  // inTemp
+  for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
     while(m_points[i-1][arr] == m_points[i][arr] && i < m_pointsAdded-1) i++; // optimize
     nex.line(x, yOff - y, i+10, yOff - m_points[i][arr], color);
     x = i + 10;
     y = m_points[i][arr];
+  }
+}
+
+// Not implemented yet (colors might be weird or something)
+void Display::drawPointsTemp()
+{
+  uint8_t y = m_points[0][0];
+  const int yOff = 240-10;
+  uint16_t color = rgb16(31, 0, 0);
+
+  for(int i = 1, x = 10; i < m_pointsAdded; i++)
+  {
+    while(m_points[i-1][0] == m_points[i][0] && i < m_pointsAdded-1)
+    {
+      if(m_points[i][5])
+        color = rgb16(31, 0, 0);
+      else
+        color = rgb16(21, 10, 10);
+      i++;
+    }
+    if(m_points[i][5])
+      color = rgb16(31, 0, 0);
+    else
+      color = rgb16(21, 10, 10);
+    nex.line(x, yOff - y, i+10, yOff - m_points[i][0], color);
+    x = i + 10;
+    y = m_points[i][0];
   }
 }
