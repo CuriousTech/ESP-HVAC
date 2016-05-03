@@ -21,14 +21,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.6.5rX and esp8266 SDK 2.2.0
-// 1.6.8 has conflicts with Time.h in the esp8266 directory and the library.
+// Build with Arduino IDE 1.6.8 and esp8266 SDK 2.2.0
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESP8266WebServer.h>
-#include <Time.h> // http://www.pjrc.com/teensy/td_libs_Time.html
+#include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include <WiFiUdp.h>
 #include "event.h"
 #include "XMLReader.h"
@@ -185,7 +184,6 @@ void setup()
   display.init();
   getUdpTime(); // start the SMPT get
 //  hvac.updateIndoorTemp( 752, 325 );
-  delay(3000);
 
   sht.init();
 }
@@ -202,6 +200,7 @@ void loop()
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
+  sht.service();
 
   if(sec_save != second()) // only do stuff once per second
   {
@@ -210,8 +209,6 @@ void loop()
     display.oneSec();
     hvac.service();   // all HVAC code
 
-    readSht();
-  
     if(min_save != minute()) // only do stuff once per minute
     {
       min_save = minute();
@@ -254,29 +251,6 @@ void loop()
     }
   }
   delay(8); // rotary encoder and lines() need 8ms minimum
-}
-
-void readSht() // read the 2 registers in a state machine.  reads take about 65ms, but this is called every second.
-{
-    static uint8_t state = 0;
-
-    switch(state)
-    {
-      case 0:
-        sht.startRead(eTempNoHoldCmd);
-        break;
-      case 1:
-        hvac.m_inTemp = (int)(sht.GetTemperatureF() * 10);
-        break;
-      case 2:
-        sht.startRead(eRHumidityNoHoldCmd);
-        break;
-      case 3:
-        hvac.m_rh = (int)(sht.GetHumidity() * 10);
-        break;
-    }
-
-    if(++state > 10) state = 0; // about every 10 seconds start over
 }
 
 extern WiFiManager wifi;
