@@ -3,7 +3,7 @@
 #include "HVAC.h"
 #include <TimeLib.h>
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
-#include "event.h"
+#include <Event.h>
 
 Nextion nex;
 extern HVAC hvac;
@@ -349,7 +349,7 @@ bool Display::screen(bool bOn)
     if( bOn == bOldOn )
       return false; // no change occurred
     nex.setPage("Thermostat");
-    delay(20); // 20 works, 10 fails sometimes
+    delay(25); // 20 works most of the time
     refreshAll();
     nex.brightness(NEX_BRIGHT);
   }
@@ -453,10 +453,11 @@ void Display::updateAdjMode(bool bRef)  // current adjust indicator of the 4 tem
 
 void Display::updateRSSI()
 {
-  static uint8_t seccnt = 5;
+  static uint8_t seccnt = 2;
   static int16_t rssiT;
-  static int16_t rssi[5];
-  int16_t rssiAvg;
+#define RSSI_CNT 8
+  static int16_t rssi[RSSI_CNT];
+  static uint8_t rssiIdx = 0;
 
   if(nex.getPage()) // must be page 0
   {
@@ -465,16 +466,16 @@ void Display::updateRSSI()
   }
   if(--seccnt)
     return;
-  seccnt = 4;     // every 4 seconds
- 
-  memcpy(&rssi, &rssi[1], sizeof(int16_t)*4);
-  rssi[4] = WiFi.RSSI();
+  seccnt = 3;     // every 3 seconds
 
-  rssiAvg = 0;
-  for(int i = 0; i < 5; i++)
+  rssi[rssiIdx] = WiFi.RSSI();
+  if(++rssiIdx >= RSSI_CNT) rssiIdx = 0;
+
+  int16_t rssiAvg = 0;
+  for(int i = 0; i < RSSI_CNT; i++)
     rssiAvg += rssi[i];
 
-  rssiAvg /= 5;
+  rssiAvg /= RSSI_CNT;
   if(rssiAvg == rssiT)
     return;
   nex.itemText(22, String(rssiT = rssiAvg) + "dB");
@@ -521,7 +522,7 @@ void Display::Lines()
   if(nex.getPage() != Page_Blank)
     return;
 
-  #define LINES 25
+#define LINES 25
   static Line line[LINES], delta;
   uint16_t color;
   static uint8_t r=0, g=0, b=0;
@@ -631,7 +632,8 @@ void Display::fillGraph()
     if( h <= 0) h += 12;
   }
 
-  drawPoints(0, rgb16(31,  0,  0) ); // inTemp red
+//  drawPoints(0, rgb16(31,  0,  0) ); // inTemp red
+  drawPointsTemp();
   drawPoints(1, rgb16( 0, 63,  0) ); // rh green
   drawPoints(2, rgb16( 0, 20, 31) ); // target blue-ish
   drawPoints(3, rgb16( 0, 20, 31) ); // target blue-ish
@@ -660,20 +662,31 @@ void Display::drawPointsTemp()
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    while(m_points[i-1][0] == m_points[i][0] && i < m_pointsAdded-1)
-    {
-      if(m_points[i][5])
-        color = rgb16(31, 0, 0);
-      else
-        color = rgb16(21, 10, 10);
+    while(m_points[i-1][0] == m_points[i][0] && m_points[i-1][4] == m_points[i][4] && i < m_pointsAdded-1)
       i++;
-    }
-    if(m_points[i][5])
-      color = rgb16(31, 0, 0);
-    else
-      color = rgb16(21, 10, 10);
+    color = stateColor(m_points[i][4]);
     nex.line(x, yOff - y, i+10, yOff - m_points[i][0], color);
     x = i + 10;
     y = m_points[i][0];
   }
+}
+
+uint16_t Display::stateColor(uint8_t v) // return a color based on run state
+{
+  uint16_t color;
+
+  switch(v)
+  {
+    case State_Off: // off
+      color = rgb16(10, 20, 10); // gray
+      break;
+    case State_Cool: // cool
+      color = rgb16(0, 0, 31); // blue
+      break;
+    case State_HP:
+    case State_NG:
+      color = rgb16(31, 0, 0); // red
+      break;
+  }
+  return color;
 }
