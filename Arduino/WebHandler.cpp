@@ -7,7 +7,7 @@
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
 #include "WebHandler.h"
-#include "event.h"
+#include <Event.h>
 #include "HVAC.h"
 #include "JsonClient.h"
 #include "display.h" // for display.Note()
@@ -567,7 +567,6 @@ void handleEvents()
       "Access-Control-Allow-Origin: *\r\n"
       "Content-Type: text/event-stream\r\n\r\n";
   server.sendContent(content);
-//  server.send( 200, "text/event-stream", "" );
 }
 
 // Pushed data
