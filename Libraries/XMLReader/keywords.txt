@@ -1,0 +1,22 @@
+###################################
+# Syntax Coloring Map For NewPing
+###################################
+
+###################################
+# Datatypes (KEYWORD1)
+###################################
+
+XMLReader KEYWORD1
+
+###################################
+# Methods and Functions (KEYWORD2)
+###################################
+
+begin 	KEYWORD2
+service 	KEYWORD2
+end 	KEYWORD2
+getStatus 	KEYWORD2
+
+###################################
+# Constants (LITERAL1)
+###################################
