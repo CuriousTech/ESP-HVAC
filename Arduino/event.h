@@ -36,7 +36,7 @@ class eventClient
 {
 public:
   eventClient(){}
-  void set(WiFiClient cl, int t, uint8_t nType);
+  void set(WiFiClient cl, int t, uint8_t nType, bool bOpened);
   bool inUse(void);
   void push(void);  // event: state, data: JSON.   Push the jscript data
   void pushInstant(void); // push changes instant if push=1
@@ -55,7 +55,10 @@ private:
 class eventHandler
 {
 public:
-  eventHandler(String (*callback)(void) ) : m_critical_timer(0), m_timeout(0)
+  eventHandler(String (*callback)(void) ) :
+    m_critical_timer(0),
+    m_timeout(0),
+    m_bOpened(false)
   {
     for(int i = 0; i < CLIENTS; i++)
     {
@@ -73,4 +76,5 @@ private:
   eventClient ec[CLIENTS];
   uint16_t m_critical_timer;
   uint16_t m_timeout;
+  bool     m_bOpened;
 };
