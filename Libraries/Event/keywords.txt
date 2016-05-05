@@ -20,10 +20,6 @@ pushInstant	KEYWORD2
 alert	KEYWORD2
 print	KEYWORD2
 printf	KEYWORD2
-timer_ms	KEYWORD2
-timer_stop	KEYWORD2
-convert_in	KEYWORD2
-convert_cm	KEYWORD2
 
 ###################################
 # Constants (LITERAL1)
