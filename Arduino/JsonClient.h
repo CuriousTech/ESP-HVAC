@@ -36,6 +36,7 @@ private:
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue);
   void  sendHeader(const char *pHeaderName, int nHeaderValue);
   void  (*m_callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
+  char *skipwhite(char *p);
 
   WiFiClient m_client;
   char m_szHost[64];
