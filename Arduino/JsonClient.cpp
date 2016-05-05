@@ -8,15 +8,14 @@
   8 lists max per instance
 */
 #include "JsonClient.h"
-//#include <time.h>
  
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
 JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue) )
 {
-	m_callback = callback;
-	m_Status = JC_IDLE;
+  m_callback = callback;
+  m_Status = JC_IDLE;
   m_jsonCnt = 0;
   m_bufcnt = 0;
   m_event = 0;
@@ -151,7 +150,7 @@ bool JsonClient::connect()
 
   sendHeader("Host", m_szHost);
   sendHeader("Connection", m_bKeepAlive ? "keep-alive" : "close");
-  sendHeader("Accept", "*/*");
+  sendHeader("Accept", "*/*"); // use text/json for strict
 
   m_client.println();
   m_client.flush();
@@ -179,13 +178,13 @@ void JsonClient::processLine()
   }
   else
   {
-      *p = 0; // term the :
-      p++;
+    *p = 0; // term the :
+    p++;
   }
 
-  if(*p == ' ') p++;
+  p = skipwhite(p);
 
-  if(!strcmp(m_buffer, "event") && m_jsonList[0][0])
+  if(!strcmp(m_buffer, "event") && m_jsonList[0][0]) // need event names
   {
     for(int i = 0; i < m_jsonCnt; i++)
       if(!strcmp(p, m_jsonList[i][0]))
@@ -193,7 +192,7 @@ void JsonClient::processLine()
   }
   else if(!strcmp(m_buffer, "data") || m_jsonList[0][0] == NULL || m_jsonList[0][0][0] == 0)
   {
-    while(*p == ' ') p++; // skip leading spaces
+    p = skipwhite(p); // skip leading spaces
     if(*p != '{')
     {
       m_callback(m_event, 0, atoi(p), p);
@@ -205,10 +204,10 @@ void JsonClient::processLine()
       Serial.println("No } found");
       return;
     }
-    bool bInQ = false;
     do // for each pair
     {
-      while(*p == ' ') p++; // skip leading spaces
+      bool bInQ = false;
+      p = skipwhite(p); // skip leading spaces
       if(*p == '"') // name in quotes?
       {
         p++;
@@ -216,11 +215,11 @@ void JsonClient::processLine()
       }
       char *pName = p;
       p++;
-      if(bInQ) while(*p && *p != '"') p++; // find end quote
+      if(bInQ) while(*p && *p != '"' && *p != ':') p++; // find end quote (if missing, it'll find :)
       else while(*p && *p != ':') p++; // or : if no quotes
       *p++ = 0; // null term at end of name
       if(*p == ':') p++;
-      while(*p == ' ') p++; // skip an spaces
+      p = skipwhite(p); // skip any spaces
       bInQ = false;
       if(*p == '"'){ // value in quotes?
         p++;
@@ -247,4 +246,11 @@ void JsonClient::processLine()
 //    Serial.print("JsonClient: invalid label ");
 //    Serial.println(m_buffer);
   }
+}
+
+char * JsonClient::skipwhite(char *p)
+{
+  while(*p == ' ' || *p == '\t' || *p =='\r' || *p == '\n')
+    p++;
+  return p;
 }
