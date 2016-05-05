@@ -21,7 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.6.8 and esp8266 SDK 2.2.0
+// Build with Arduino IDE 1.6.5rX and esp8266 SDK 2.2.0
+// 1.6.8 has conflicts with Time.h in the esp8266 directory and the library.
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
@@ -29,9 +30,9 @@ SOFTWARE.
 #include <ESP8266WebServer.h>
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include <WiFiUdp.h>
-#include "event.h"
-#include "XMLReader.h"
 #include "HVAC.h"
+#include <Event.h>
+#include <XMLReader.h>
 #include "Encoder.h"
 #include "WebHandler.h"
 #include "display.h"
@@ -40,10 +41,6 @@ SOFTWARE.
 
 //----- Configuration------
 char    ZipCode[] = "41042";
-
-#define DHT_TEMP_ADJUST (-3.0)  // Adjust indoor temp by degrees
-#define DHT_RH_ADJUST   (3.0)  // Adjust indoor Rh by %
-#define DHT_PERIOD      (10)  // 10 seconds
 
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
 #define SCL       2
@@ -59,7 +56,7 @@ bool bNeedUpdate;
 Display display;
 eventHandler event(dataJson);
 
-HVAC hvac = HVAC();
+HVAC hvac;
 
 LibHumidity sht(SDA, SCL);
 
@@ -96,7 +93,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       lastd = d;
       hvac.m_fcData[idx-1].h = h + hO;
 
-      newtz = atoi(p + 20); // tz minutes = atoi(p+23) but where?
+      newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
       if(p[19] == '-') // its negative
         newtz = -newtz;
 /*
@@ -137,22 +134,16 @@ void GetForecast()
 
   bGettingForecast = xml.begin("graphical.weather.gov", p_cstr_array);
   if(!bGettingForecast)
-    event.print("status : forecast failed");
+    event.alert("Forecast failed");
 }
 
 //-----
-void Encoder_callback();
 
-Encoder rot(ENC_B, ENC_A, Encoder_callback);
-
-void Encoder_callback()
-{
-    rot.isr();
-}
+Encoder rot(ENC_B, ENC_A);
 
 bool EncoderCheck()
 {
-  int r = rot.read();
+  int r = rot.poll();
 
   if(r == 0)  // no change
     return false;
@@ -174,16 +165,13 @@ bool EncoderCheck()
 
 void setup()
 {
-//  pinMode(ESP_LED, OUTPUT);
   Serial.begin(115200);  // Nextion must be set with bauds=115200
-//  digitalWrite(ESP_LED, HIGH);
   startServer();
   eeRead(); // don't access EE before WiFi init
   hvac.setMode( hvac.getMode() ); // set request mode to EE mode
   hvac.setHeatMode( hvac.getHeatMode() );
   display.init();
-  getUdpTime(); // start the SMPT get
-//  hvac.updateIndoorTemp( 752, 325 );
+  getUdpTime(); // start the SMTP get
 
   sht.init();
 }
