@@ -33,9 +33,11 @@ void eventHandler::set(WiFiClient c, int interval, uint8_t nType)
   for(int i = 0; i < CLIENTS; i++) // find an unused client
     if(!ec[i].inUse())
     {
-      ec[i].set(c, interval, nType);
+      ec[i].set(c, interval, nType, m_bOpened);
       break;
     }
+
+  m_bOpened = true; // for reboot checking
 }
 
 void eventHandler::heartbeat()
@@ -57,6 +59,8 @@ void eventHandler::heartbeat()
     {
       if(--m_critical_timer == 0) // give it double the time requested
       {
+        Serial.println("Critical timeout");
+        delay(1000);
         ESP.reset();  // all outputs will be reset to off in hvac instance on startup
       }
     }
@@ -103,7 +107,7 @@ void eventHandler::alert(String s) // send alert event
 
 // *** eventClient ***
 
-void eventClient::set(WiFiClient cl, int t, uint8_t nType)
+void eventClient::set(WiFiClient cl, int t, uint8_t nType, bool bOpened)
 {
   m_client = cl;
   m_interval = t;
@@ -111,6 +115,10 @@ void eventClient::set(WiFiClient cl, int t, uint8_t nType)
   m_keepAlive = 10;
   m_nType = nType;
   m_client.print(":ok\n");
+  if(bOpened == false)
+  {
+    alert("restarted");
+  }
 }
 
 bool eventClient::inUse()
