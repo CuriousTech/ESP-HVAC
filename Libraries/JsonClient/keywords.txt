@@ -1,0 +1,22 @@
+###################################
+# Syntax Coloring Map For JsonClient
+###################################
+
+###################################
+# Datatypes (KEYWORD1)
+###################################
+
+JsonClient KEYWORD1
+
+###################################
+# Methods and Functions (KEYWORD2)
+###################################
+
+addList	KEYWORD2
+begin	KEYWORD2
+service	KEYWORD2
+end	KEYWORD2
+
+###################################
+# Constants (LITERAL1)
+###################################
