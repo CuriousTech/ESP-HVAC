@@ -9,7 +9,7 @@
 #include "WebHandler.h"
 #include <Event.h>
 #include "HVAC.h"
-#include "JsonClient.h"
+#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
 #include "display.h" // for display.Note()
 
 //-----------------
