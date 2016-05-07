@@ -104,7 +104,9 @@ void Display::checkNextion() // all the Nextion recieved commands
               delay(10); // 20 works
               updateClock();
               break;
-            case 17: // DOW
+            case 15: // DOW
+              nex.setPage("keyboard"); // go to keyboard
+              nex.itemText(1, "Enter Zipcode");
               break;
           }
           break;
@@ -114,6 +116,11 @@ void Display::checkNextion() // all the Nextion recieved commands
       }
       break;
     case 0x70:// string return from keyboard
+      if(strlen(cBuf + 1) > 6)
+      {
+        strcpy(hvac.m_EE.zipCode, cBuf + 1);
+      }
+      screen(true);
       break;
   }
 }
@@ -172,16 +179,25 @@ void Display::drawForecast(bool bRef)
   int8_t max = -50;
   int8_t i;
 
-  if(hvac.m_fcData[0].h == -1 || nex.getPage()) // no first run
+  if(hvac.m_fcData[0].h == -1 || nex.getPage()) // no data yet or display on different page
     return;
 
   int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..
   int8_t mins = (60 - minute() + 54) % 60;   // mins to :54, retry will be :59
 
+  if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
+  {
+    hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
+    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].h, hvac.m_fcData[1].h, 60, 3);
+    for(int i = 1; i < 18; i++)
+      hvac.m_fcData[i].h -= 24;
+  }
+
   if(mins > 10 && hrs > 2) hrs--;     // wrong
 
   m_updateFcst = ((hrs * 60) + mins);
     // Get min/max
+
   for(i = 0; i < 18; i++)
   {
     int8_t t = hvac.m_fcData[i].t;
@@ -242,8 +258,6 @@ void Display::drawForecast(bool bRef)
     }
   }
 
-
-
   day_x += 84;
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
     nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]);
@@ -301,10 +315,10 @@ void Display::Note(char *cNote)
 }
 
 // update the notification text box
-void Display::updateNotification(bool bForce)
+void Display::updateNotification(bool bRef)
 {
   static uint8_t note_last = Note_Init; // Needs a clear after startup
-  if(!bForce && note_last == hvac.m_notif) // nothing changed
+  if(!bRef && note_last == hvac.m_notif) // nothing changed
     return;
   note_last = hvac.m_notif;
 
@@ -317,7 +331,7 @@ void Display::updateNotification(bool bForce)
       s = "Cycle Limit";
       break;
     case Note_Filter:
-      s = "Change Filter";
+      s = "Replace Filter";
       break;
     case Note_Forecast:
       s = "Forecast Error"; // max chars 14 with this font
@@ -327,7 +341,7 @@ void Display::updateNotification(bool bForce)
       break;
   }
   nex.itemText(12, s);
-  if(s != "")
+  if(s != "" && bRef == false) // refresh shouldn't be resent
     event.alert(s);
 }
 
@@ -591,17 +605,16 @@ void Display::addGraphPoints()
   if(m_pointsAdded == 299)
     memcpy(&m_points, &m_points+(5*sizeof(uint8_t)), sizeof(m_points) - (5*sizeof(uint8_t)));
 
-  const int base = 600; // 60.0 base   Todo: scale all this
-  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 121 / 110; // 60~90 scale to 0~220
+  const int base = 660; // 66.0 base   Todo: scale all this
+  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 101 / 110; // 66~90 scale to 0~220
   m_points[m_pointsAdded][1] = hvac.m_rh * 55 / 250;
-  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 121 / 110;
+  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 101 / 110;
 
   int8_t tt = hvac.m_EE.cycleThresh;
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
     tt = -tt;
 
-  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 121 / 110;
-
+  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 101 / 110;
   m_points[m_pointsAdded][4] = hvac.getState();
 
   if(m_pointsAdded < 299) // 300x220
@@ -611,14 +624,14 @@ void Display::addGraphPoints()
 // Draw the last 25 hours (todo: add run times)
 void Display::fillGraph()
 {
-  nex.text(292, 219, 2, rgb16(0, 63, 31), String(65));
-  nex.line(10,  164+8, 310, 164+8, rgb16(10, 20, 10) );
-  nex.text(292, 164, 2, rgb16(0, 63, 31), String(70));
-  nex.line(10,  112+8, 310, 112+8, rgb16(10, 20, 10) );
-  nex.text(292, 112, 2, rgb16(0, 63, 31), String(75));
-  nex.line(10,  58+8, 310, 58+8, rgb16(10, 20, 10) );
-  nex.text(292,  58, 2, rgb16(0, 63, 31), String(80));
-  nex.text(292,   8, 2, rgb16(0, 63, 31), String(85));
+  nex.text(292, 219, 2, rgb16(0, 63, 31), String(66));
+  nex.line( 10, 164+8, 310, 164+8, rgb16(10, 20, 10) );
+  nex.text(292, 164, 2, rgb16(0, 63, 31), String(72));
+  nex.line( 10, 112+8, 310, 112+8, rgb16(10, 20, 10) );
+  nex.text(292, 112, 2, rgb16(0, 63, 31), String(78));
+  nex.line( 10, 58+8, 310, 58+8, rgb16(10, 20, 10) );
+  nex.text(292, 58, 2, rgb16(0, 63, 31), String(84));
+  nex.text(292,  8, 2, rgb16(0, 63, 31), String(90));
 
   int16_t x = m_pointsAdded - (minute() / 5); // center over even hour
   int8_t h = hourFormat12();
@@ -632,11 +645,11 @@ void Display::fillGraph()
     if( h <= 0) h += 12;
   }
 
-//  drawPoints(0, rgb16(31,  0,  0) ); // inTemp red
-  drawPointsTemp();
+  drawPoints(2, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
+  drawPoints(3, rgb16( 22, 40, 10) ); // target threshold
   drawPoints(1, rgb16( 0, 63,  0) ); // rh green
-  drawPoints(2, rgb16( 0, 20, 31) ); // target blue-ish
-  drawPoints(3, rgb16( 0, 20, 31) ); // target blue-ish
+  drawPointsTemp();
+//  drawPoints(0, rgb16(31,  0,  0) ); // plain inTemp red
 }
 
 void Display::drawPoints(uint8_t arr, uint16_t color)
@@ -646,7 +659,6 @@ void Display::drawPoints(uint8_t arr, uint16_t color)
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    while(m_points[i-1][arr] == m_points[i][arr] && i < m_pointsAdded-1) i++; // optimize
     nex.line(x, yOff - y, i+10, yOff - m_points[i][arr], color);
     x = i + 10;
     y = m_points[i][arr];
@@ -662,8 +674,6 @@ void Display::drawPointsTemp()
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    while(m_points[i-1][0] == m_points[i][0] && m_points[i-1][4] == m_points[i][4] && i < m_pointsAdded-1)
-      i++;
     color = stateColor(m_points[i][4]);
     nex.line(x, yOff - y, i+10, yOff - m_points[i][0], color);
     x = i + 10;
@@ -678,7 +688,7 @@ uint16_t Display::stateColor(uint8_t v) // return a color based on run state
   switch(v)
   {
     case State_Off: // off
-      color = rgb16(10, 20, 10); // gray
+      color = rgb16(20, 40, 20); // gray
       break;
     case State_Cool: // cool
       color = rgb16(0, 0, 31); // blue
