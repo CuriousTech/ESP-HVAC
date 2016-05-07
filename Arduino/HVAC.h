@@ -66,6 +66,7 @@ struct EEConfig
 	uint16_t overrideTime;	// time used for an override
 	uint8_t  heatMode;	// heating mode (gas, electric)
 	int8_t   tz;        // current timezone and DST
+  char     zipCode[8]; // Your zipcode
 	uint16_t sum;
 };
 
