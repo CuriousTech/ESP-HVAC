@@ -33,6 +33,7 @@ HVAC::HVAC()
   m_remoteTimeout   = 60*5;   // 5 minutes default
   m_EE.tz = -5;
   m_EE.filterMinutes = 0;
+  strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
   m_outTemp = 0;
