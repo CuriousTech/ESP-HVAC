@@ -41,12 +41,13 @@ private:
   void updateModes(void); // update any displayed settings
   void updateAdjMode(bool bRef);  // current adjust of the 4 temp settings
   void updateRSSI(void);
-  void updateNotification(bool bForce);
+  void updateNotification(bool bRef);
   void updateRunIndicator(bool bForce); // run and fan running
   void addGraphPoints(void);
   void fillGraph(void);
   void drawPoints(uint8_t arr, uint16_t color);
   void drawPointsTemp(void);
+  uint16_t stateColor(uint8_t v);
   void Lines(void);
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
