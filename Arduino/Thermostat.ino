@@ -37,11 +37,9 @@ SOFTWARE.
 #include "WebHandler.h"
 #include "display.h"
 #include <Wire.h>
-#include "LibHumidity.h"
+#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 
-//----- Configuration------
-char    ZipCode[] = "41042";
-
+//----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
 #define SCL       2
 #define SDA      13
@@ -58,7 +56,7 @@ eventHandler event(dataJson);
 
 HVAC hvac;
 
-LibHumidity sht(SDA, SCL);
+SHT21 sht(SDA, SCL, 5);
 
 XML_tag_t Xtags[] =
 {
@@ -81,7 +79,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   switch(item)
   {
     case 0:            // valid time
-      if(!idx)         // first item isn't really data.  Use for past data
+      if(!idx)         // first item isn't really data
       {
         hO = 0;        // reset hour offset
         lastd = day();
@@ -96,18 +94,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
       if(p[19] == '-') // its negative
         newtz = -newtz;
-/*
-    Serial.print("fc ");
-    Serial.print(d);
-    Serial.print(" ");
-    Serial.print(h);
-    Serial.print(" ");
-    Serial.print(hO);
-    Serial.print(" ");
-    Serial.print(hvac.m_fcData[idx-1].h);
-    Serial.print(" ");
-    Serial.println(newtz);
-*/
+
       if(idx == 1 && newtz != hvac.m_EE.tz) // DST change occurs this hour
       {
         hvac.m_EE.tz = newtz;
@@ -127,7 +114,7 @@ void GetForecast()
   char *p_cstr_array[] =
   {
     (char *)"/xml/sample_products/browser_interface/ndfdXMLclient.php?zipCodeList=",
-    ZipCode,
+    hvac.m_EE.zipCode,
     (char*)"&Unit=e&temp=temp&Submit=Submit",
     NULL
   };
@@ -188,7 +175,10 @@ void loop()
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
-  sht.service();
+  if(sht.service())
+  {
+    hvac.updateIndoorTemp( sht.getTemperatureF() * 10, sht.getRh() * 10 );
+  }
 
   if(sec_save != second()) // only do stuff once per second
   {
@@ -345,42 +335,9 @@ bool checkUdpTime()
   unsigned long d = (highWord << 16 | lowWord) / 4295000; // convert to ms
   delay(d); // delay to next second (meh)
   setTime(epoch);
-//  DST(); // check the DST and reset clock
   
 //  Serial.print("Time ");
 //  Serial.println(timeFmt(true, true));
   bNeedUpdate = false;
   return true;
 }
-/* Forecast will add DST to the TZ, just wait 1 minute. Otherwise adjust TZ with this.
-void DST() // 2016 starts 2AM Mar 13, ends Nov 6
-{
-  tmElements_t tm;
-  breakTime(now(), tm);
-  // save current time
-  uint8_t m = tm.Month;
-  int8_t d = tm.Day;
-  int8_t dow = tm.Wday;
-
-  tm.Month = 3; // set month = Mar
-  tm.Day = 14; // day of month = 14
-  breakTime(makeTime(tm), tm); // convert to get weekday
-
-  uint8_t day_of_mar = (7 - tm.Wday) + 8; // DST = 2nd Sunday
-
-  tm.Month = 11; // set month = Nov (0-11)
-  tm.Day = 7; // day of month = 7 (1-30)
-  breakTime(makeTime(tm), tm); // convert to get weekday
-
-  uint8_t day_of_nov = (7 - tm.Wday) + 1;
-
-  if ((m  >  3 && m < 11 ) ||
-      (m ==  3 && d > day_of_mar) ||
-      (m ==  3 && d == day_of_mar && hour() >= 2) ||  // DST starts 2nd Sunday of March;  2am
-      (m == 11 && d <  day_of_nov) ||
-      (m == 11 && d == day_of_nov && hour() < 2))   // DST ends 1st Sunday of November; 2am
-   dst = 1;
- else
-   dst = 0;
-}
-*/
