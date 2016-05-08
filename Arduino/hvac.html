@@ -86,7 +86,7 @@ function readSettings() // read all settings
 
 function setVar(varName, value)
 {
-	$.post("s",{key: document.all.myToken.value, set: varName+'='+value})
+  $.get('s?key='+document.all.myToken.value+'&'+varName+'='+value)
 }
 
 function setfan(n)
