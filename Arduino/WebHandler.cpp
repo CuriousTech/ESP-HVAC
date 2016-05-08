@@ -88,21 +88,12 @@ void parseParams()
   {
     server.arg(i).toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + server.argName ( i ) + ": " + s);
 
     if(server.argName(i) == "key")
     {
       password = s;
     }
-    else if(server.argName(i) == "set")
-    {
-      if(password == controlPassword)
-      {
-        String cmd = s.substring(0, s.indexOf('='));
-        int val = s.substring(s.indexOf('=')+1).toInt();
-        hvac.setVar(cmd, val);
-      }
-    }
+    else hvac.setVar(server.argName(i), s.toInt() );
   }
  
   uint32_t ip = server.client().remoteIP();
@@ -217,7 +208,7 @@ void handleRoot() // Main webpage interface
    "\n"
    "function setVar(varName, value)\n"
    "{\n"
-   "  $.post(\"s\",{key: document.all.myToken.value, set: varName+'='+value})\n"
+   "  $.get('s?key='+document.all.myToken.value+'&'+varName+'='+value)\n"
    "}\n"
    "\n"
    "function setfan(n)\n"
@@ -615,7 +606,7 @@ void handleRemote()
   int nPort;
 //  Serial.println("handleRemote");
 
-  ipString(server.client().remoteIP()).toCharArray(ip, 64); // default IP is client
+  ipString(server.client().remoteIP()).toCharArray(ip, 64); // default host IP is client
 
   for ( uint8_t i = 0; i < server.args(); i++ ) {
     server.arg(i).toCharArray(temp, 100);
