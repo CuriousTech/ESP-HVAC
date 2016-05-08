@@ -188,7 +188,7 @@ void Display::drawForecast(bool bRef)
   if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
     hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].h, hvac.m_fcData[1].h, 60, 3);
+    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
     for(int i = 1; i < 18; i++)
       hvac.m_fcData[i].h -= 24;
   }
