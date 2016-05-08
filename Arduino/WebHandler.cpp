@@ -604,6 +604,7 @@ void handleRemote()
   char path[64];
   String sKey;
   int nPort;
+  bool bEnd = false;
 //  Serial.println("handleRemote");
 
   ipString(server.client().remoteIP()).toCharArray(ip, 64); // default host IP is client
@@ -619,6 +620,8 @@ void handleRemote()
        s.toCharArray(path, 64);
     else if(server.argName(i) == "port")
        nPort = s.toInt();
+    else if(server.argName(i) == "end")
+       bEnd = true;
     else if(server.argName(i) == "key")
        sKey = s;
   }
@@ -627,6 +630,12 @@ void handleRemote()
 
   if(sKey != controlPassword)
     return;
+
+  if(bEnd) // end a remote sensor
+  {
+    remoteStream.end();
+    return;
+  }
 
   remoteStream.begin(ip, path, nPort, true);
   remoteStream.addList(jsonList1);
