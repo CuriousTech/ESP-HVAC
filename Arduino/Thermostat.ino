@@ -21,8 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.6.5rX and esp8266 SDK 2.2.0
-// 1.6.8 has conflicts with Time.h in the esp8266 directory and the library.
+// Build with Arduino IDE 1.6.8 and esp8266 SDK 2.2.0
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
@@ -98,6 +97,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       if(idx == 1 && newtz != hvac.m_EE.tz) // DST change occurs this hour
       {
         hvac.m_EE.tz = newtz;
+        getUdpTime(); // correct for new DST
       }
       break;
     case 1:                  // temperature
@@ -167,7 +167,6 @@ void loop()
   static uint8_t hour_save, min_save, sec_save;
   static int8_t lastSec;
   static int8_t lastHour;
-  static int8_t oldTZ = hvac.m_EE.tz;
 
   if(bNeedUpdate)   // if getUpdTime was called
     checkUdpTime();
@@ -211,11 +210,6 @@ void loop()
         {
           case XML_DONE:
             hvac.enable();
-            if(hvac.m_EE.tz != oldTZ)
-            {
-              oldTZ = hvac.m_EE.tz;
-              getUdpTime(); // start the SMPT get
-            }
             display.drawForecast(true);
             event.alert("Forecast success");
             break;
