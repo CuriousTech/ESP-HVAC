@@ -127,9 +127,13 @@ void Display::checkNextion() // all the Nextion recieved commands
 
 void Display::updateTemps()
 {
-  if(nex.getPage())
-    return;
   static uint16_t last[7];  // only draw changes
+
+  if(nex.getPage())
+  {
+    memset(last, 0, sizeof(last));
+    return;
+  }
 
   if(last[0] != hvac.m_inTemp)          nex.itemFp(2, last[0] = hvac.m_inTemp);
   if(last[1] != hvac.m_rh)              nex.itemFp(3, last[1] = hvac.m_rh);
@@ -145,9 +149,13 @@ const char *_days_short[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 // time and dow on main page
 void Display::displayTime()
 {
-  if(nex.getPage()) return;  // t7 and t8 are only on thermostat (for now)
+  static int8_t lastDay = -1;
 
-  static char lastDay = -1;
+  if(nex.getPage())
+  {
+    lastDay = -1;
+    return;  // t7 and t8 are only on thermostat (for now)
+  }
 
   String sTime = String( hourFormat12() );
   sTime += ":";
@@ -188,8 +196,8 @@ void Display::drawForecast(bool bRef)
   if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
     hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
-    for(int i = 1; i < 18; i++)
+    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3);
+    for(int i = 1; i < 18; i++) // and adjust the times
       hvac.m_fcData[i].h -= 24;
   }
 
@@ -442,7 +450,10 @@ void Display::updateModes() // update any displayed settings
   static uint8_t heatMode = 10;
 
   if(nex.getPage())
+  {
+    nMode = heatMode = 10;
     return;
+  }
 
   if(bFan != hvac.getFan())
     nex.itemText(9, sFan[bFan = hvac.getFan()]);
