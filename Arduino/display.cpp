@@ -196,7 +196,7 @@ void Display::drawForecast(bool bRef)
   if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
     hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-    hvac.m_fcData[0].t = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3);
+    hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
     for(int i = 1; i < 18; i++) // and adjust the times
       hvac.m_fcData[i].h -= 24;
   }
@@ -258,7 +258,7 @@ void Display::drawForecast(bool bRef)
       {
         nex.text(day_x = x - 54, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]);
       }
-      if(++day >6) day = 0;
+      if(++day > 6) day = 0;
     }
     if( (h % 24) == 12) // noon
     {
@@ -318,6 +318,7 @@ void Display::displayOutTemp()
 
 void Display::Note(char *cNote)
 {
+  screen(true);
   nex.itemText(12, cNote);
   event.alert(cNote);
 }
@@ -362,6 +363,10 @@ bool Display::screen(bool bOn)
   if(bOldOn && nex.getPage()) // not in sync
     bOldOn = false;
 
+  if(bOn) // input or other reason
+  {
+    nex.brightness(NEX_BRIGHT);
+  }
   if(bOn == false && nex.getPage() == Page_Graph) // last sequence was graph
     bOn = true;
 
@@ -373,25 +378,22 @@ bool Display::screen(bool bOn)
     nex.setPage("Thermostat");
     delay(25); // 20 works most of the time
     refreshAll();
-    nex.brightness(NEX_BRIGHT);
   }
   else switch(nex.getPage())
   {
     case Page_Clock: // already clock
       randomSeed(analogRead(0)+micros());
       nex.setPage("blank"); // lines
-      nex.brightness(NEX_DIM);
       break;
     case Page_Blank: // lines
       nex.setPage("graph"); // chart thing
       fillGraph();
-      nex.brightness(50);
       break;
     default:  // probably thermostat
       nex.setPage("clock"); // clock
       delay(20);
       updateClock();
-      nex.brightness(NEX_MEDIUM);
+      nex.brightness(NEX_DIM);
       break;
   }
   bOldOn = bOn;
@@ -503,7 +505,22 @@ void Display::updateRSSI()
   rssiAvg /= RSSI_CNT;
   if(rssiAvg == rssiT)
     return;
+
   nex.itemText(22, String(rssiT = rssiAvg) + "dB");
+
+  int sigStrength = 127 + rssiT;
+  int wh = 38; // width and height
+  int x = 164;
+  int y = 158;
+  int sect = 127 / 6; //
+  int dist = wh  / 6; // distance between blocks
+
+  y += wh - 10;
+
+  for (int i = 0; i < 6; i++)
+  {
+    nex.fill( x + i*dist, y - i*dist, dist-2, i*dist, (sigStrength > i * sect) ? rgb16(0, 63,31) : rgb16(5, 10, 5) );
+  }
 }
 
 void Display::updateRunIndicator(bool bForce) // run and fan running
@@ -644,13 +661,13 @@ void Display::fillGraph()
   nex.text(292, 58, 2, rgb16(0, 63, 31), String(84));
   nex.text(292,  8, 2, rgb16(0, 63, 31), String(90));
 
-  int16_t x = m_pointsAdded - (minute() / 5); // center over even hour
+  int16_t x = m_pointsAdded - 1 - (minute() / 5); // center over even hour
   int8_t h = hourFormat12();
 
   while(x > 10)
   {
     nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
-    nex.text(x-3, 0, 1, 0x7FF, String(h)); // draw hour above chart
+    nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
     x -= 12 * 6; // left 6 hours
     h -= 6;
     if( h <= 0) h += 12;
@@ -658,7 +675,7 @@ void Display::fillGraph()
 
   drawPoints(2, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   drawPoints(3, rgb16( 22, 40, 10) ); // target threshold
-  drawPoints(1, rgb16( 0, 63,  0) ); // rh green
+  drawPoints(1, rgb16(  0, 53,  0) ); // rh green
   drawPointsTemp();
 //  drawPoints(0, rgb16(31,  0,  0) ); // plain inTemp red
 }
@@ -670,8 +687,11 @@ void Display::drawPoints(uint8_t arr, uint16_t color)
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    nex.line(x, yOff - y, i+10, yOff - m_points[i][arr], color);
-    x = i + 10;
+    if(y != m_points[i+1][arr])
+    {
+      nex.line(x, yOff - y, i+10, yOff - m_points[i][arr], color);
+      x = i + 10;
+    }
     y = m_points[i][arr];
   }
 }
