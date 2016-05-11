@@ -11,11 +11,13 @@ R14,R15         ADC voltage divider (not used)
 R16             1K (only works with serial debug disconnected)
 R17             5K6 (works with and without serial debug but R13 (10K) on the Nextion display must be removed)
 R18             0 jumper (Do not use: Allows for I2C device in place of DHT22)
+R19             10K 0805 (pullup in case 10K isn't removed from Nextion)
 C1          *   UWD1V150MCL1 35V 15uF
 C2          *   UCL1A221MCL1GS 10V 220uF
 C3,C4           0805 16V 0.1uF
 C5,C6           0805 10V 0.01uF
 C7,C8           0805 16V 1uF
+C9              0805 16V 0.1uF
 F1          *   1812 PPTC Fuse 1.5A PTS181224V150
 LCD,NEXPROG     4-pin 0.1" header.  Same pinout.  Use either for serial programming of display.
 J1              ADC expansion.  Not used.
