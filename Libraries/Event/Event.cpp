@@ -114,7 +114,7 @@ void eventClient::set(WiFiClient cl, int t, uint8_t nType, bool bOpened)
   m_timer = 2; // send data in 2 seconds
   m_keepAlive = 10;
   m_nType = nType;
-  m_client.print(":ok\n");
+//  m_client.print(":ok\n\n");
   if(bOpened == false)
   {
     alert("restarted");
@@ -133,7 +133,7 @@ void eventClient::push()
   m_keepAlive = 11; // anything sent resets keepalive
   m_timer = m_interval;
   String s = jsonCallback();
-  m_client.print("event: state\ndata: " + s + "\n");
+  m_client.print("event: state\ndata: " + s + "\n\n");
 }
 
 void eventClient::pushInstant()
@@ -144,12 +144,12 @@ void eventClient::pushInstant()
 
 void eventClient::print(String s) // print event
 {
-  m_client.print("event: print\ndata: " + s + "\n");
+  m_client.print("event: print\ndata: " + s + "\n\n");
 }
 
 void eventClient::alert(String s) // send a json formatted alert event
 {
-  m_client.print("event: alert\ndata: " + s + "\n");
+  m_client.print("event: alert\ndata: " + s + "\n\n");
 }
 
 void eventClient::beat()
@@ -164,7 +164,7 @@ void eventClient::beat()
   }
   if(--m_keepAlive == 0)
   {
-    m_client.print("\n");     // send something to keep connection from timing out on other end
+    m_client.print("\n\n");     // send something to keep connection from timing out on other end
     m_keepAlive = 10;
   }
 }
