@@ -84,7 +84,7 @@ void parseParams()
   char temp[100];
   String password;
 
-  for ( uint8_t i = 0; i < server.args(); i++ )
+  for ( uint8_t i = 0; i < server.args(); i++ ) // password may be at end
   {
     server.arg(i).toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
@@ -93,9 +93,17 @@ void parseParams()
     {
       password = s;
     }
-    else
+  }
+
+  for ( uint8_t i = 0; i < server.args(); i++ )
+  {
+    server.arg(i).toCharArray(temp, 100);
+    String s = wifi.urldecode(temp);
+
+    if(server.argName(i) != "key")
     {
-      hvac.setVar(server.argName(i), s.toInt() );
+      if(nWrongPass == 0 && password == controlPassword)
+        hvac.setVar(server.argName(i), s.toInt() );
       display.screen(true); // switch to main page, undim when varabled are changed
     }
   }
@@ -172,6 +180,9 @@ void handleRoot() // Main webpage interface
    "    document.all.fOn.setAttribute('class', fanMode==1?'style5':'')\n"
    "    document.all.run.innerHTML = states[+Json.s]\n"
    "    document.all.runCell.setAttribute('class',running?'style5':'style1')\n"
+   "  },false)\n"
+   "  eventSource.addEventListener('alert',function(e){\n"
+   "    alert(e.data)\n"
    "  },false)\n"
    "}\n"
    "\n"
@@ -557,10 +568,10 @@ void handleEvents()
     nType = 0;
 
   event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
-  String content = "HTTP/1.1 200 OK\r\n"
-      "Connection: keep-alive\r\n"
-      "Access-Control-Allow-Origin: *\r\n"
-      "Content-Type: text/event-stream\r\n\r\n";
+  String content = "HTTP/1.1 200 OK\n"
+      "Connection: keep-alive\n"
+      "Access-Control-Allow-Origin: *\n"
+      "Content-Type: text/event-stream\n\n";
   server.sendContent(content);
 }
 
