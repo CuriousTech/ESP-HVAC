@@ -67,10 +67,13 @@ HVAC::HVAC()
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
   pinMode(P_REV, OUTPUT);
+  pinMode(P_HUMID, OUTPUT);
   pinMode(P_HEAT, OUTPUT);
+
   digitalWrite(P_HEAT, LOW);
-  digitalWrite(P_REV, HIGH); // HIGH = OFF = HEAT
+  digitalWrite(P_REV, LOW); // LOW = HEAT, HIGH = COOL
   digitalWrite(P_COOL, LOW);
+  digitalWrite(P_HUMID, HIGH); // LOW = ON
   digitalWrite(P_FAN, LOW);
 }
 
@@ -182,9 +185,9 @@ void HVAC::service()
     {
       case Mode_Cool:
         fanSwitch(true);
-        if(digitalRead(P_REV) != LOW)
+        if(digitalRead(P_REV) != HIGH)
         {
-          digitalWrite(P_REV, LOW);  // set heatpump to cool (if heats, reverse this)
+          digitalWrite(P_REV, HIGH);  // set heatpump to cool (if heats, reverse this)
           delay(3000);               //    if no heatpump, remove
         }
         digitalWrite(P_COOL, HIGH);
@@ -197,9 +200,9 @@ void HVAC::service()
         else
         {
           fanSwitch(true);
-          if(digitalRead(P_REV) != HIGH)  // set heatpump to heat (if heats, reverse this)
+          if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if heats, reverse this)
           {
-            digitalWrite(P_REV, HIGH);
+            digitalWrite(P_REV, LOW);
             delay(3000);
           }
           digitalWrite(P_COOL, HIGH);
@@ -343,8 +346,8 @@ bool HVAC::preCalcCycle(int8_t mode)
 void HVAC::calcTargetTemp(int8_t mode)
 {
   if(!m_bRunning)
-    if(digitalRead(P_REV) != (mode == Mode_Heat) )  // set heatpump same as current mode (Note: some models may be reversed)
-      digitalWrite(P_REV, (mode == Mode_Heat) ? HIGH : LOW);
+    if(digitalRead(P_REV) != (mode == Mode_Cool) )  // set heatpump same as current mode (Note: some models may be reversed)
+      digitalWrite(P_REV, (mode == Mode_Cool) ? HIGH : LOW);
 
   int16_t L = m_outMin[1];
   int16_t H = m_outMax[1];
@@ -658,6 +661,7 @@ static const char *cSCmds[] =
   "overridetime",
   "remotetemp",
   "remotetime",
+  "humid",
   NULL
 };
 
@@ -757,6 +761,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 18: // remotetime
       m_remoteTimeout = constrain(val, 1, 60*5); // Limit 1 sec to 5 minutes
+      break;
+    case 19: // humidifier (test)
+      digitalWrite(P_HUMID, val ? LOW:HIGH);
       break;
   }
 }
