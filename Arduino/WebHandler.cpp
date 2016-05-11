@@ -93,7 +93,11 @@ void parseParams()
     {
       password = s;
     }
-    else hvac.setVar(server.argName(i), s.toInt() );
+    else
+    {
+      hvac.setVar(server.argName(i), s.toInt() );
+      display.screen(true); // switch to main page, undim when varabled are changed
+    }
   }
  
   uint32_t ip = server.client().remoteIP();
