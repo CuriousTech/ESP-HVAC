@@ -30,6 +30,6 @@ B1          *   DF206S-G
 D1          *   B260A-13-F
 X1          *   39357-0008 Screw terimal, 8 position 3.5mm pitch
 Encoder         EC12E24204A2 or other 12mm short shaft
-Q1          *   Undecided: PNP may work fine. (GPIO0 must be high or Z on boot)
+Q1          *   MMBT2907ALT1G (general purpose BJT PNP) GPIO0 must be high or Z on boot.
 
 * Only for main controller
