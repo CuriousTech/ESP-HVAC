@@ -10,6 +10,7 @@
 .style2 {text-align: right;}
 .style3 {background-color: #C0C0C0;}
 .style4 {text-align: right;background-color: #C0C0C0;}
+.style5 {background-color: #00D0D0;}
 .style6 {border-style: solid;border-width: 1px;background-color: #C0C0C0;}
 </style>
 
@@ -18,21 +19,23 @@
 <script type="text/javascript">
 <!--
 
-var Json,mode,autoMode,heatMode,fanMode,running,fan
+var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
-var heatmodes = new Array('HP','NG','Auto')
 
 function startEvents()
 {
-	eventSource = new EventSource("events?i=60&p=1")
+	eventSource = new EventSource("events?i=30&p=1")
 	eventSource.addEventListener('open',function(e){},false)
 	eventSource.addEventListener('error',function(e){},false)
 	eventSource.addEventListener('state',function(e){ // listen to frequent changed values
+		console.log(e)
+		console.log(e.data)
 		Json = JSON.parse(e.data)
 
 		running = +Json.r
 		fan = +Json.fr
-	
+		rh = +Json.h
+
 		document.all.intemp.innerHTML = +Json.it/10
 		document.all.rh.innerHTML = +Json.rh/10
 		document.all.target.innerHTML = +Json.tt/10
@@ -41,11 +44,12 @@ function startEvents()
 		document.all.runtotal.innerHTML = secsToTime(+Json.rt)
 
 		document.all.fan.innerHTML = fan?"Fan On":"Fan Off"
-		document.all.fanCell.setAttribute('class',fan?'style5':'style1')
-		document.all.fAuto.setAttribute('class', fanMode==0?'style5':'')
-		document.all.fOn.setAttribute('class', fanMode==1?'style5':'')
 		document.all.run.innerHTML = states[+Json.s]
-		document.all.runCell.setAttribute('class',running?'style5':'style1')
+		document.all.hm.innerHTML = rh?"Humid On":"Humid Off"
+		setAtt()
+	},false)
+	eventSource.addEventListener('alert',function(e){ // listen to alerts
+		alert(e.data)
 	},false)
 }
 
@@ -56,21 +60,16 @@ function readSettings() // read all settings
 		autoMode = +Json.am
 		heatMode = +Json.hm
 		fanMode = +Json.fm
+		humidMode= +Json.rhm
 		ovrActive = +Json.ot
+		setAtt()
 
-		document.all.mOff.setAttribute('class',mode==0?'style5':'')
-		document.all.mCool.setAttribute('class',mode==1?'style5':'')
-		document.all.mHeat.setAttribute('class',mode==2?'style5':'')
-		document.all.mAuto.setAttribute('class',mode==3?'style5':'')
-
-		document.all.hHP.setAttribute('class',heatMode==0?'style5':'')
-		document.all.hGas.setAttribute('class',heatMode==1?'style5':'')
-		document.all.hAuto.setAttribute('class',heatMode==2?'style5':'')
-	
 		document.all.cooll.value= +Json.c0/10
 		document.all.coolh.value= +Json.c1/10
 		document.all.heatl.value= +Json.h0/10
 		document.all.heath.value= +Json.h1/10
+		document.all.humidl.value= +Json.rh0/10
+		document.all.humidh.value= +Json.rh1/10
 		document.all.idlemin.value= +Json.im
 		document.all.cycmin.value= +Json.cn
 		document.all.cycmax.value= +Json.cx
@@ -80,7 +79,6 @@ function readSettings() // read all settings
 	
 		if( +document.all.ovrtemp.value==0) // set a better default
 			document.all.ovrtemp.value= -1.0
-		document.all.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
 	});
 }
 
@@ -94,27 +92,53 @@ function setfan(n)
 	fanMode=n
 	fan = fanMode?1:run
 	setVar('fanmode',fanMode?1:0)
-	document.all.fAuto.setAttribute('class',fanMode==0?'style5':'')
-	document.all.fOn.setAttribute('class',fanMode==1?'style5':'')
-	document.all.fan.innerHTML = "Fan "+(fanMode?"On":(fan?"On":"Off"))
-	document.all.fanCell.setAttribute('class',fan?'style5' : 'style1');
+	setAtt()
 }
 
 function setMode(m)
 {
 	setVar('mode',mode=m)
-	document.all.mOff.setAttribute('class',mode==0?'style5':'')
-	document.all.mCool.setAttribute('class',mode==1?'style5':'')
-	document.all.mHeat.setAttribute('class',mode==2?'style5':'')
-	document.all.mAuto.setAttribute('class',mode==3?'style5':'')
+	setAtt()
 }
 
 function setHeatMode(m)
 {
 	setVar('heatmode',heatMode=m)
+	setAtt()
+}
+
+function setHumidMode(m)
+{
+	setVar('humidmode',humidMode=m)
+	setAtt()
+}
+
+function setAtt()
+{
+	document.all.runCell.setAttribute('class',running?'style5':'style1')
+	document.all.hmCell.setAttribute('class',rh?'style5':'style1')
+	document.all.fAuto.setAttribute('class',fanMode==0?'style5':'')
+	document.all.fOn.setAttribute('class',fanMode==1?'style5':'')
+	document.all.fan.innerHTML = "Fan "+(fanMode?"On":(fan?"On":"Off"))
+	document.all.fanCell.setAttribute('class',fan?'style5' : 'style1')
+	document.all.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
+
+	document.all.mOff.setAttribute('class',mode==0?'style5':'')
+	document.all.mCool.setAttribute('class',mode==1?'style5':'')
+	document.all.mHeat.setAttribute('class',mode==2?'style5':'')
+	document.all.mAuto.setAttribute('class',mode==3?'style5':'')
+
 	document.all.hHP.setAttribute('class',heatMode==0?'style5':'')
 	document.all.hGas.setAttribute('class',heatMode==1?'style5':'')
 	document.all.hAuto.setAttribute('class',heatMode==2?'style5':'')
+
+	document.all.hmOff.setAttribute('class',humidMode==0?'style5':'')
+	document.all.hmHeat.setAttribute('class',humidMode==1?'style5':'')
+	document.all.hmCool.setAttribute('class',humidMode==2?'style5':'')
+	document.all.hmBoth.setAttribute('class',humidMode==3?'style5':'')
+	document.all.hmAuto1.setAttribute('class',humidMode==4?'style5':'')
+	document.all.hmAuto2.setAttribute('class',humidMode==5?'style5':'')
+	document.all.hmManual.setAttribute('class',humidMode==6?'style5':'')
 }
 
 function setCoolHi()
@@ -153,6 +177,25 @@ function incHeat(n)
 
 	setVar('heattemph',(+document.all.heath.value*10).toFixed())
 	setVar('heattempl',(+document.all.heatl.value*10).toFixed())
+}
+
+function setHumidHi()
+{
+	setVar('humidh',(+document.all.humidh.value*10).toFixed())
+}
+
+function setHumidLo()
+{
+	setVar('humidl',(+document.all.humidl.value*10).toFixed())
+}
+
+function incHumid(n)
+{
+	document.all.humidh.value= +document.all.humidh.value+n
+	document.all.humidl.value= +document.all.humidl.value+n
+
+	setVar('humidh',(+document.all.humidh.value*10).toFixed())
+	setVar('humidl',(+document.all.humidl.value*10).toFixed())
 }
 
 function setThresh()
@@ -248,7 +291,7 @@ function secsToTime( elap )
 </table>
 <input type="button" value="Save" onClick="{
    localStorage.setItem('myStoredText1', document.all.myToken.value)
-   alert( document.all.myToken.value + ' \nHas been stored')
+   alert( document.all.myToken.value + ' Has been stored')
 }">
 <input type="button" value="Hide" name="hide" onClick="{
 	if(document.all.myToken.style.visibility == 'hidden'){
@@ -304,6 +347,18 @@ function secsToTime( elap )
 		</td>
 	</tr>
 	<tr>
+		<td style="width: 44px" class="style1" id="hmCell"><div id="hm">NA</div></td>
+		<td colspan="2">
+		<input type="button" value="Off" name="hmOff" onClick="{setHumidMode(0)}">
+		<input type="button" value="H" name="hmHeat" onClick="{setHumidMode(1)}">
+		<input type="button" value="C" name="hmCool" onClick="{setHumidMode(2)}">
+		<input type="button" value="Both" name="hmBoth" onClick="{setHumidMode(3)}">
+		<input type="button" value="A1" name="hmAuto1" onClick="{setHumidMode(4)}">
+		<input type="button" value="A2" name="hmAuto2" onClick="{setHumidMode(5)}">
+		<input type="button" value="Man" name="hmManual" onClick="{setHumidMode(6)}">
+		</td>
+	</tr>
+	<tr>
 		<td style="width: 81px" class="style1">Cool Hi</td>
 		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="coolh"></td>
 		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCoolHi()}"><input type="button" value="+1" onClick="{incCool(1)}"></td>
@@ -327,6 +382,16 @@ function secsToTime( elap )
 		<td style="width: 81px" class="style1">Threshold</td>
 		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="thresh"></td>
 		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setThresh()}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Humid Hi</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="humidh"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHumidHi()}"><input type="button" value="+1" onClick="{incHumid(1)}"></td>
+	</tr>
+	<tr>
+		<td style="width: 81px" class="style1">Humid Lo</td>
+		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="humidl"></td>
+		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHumidLo()}"><input type="button" value=" -1" onClick="{incHumid(-1)}"></td>
 	</tr>
 	<tr>
 		<td style="width: 81px" class="style1">Fan Delay</td>
