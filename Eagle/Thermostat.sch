@@ -6169,6 +6169,7 @@ Grid 3.5 mm&lt;p&gt;
 <part name="C9" library="SparkFun-Capacitors" deviceset="CAP" device="0805" value="0.1uF"/>
 <part name="GND29" library="supply1" deviceset="GND" device=""/>
 <part name="R19" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="10K"/>
+<part name="R20" library="SparkFun-Passives" deviceset="RESISTOR" device="0805-RES" value="1K"/>
 </parts>
 <sheets>
 <sheet>
@@ -6262,6 +6263,7 @@ Grid 3.5 mm&lt;p&gt;
 <instance part="C9" gate="G$1" x="270.51" y="97.79"/>
 <instance part="GND29" gate="1" x="270.51" y="90.17"/>
 <instance part="R19" gate="G$1" x="260.35" y="166.37"/>
+<instance part="R20" gate="G$1" x="139.7" y="38.1"/>
 </instances>
 <busses>
 </busses>
@@ -6762,8 +6764,8 @@ Grid 3.5 mm&lt;p&gt;
 <segment>
 <pinref part="Q1" gate="G$1" pin="S"/>
 <wire x1="124.46" y1="43.18" x2="124.46" y2="45.72" width="0.1524" layer="91"/>
-<wire x1="124.46" y1="45.72" x2="127" y2="45.72" width="0.1524" layer="91"/>
-<label x="127" y="45.72" size="1.778" layer="95" xref="yes"/>
+<wire x1="124.46" y1="45.72" x2="128.27" y2="45.72" width="0.1524" layer="91"/>
+<label x="128.27" y="45.72" size="1.778" layer="95" xref="yes"/>
 </segment>
 <segment>
 <pinref part="R12" gate="G$1" pin="2"/>
@@ -7036,16 +7038,16 @@ Grid 3.5 mm&lt;p&gt;
 </net>
 <net name="HUMID" class="0">
 <segment>
-<pinref part="Q1" gate="G$1" pin="G"/>
-<wire x1="132.08" y1="38.1" x2="139.7" y2="38.1" width="0.1524" layer="91"/>
-<label x="139.7" y="38.1" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
 <wire x1="294.64" y1="27.94" x2="294.64" y2="36.83" width="0.1524" layer="91"/>
 <wire x1="269.24" y1="36.83" x2="294.64" y2="36.83" width="0.1524" layer="91"/>
 <pinref part="U$1" gate="G$1" pin="P$5"/>
 <label x="294.64" y="36.83" size="1.778" layer="95" xref="yes"/>
 <pinref part="FLASH" gate="G$1" pin="1"/>
+</segment>
+<segment>
+<pinref part="R20" gate="G$1" pin="2"/>
+<wire x1="144.78" y1="38.1" x2="152.4" y2="38.1" width="0.1524" layer="91"/>
+<label x="152.4" y="38.1" size="1.778" layer="95" xref="yes"/>
 </segment>
 </net>
 <net name="RXD2" class="0">
@@ -7066,6 +7068,13 @@ Grid 3.5 mm&lt;p&gt;
 <pinref part="R18" gate="G$1" pin="2"/>
 <pinref part="AM2302" gate="G$1" pin="2"/>
 <wire x1="172.72" y1="107.95" x2="179.07" y2="107.95" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$1" class="0">
+<segment>
+<pinref part="Q1" gate="G$1" pin="G"/>
+<pinref part="R20" gate="G$1" pin="1"/>
+<wire x1="132.08" y1="38.1" x2="134.62" y2="38.1" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
