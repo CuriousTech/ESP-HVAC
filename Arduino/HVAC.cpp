@@ -31,6 +31,10 @@ HVAC::HVAC()
   m_EE.fanPostDelay[1] = 120; // 2 minutes after compressor stops (cool)
   m_EE.overrideTime = 60*10;  // 10 mins default for override
   m_remoteTimeout   = 60*5;   // 5 minutes default
+  m_EE.humidMode = 0;
+  m_EE.rhLevel[0] = 450;    // 45.0%
+  m_EE.rhLevel[1] = 550;
+  m_EE.humidMode = 0;
   m_EE.tz = -5;
   m_EE.filterMinutes = 0;
   strcpy(m_EE.zipCode, "41042");
@@ -88,6 +92,12 @@ void HVAC::fanSwitch(bool bOn)
   if(bOn)
   {
     m_fanOnTimer = 0;       // reset fan on timer
+    if(m_EE.humidMode == HM_ManualOn)
+      digitalWrite(P_HUMID, LOW); // turn humidifier on
+  }
+  else
+  {
+    digitalWrite(P_HUMID, HIGH); // turn off humidifier
   }
 }
 
@@ -191,6 +201,10 @@ void HVAC::service()
           delay(3000);               //    if no heatpump, remove
         }
         digitalWrite(P_COOL, HIGH);
+        if(m_EE.humidMode == HM_Cool || m_EE.humidMode == HM_Both)
+        {
+          digitalWrite(P_HUMID, LOW);
+        }
         break;
     case Mode_Heat:
         if(hm)  // gas
@@ -206,6 +220,10 @@ void HVAC::service()
             delay(3000);
           }
           digitalWrite(P_COOL, HIGH);
+        }
+        if(m_EE.humidMode == HM_Heat || m_EE.humidMode == HM_Both)
+        {
+          digitalWrite(P_HUMID, LOW);
         }
         break;
     }
@@ -395,23 +413,6 @@ bool HVAC::getFanRunning()
   return (m_bRunning || m_furnaceFan || m_bFanRunning);
 }
 
-/* this seems overdone
-bool HVAC::getFanRunning()
-{
-  bool bOn = m_bFanRunning;
-
-  uint8_t mode = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode; // convert auto to just cool / heat
-
-  // Check if NG furnace is running, which controls the fan automatically
-  if(mode == Mode_Heat && ( m_EE.heatMode == Heat_NG || (m_EE.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) )) // if heat is nat gas
-  {
-    if(m_bRunning || m_furnaceFan)
-      bOn = true;
-  }
-  return bOn;
-}
-*/
-
 uint8_t HVAC::getMode()
 {
   return m_EE.Mode;
@@ -552,6 +553,20 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   if(m_remoteTimer == 0)  // only get local temp if no remote
     m_inTemp = Temp;
   m_rh = rh;
+
+  if(m_EE.humidMode == HM_Auto1) // basic humidifier+fan
+  {
+    if(digitalRead(P_HUMID) == LOW && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
+    {
+      digitalWrite(P_HUMID, LOW);
+      fanSwitch(true); // will use fan if not running
+    }
+    else if(digitalRead(P_HUMID) == HIGH && m_rh > m_EE.rhLevel[1])
+    {
+      digitalWrite(P_HUMID, HIGH);
+      fanSwitch(false); // will turn fan off if not running
+    }
+  }
 }
 
 // Update outdoor temp
@@ -615,6 +630,9 @@ String HVAC::settingsJson()
   s += ",\"ct\":";  s += m_EE.cycleThresh;
   s += ",\"fd\":";  s += m_EE.fanPostDelay[digitalRead(P_REV)];
   s += ",\"ov\":";  s += m_EE.overrideTime;
+  s += ",\"rhm\":";  s += m_EE.humidMode;
+  s += ",\"rh0\":";  s += m_EE.rhLevel[0];
+  s += ",\"rh1\":";  s += m_EE.rhLevel[1];
   s += "}";
   return s;
 }
@@ -636,6 +654,7 @@ String HVAC::getPushData()
   s += ",\"ct\":";  s += m_cycleTimer;
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
+  s += ",\"h\":";  s += digitalRead(P_HUMID) ? 0:1;
   s += "}";
   return s;
 }
@@ -661,7 +680,9 @@ static const char *cSCmds[] =
   "overridetime",
   "remotetemp",
   "remotetime",
-  "humid",
+  "humidmode",
+  "humidl",
+  "humidh",
   NULL
 };
 
@@ -762,8 +783,18 @@ void HVAC::setVar(String sCmd, int val)
     case 18: // remotetime
       m_remoteTimeout = constrain(val, 1, 60*5); // Limit 1 sec to 5 minutes
       break;
-    case 19: // humidifier (test)
-      digitalWrite(P_HUMID, val ? LOW:HIGH);
+    case 19: // humidmode
+      m_EE.humidMode = val;
+      if(digitalRead(P_HUMID) == LOW && val != HM_ManualOn) // is on
+        fanSwitch(false); // turn off
+      if(digitalRead(P_HUMID) == HIGH && val == HM_ManualOn) // if off and should turn on
+        fanSwitch(true);
+      break;
+    case 20: // humidl
+      m_EE.rhLevel[0] = val;
+      break;
+    case 21: // humidh
+      m_EE.rhLevel[1] = val;
       break;
   }
 }
