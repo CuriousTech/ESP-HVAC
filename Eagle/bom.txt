@@ -12,6 +12,7 @@ R16             1K (only works with serial debug disconnected)
 R17             5K6 (works with and without serial debug but R13 (10K) on the Nextion display must be removed)
 R18             0 jumper (Do not use: Allows for I2C device in place of DHT22)
 R19             10K 0805 (pullup in case 10K isn't removed from Nextion)
+R20         *   1K 0805
 C1          *   UWD1V150MCL1 35V 15uF
 C2          *   UCL1A221MCL1GS 10V 220uF
 C3,C4           0805 16V 0.1uF
