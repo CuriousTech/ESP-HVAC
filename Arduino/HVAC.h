@@ -50,6 +50,17 @@ enum State
   State_NG
 };
 
+enum HumidifierMode
+{
+  HM_Off,
+  HM_Heat,
+  HM_Cool,
+  HM_Both,
+  HM_Auto1,
+  HM_Auto2,
+  HM_ManualOn,
+};
+
 struct EEConfig
 {
   uint16_t size;
@@ -64,9 +75,12 @@ struct EEConfig
 	uint16_t filterMinutes;	// resettable minutes run timer (200 hours is standard change interval)
 	uint16_t fanPostDelay[2];	// delay to run auto fan after [hp][cool] stops
 	uint16_t overrideTime;	// time used for an override
-	uint8_t  heatMode;	// heating mode (gas, electric)
-	int8_t   tz;        // current timezone and DST
-  char     zipCode[8]; // Your zipcode
+	uint8_t  heatMode;	  // heating mode (gas, electric)
+	int8_t   tz;          // current timezone and DST
+  uint16_t  rhLevel[2];  // rh low/high
+  uint8_t  humidMode;   // Humidifier modes
+  uint8_t  res;         // reserved
+  char     zipCode[8];  // Your zipcode
 	uint16_t sum;
 };
 
