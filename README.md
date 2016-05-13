@@ -1,7 +1,9 @@
 # ESP8266-HVAC
 WiFi Smart HVAC Theromstat  
 
-<b>Update:</b>  Changes have been made in the bom.txt file.  The schematic is incorrect for some resistor values.  4K7 should be used for the SHT21 pullups, and the serial resistors have been changed.  The Nextion has a 10K pullduown resistor (R13: next to the connector) that must be removed for the ESP to boot wothout serial debug connected, or add a 10K pullup between TX and 3V3.  I've opted for the removal of the resistor.  R16 definitely needs a 1K to work correctly.  
+<b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
+
+<b>Update:</b>  Changes have been made in the bom.txt file.  The schematic is incorrect for some resistor values.  2K2 should be used for the SHT21 pullups, and the serial resistors have been changed.  The Nextion has a 10K pullduown resistor (R13: next to the connector) that must be removed for the ESP to boot wothout serial debug connected, or add a 10K pullup between TX and 3V3.  I've opted for the removal of the resistor.  R16 definitely needs a 1K to work correctly.  
 
 This will eventually replace the old Spark-O-Stat with a newer system using the ESP-07, with a better screen (Nextion HMI 2.8" touchscreen), 5 outputs (1 extra output for humidifier), option for SHT21 (I2C) or DHT22/11/AM2302, and anolog input for expansion.
 
@@ -12,3 +14,5 @@ The watchdog chip (PIC10F) is unnecessary, but can be used to monitor activity a
 Some screens including a keyboard and SSID chooser, but this is using the auto connect with SoftAP server (which attempts to find the stored SSID while waiting on input) so it should never be needed.  The dimmed screensaver will change to a clock, and few other odd displays over time.  
 
 ![Some display screenshots](http://www.curioustech.net/images/hvacscreens.png)
+
+![The thing](http://www.curioustech.net/images/esphvac2.jpg)
