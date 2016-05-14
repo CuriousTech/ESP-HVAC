@@ -14,8 +14,8 @@
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
 JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue) )
 {
-	m_callback = callback;
-	m_Status = JC_IDLE;
+  m_callback = callback;
+  m_Status = JC_IDLE;
   m_jsonCnt = 0;
   m_bufcnt = 0;
   m_event = 0;
@@ -92,7 +92,7 @@ bool JsonClient::service()
     m_Status = JC_TIMEOUT;
     m_client.stop();
     return false;
-	}
+  }
 
   return true;
 }
@@ -169,10 +169,12 @@ void JsonClient::processLine()
 
   char *p = strchr(m_buffer, ':');
   char *p2 = strchr(m_buffer, '{');
-  if(p == NULL || p2 == NULL)
+  if(p == NULL)
+  {
     return;
+  }
 
-  if(p > p2) // no event name
+  if(p2 && p > p2) // no event name
   {
     p = m_buffer;
   }
