@@ -37,6 +37,7 @@ HVAC::HVAC()
   m_EE.humidMode = 0;
   m_EE.tz = -5;
   m_EE.filterMinutes = 0;
+  m_EE.adj = 0;
   strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -79,6 +80,13 @@ HVAC::HVAC()
   digitalWrite(P_COOL, LOW);
   digitalWrite(P_HUMID, HIGH); // LOW = ON
   digitalWrite(P_FAN, LOW);
+}
+
+void HVAC::init()
+{
+  m_setMode = m_EE.Mode;
+  m_idleTimer = m_EE.idleMin / 2;
+  m_setHeat = m_EE.heatMode;
 }
 
 // Switch the fan on/off
@@ -271,6 +279,15 @@ bool HVAC::stateChange()
     return true;
   }
   return false;
+}
+
+bool HVAC::tempChange()
+{
+  static uint16_t nTemp = 0;
+  static uint16_t nTarget = 0;
+
+  nTemp = m_inTemp;
+  nTarget = m_targetTemp;
 }
 
 // Control switching of system by temp
@@ -540,6 +557,10 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   }
 }
 
+void HVAC::enableRemote()
+{
+}
+
 bool HVAC::isRemoteTemp()
 {
   return (m_remoteTimer || m_bRemoteConnected) ? true:false;
@@ -551,7 +572,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   if( m_bRemoteConnected )
     return;
   if(m_remoteTimer == 0)  // only get local temp if no remote
-    m_inTemp = Temp;
+    m_inTemp = Temp + m_EE.adj;
   m_rh = rh;
 
   if(m_EE.humidMode == HM_Auto1) // basic humidifier+fan
@@ -683,6 +704,7 @@ static const char *cSCmds[] =
   "humidmode",
   "humidl",
   "humidh",
+  "adj",
   NULL
 };
 
@@ -698,7 +720,7 @@ int HVAC::CmdIdx(String s, const char **pCmds )
   return iCmd;
 }
 
-// POST set params as "set: fanmode=1"
+// POST set params as "fanmode=1"
 void HVAC::setVar(String sCmd, int val)
 {
   switch( CmdIdx( sCmd, cSCmds ) )
@@ -795,6 +817,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 21: // humidh
       m_EE.rhLevel[1] = val;
+      break;
+    case 22: // adj
+      m_EE.adj = val;
       break;
   }
 }
