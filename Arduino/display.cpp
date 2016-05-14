@@ -70,10 +70,10 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 9: // heat lo
               m_adjustMode = btn-6;
               break;
-            case 23: // cool hi
-            case 24: // cool lo
-            case 25: // heat hi
-            case 26: // heat lo
+            case 21: // cool hi
+            case 22: // cool lo
+            case 23: // heat hi
+            case 24: // heat lo
               m_adjustMode = btn-23;
               break;
 
@@ -107,6 +107,14 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 15: // DOW
               nex.setPage("keyboard"); // go to keyboard
               nex.itemText(1, "Enter Zipcode");
+              break;
+            case 5:  // target temp
+            case 25:
+              hvac.enableRemote();
+              break;
+            case 1: // out
+            case 3: // in
+            case 4: // rh
               break;
           }
           break;
@@ -347,6 +355,12 @@ void Display::updateNotification(bool bRef)
       break;
     case Note_Network:
       s = "Network Error";
+      break;
+    case Note_RemoteOff:
+      s = "Remote Off";
+      break;
+    case Note_RemoteOn:
+      s = "Remote On";
       break;
   }
   nex.itemText(12, s);
