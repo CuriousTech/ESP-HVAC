@@ -15,6 +15,8 @@ Main and remote units are designed into the single PCB with wired 5V or USB Mini
 
 The watchdog chip (PIC10F) is unnecessary, but can be used to monitor activity and reset the ESP if it freezes.  All the components used are cheap.  The PCB is about $25 for 3 from OSH Park, and the Nextion display is $15 off eBay.
 
+<b>Remote:</b>  The Remote folder contains all the changes to the Arduino folder needed to build the remote code that handles mirroring all display data and sending commands to the main unit.  By tapping the target temperature on the display, it will toggle transmitting the remote temperature and humidity to the main unit to use in all operations.  Tapping the same item on the main unit will also end the remote temperature connection.  There are notifications to indicate use as well as a flashing run indicator instead of solid.  
+
 Some screens including a keyboard and SSID chooser, but this is using the auto connect with SoftAP server (which attempts to find the stored SSID while waiting on input) so it should never be needed.  The dimmed screensaver will change to a clock, and few other odd displays over time.  
 
 ![Some display screenshots](http://www.curioustech.net/images/hvacscreens.png)
