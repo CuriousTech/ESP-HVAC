@@ -3,7 +3,11 @@ WiFi Smart HVAC Theromstat
 
 <b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
 
-<b>Update:</b>  Changes have been made in the bom.txt file.  The schematic is incorrect for some resistor values.  2K2 should be used for the SHT21 pullups, and the serial resistors have been changed.  The Nextion has a 10K pullduown resistor (R13: next to the connector) that must be removed for the ESP to boot wothout serial debug connected, or add a 10K pullup between TX and 3V3.  I've opted for the removal of the resistor.  R16 definitely needs a 1K to work correctly.  
+<b>Update:</b>  Changes have been made in the bom.txt file.  The schematic is incorrect for some resistor values.  2K2 should be used for the SHT21 pullups.
+
+Notes about the Nextion: First, add the line bauds=115200 to the main initialize varaibles once (if using MicroSD) or send it the command over serial. This will alow it to communicate at the highest speed.  
+
+It has a 10K pullduown resistor (R13: next to the connector).  Removing this allows the ESP8266 to boot normally and operate without any resistors added, or add a 10K pullup between TX and 3V3 when serial debug is not connected.  I've opted for the removal of the resistor, which fixes all problems.  The 5K6 on the thermostat (R17) allowed it to operate with serial connected plus the pulldown, but not without.  The blue wire (data sent to the ESP) doesn't really need any resistors.  The ESP can't be programmed without a 1K while both are connected, and with the 1K and debug the touchscreen won't work.  So just disconnect the wire while programming and reconnect it after.  
 
 This will eventually replace the old Spark-O-Stat with a newer system using the ESP-07, with a better screen (Nextion HMI 2.8" touchscreen), 5 outputs (1 extra output for humidifier), option for SHT21 (I2C) or DHT22/11/AM2302, and anolog input for expansion.
 
