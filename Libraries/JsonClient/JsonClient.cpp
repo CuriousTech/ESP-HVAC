@@ -239,6 +239,7 @@ void JsonClient::processLine()
         if(!strcmp(pName, m_jsonList[m_event][i]))
         {
             m_callback(m_event, i-1, value, pValue);
+            break;
         }
       }
     }while( p = strtok(NULL, ",}") );
@@ -256,3 +257,4 @@ char * JsonClient::skipwhite(char *p)
     p++;
   return p;
 }
+
