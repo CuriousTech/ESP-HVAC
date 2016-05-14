@@ -235,7 +235,7 @@ void Display::drawForecast(bool bRef)
   // temp scale
   for(i = 0; i <= 3; i++)
   {
-    nex.text(3, y-6, 0, rgb16(31, 63, 0), String(t)); // font height/2=6?
+    nex.text(3, y-6, 0, rgb16(31, 0, 31), String(t)); // font height/2=6?
     y += incy;
     t -= dec;
   }
@@ -510,14 +510,14 @@ void Display::updateRSSI()
 
   int sigStrength = 127 + rssiT;
   int wh = 38; // width and height
-  int x = 164;
+  int x = 160;
   int y = 158;
-  int sect = 127 / 6; //
-  int dist = wh  / 6; // distance between blocks
+  int sect = 127 / 5; //
+  int dist = wh  / 5; // distance between blocks
 
   y += wh - 10;
 
-  for (int i = 0; i < 6; i++)
+  for (int i = 1; i < 6; i++)
   {
     nex.fill( x + i*dist, y - i*dist, dist-2, i*dist, (sigStrength > i * sect) ? rgb16(0, 63,31) : rgb16(5, 10, 5) );
   }
