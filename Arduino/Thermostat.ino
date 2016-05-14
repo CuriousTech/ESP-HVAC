@@ -155,8 +155,7 @@ void setup()
   Serial.begin(115200);  // Nextion must be set with bauds=115200
   startServer();
   eeRead(); // don't access EE before WiFi init
-  hvac.setMode( hvac.getMode() ); // set request mode to EE mode
-  hvac.setHeatMode( hvac.getHeatMode() );
+  hvac.init();
   display.init();
   getUdpTime(); // start the SMTP get
 
