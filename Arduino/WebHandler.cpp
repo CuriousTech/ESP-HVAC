@@ -63,8 +63,10 @@ void secondsServer() // called once per second
   if(nWrongPass)
     nWrongPass--;
   if(hvac.stateChange())
+    event.push();
+  else if(hvac.tempChange())
     event.pushInstant();
-  event.heartbeat();
+  else event.heartbeat();
 }
 
 String ipString(IPAddress ip) // Convert IP to string
@@ -681,7 +683,7 @@ void handleRemote()
   char ip[64];
   char path[64];
   String sKey;
-  int nPort;
+  int nPort = 80;
   bool bEnd = false;
 //  Serial.println("handleRemote");
 
@@ -712,12 +714,14 @@ void handleRemote()
   if(bEnd) // end a remote sensor
   {
     remoteStream.end();
+    hvac.m_notif = Note_RemoteOff;
     return;
   }
 
   remoteStream.begin(ip, path, nPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
+  hvac.m_notif = Note_RemoteOn;
 }
 
 void handleNotFound() {
