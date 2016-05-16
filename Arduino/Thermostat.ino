@@ -36,7 +36,10 @@ SOFTWARE.
 #include "WebHandler.h"
 #include "display.h"
 #include <Wire.h>
-#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+
+// Uncomment only one of these
+//#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+#include <DHT.h>  // Library Manager -> Adafruit DHT sensor library
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
@@ -55,7 +58,12 @@ eventHandler event(dataJson);
 
 HVAC hvac;
 
+#ifdef SHT12_H
 SHT21 sht(SDA, SCL, 5);
+#endif
+#ifdef DHT_H
+DHT dht(SDA, DHT22);
+#endif
 
 XML_tag_t Xtags[] =
 {
@@ -158,9 +166,14 @@ void setup()
   hvac.init();
   display.init();
   getUdpTime(); // start the SMTP get
-
+#ifdef SHT21_H
   sht.init();
+#endif
+#ifdef DHT_H
+  dht.begin();
+#endif
 }
+
 void loop()
 {
   static uint8_t hour_save, min_save, sec_save;
@@ -173,17 +186,27 @@ void loop()
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
+#ifdef SHT21_H
   if(sht.service())
   {
     hvac.updateIndoorTemp( sht.getTemperatureF() * 10, sht.getRh() * 10 );
   }
-
+#endif
   if(sec_save != second()) // only do stuff once per second
   {
     sec_save = second();
     secondsServer(); // once per second stuff
     display.oneSec();
     hvac.service();   // all HVAC code
+
+#ifdef DHT_H
+    static uint8_t read_delay = 2;
+    if(--read_delay == 0)
+    {
+      hvac.updateIndoorTemp( dht.readTemperature(true) * 10, dht.readHumidity() * 10);
+      read_delay = 5; // update every 5 seconds
+    }
+#endif
 
     if(min_save != minute()) // only do stuff once per minute
     {
