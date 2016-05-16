@@ -58,7 +58,7 @@ eventHandler event(dataJson);
 
 HVAC hvac;
 
-#ifdef SHT12_H
+#ifdef SHT21_H
 SHT21 sht(SDA, SCL, 5);
 #endif
 #ifdef DHT_H
