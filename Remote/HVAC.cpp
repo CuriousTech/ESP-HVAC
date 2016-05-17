@@ -1,5 +1,5 @@
 /*
-  HVAC.cpp - Arduino library for HVAC control (Remote unit).
+  HVAC.cpp - Arduino library for HVAC control.
   Copyright 2014 Greg Cunningham, CuriousTech.net
 
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
@@ -154,8 +154,12 @@ bool HVAC::tempChange()
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
 
+  if(nTemp == m_inTemp && nTarget == m_targetTemp)
+    return false;
+
   nTemp = m_inTemp;
   nTarget = m_targetTemp;
+  return true;
 }
 
 // Control switching of system by temp
@@ -323,6 +327,11 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 bool HVAC::isRemoteTemp()
 {
   return m_bRemoteConnected ? true:false;
+}
+
+void HVAC::toggleRemoteTemp()
+{
+  
 }
 
 // Update when DHT22/SHT21 changes
@@ -493,7 +502,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::getPushData()
 {
   String s = "{";
-  s += ",\"tempi\":";  s += m_inTemp;
+  s += "\"tempi\":";  s += m_inTemp;
   s += ",\"rhi\":";  s += m_rh;
   s += "}";
   return s;
