@@ -45,6 +45,7 @@ HVAC::HVAC()
   m_inTemp = 0;
   m_rh = 0;
   m_bFanRunning = false;
+  m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
   m_outMax[1] = -50;      // set as invalid
   m_bFanMode = false;     // Auto=false, On=true
@@ -63,11 +64,12 @@ HVAC::HVAC()
   m_fanPostTimer = 0;     // timer for delay
   m_overrideTimer = 0;    // countdown for override in seconds
   m_ovrTemp = 0;          // override delta of target
-  m_remoteTimer = 0;      // in seconds
   m_furnaceFan = 0;       // fake fan timer
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
+  m_bRemoteDisconnect = false;
+  m_bLocalTemp = false;
 
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
@@ -101,11 +103,15 @@ void HVAC::fanSwitch(bool bOn)
   {
     m_fanOnTimer = 0;       // reset fan on timer
     if(m_EE.humidMode == HM_ManualOn)
+    {
       digitalWrite(P_HUMID, LOW); // turn humidifier on
+      m_bHumidRunning = true;
+    }
   }
   else
   {
     digitalWrite(P_HUMID, HIGH); // turn off humidifier
+    m_bHumidRunning = false;
   }
 }
 
@@ -127,7 +133,9 @@ void HVAC::disable()
 {
   digitalWrite(P_HEAT, LOW);
   digitalWrite(P_COOL, LOW);
+  digitalWrite(P_HUMID, HIGH);
   fanSwitch(false);
+  m_bHumidRunning = false;
   m_bRunning = false;
   m_bEnabled = false;
 }
@@ -151,9 +159,6 @@ void HVAC::service()
       if(!m_bRunning && m_bFanMode == false) // Ensure system isn't running and fanMode is auto
         fanSwitch(false);
   }
-
-  if(m_remoteTimer)                       // remote temperature override timer
-    m_remoteTimer--;
 
   if(m_overrideTimer)       // User temp override timer
   {
@@ -212,6 +217,7 @@ void HVAC::service()
         if(m_EE.humidMode == HM_Cool || m_EE.humidMode == HM_Both)
         {
           digitalWrite(P_HUMID, LOW);
+          m_bHumidRunning = true;
         }
         break;
     case Mode_Heat:
@@ -232,6 +238,7 @@ void HVAC::service()
         if(m_EE.humidMode == HM_Heat || m_EE.humidMode == HM_Both)
         {
           digitalWrite(P_HUMID, LOW);
+          m_bHumidRunning = true;
         }
         break;
     }
@@ -450,6 +457,11 @@ int8_t HVAC::getAutoMode()
   return m_AutoMode;
 }
 
+bool HVAC::getHumidifierRunning()
+{
+  return m_bHumidRunning;
+}
+
 int8_t HVAC::getSetMode()
 {
   return m_setMode;
@@ -557,13 +569,15 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   }
 }
 
-void HVAC::enableRemote()
+void HVAC::enableRemote(uint8_t flags)
 {
+  if(m_bRemoteConnected) // if using external sensor, stop
+    m_bRemoteDisconnect = true;
 }
 
 bool HVAC::isRemoteTemp()
 {
-  return (m_remoteTimer || m_bRemoteConnected) ? true:false;
+  return m_bRemoteConnected ? true:false;
 }
 
 // Update when DHT22/SHT21 changes
@@ -571,20 +585,21 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
   if( m_bRemoteConnected )
     return;
-  if(m_remoteTimer == 0)  // only get local temp if no remote
-    m_inTemp = Temp + m_EE.adj;
+  m_inTemp = Temp + m_EE.adj;
   m_rh = rh;
 
   if(m_EE.humidMode == HM_Auto1) // basic humidifier+fan
   {
-    if(digitalRead(P_HUMID) == LOW && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
+    if(m_bHumidRunning == true && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
     {
       digitalWrite(P_HUMID, LOW);
+      m_bHumidRunning = true;
       fanSwitch(true); // will use fan if not running
     }
-    else if(digitalRead(P_HUMID) == HIGH && m_rh > m_EE.rhLevel[1])
+    else if(m_bHumidRunning == false && m_rh > m_EE.rhLevel[1])
     {
       digitalWrite(P_HUMID, HIGH);
+      m_bHumidRunning = false;
       fanSwitch(false); // will turn fan off if not running
     }
   }
@@ -675,7 +690,7 @@ String HVAC::getPushData()
   s += ",\"ct\":";  s += m_cycleTimer;
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
-  s += ",\"h\":";  s += digitalRead(P_HUMID) ? 0:1;
+  s += ",\"h\":";  s += m_bHumidRunning;
   s += "}";
   return s;
 }
@@ -699,8 +714,6 @@ static const char *cSCmds[] =
   "eheatthresh",
   "override",
   "overridetime",
-  "remotetemp",
-  "remotetime",
   "humidmode",
   "humidl",
   "humidh",
@@ -790,36 +803,29 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 16:    // overridetime
       m_EE.overrideTime = constrain(val, 60*1, 60*60*5); // Limit 1 min to 5 hours
-      break;
-    case 17: // remotetemp  (must be updated every "remotetime" interval or less or it will switch back to internal temperature)
-      if(val > 0)
-      {
-         m_inTemp = constrain(val, 650, 880); // Limit 65 to 88 degrees F
-         m_remoteTimer = m_remoteTimeout;    // heartbeat
-      }
-      else
-      {
-         m_remoteTimer = 0;  // temp = 0 to cancel
-      }
-      break;
-    case 18: // remotetime
-      m_remoteTimeout = constrain(val, 1, 60*5); // Limit 1 sec to 5 minutes
-      break;
-    case 19: // humidmode
+    case 17: // humidmode
       m_EE.humidMode = val;
-      if(digitalRead(P_HUMID) == LOW && val != HM_ManualOn) // is on
+      if(m_bHumidRunning == true && val != HM_ManualOn) // is on
         fanSwitch(false); // turn off
-      if(digitalRead(P_HUMID) == HIGH && val == HM_ManualOn) // if off and should turn on
+      if(m_bHumidRunning == false && val == HM_ManualOn) // if off and should turn on
         fanSwitch(true);
       break;
-    case 20: // humidl
+    case 18: // humidl
       m_EE.rhLevel[0] = val;
       break;
-    case 21: // humidh
+    case 19: // humidh
       m_EE.rhLevel[1] = val;
       break;
-    case 22: // adj
+    case 20: // adj
       m_EE.adj = val;
       break;
   }
+}
+
+void HVAC::updateVar(int iName, int iValue)// host values
+{
+}
+
+void HVAC::setSettings(int iName, int iValue)// remote settings
+{
 }
