@@ -33,10 +33,12 @@ void Display::oneSec()
         screen(false);
   }
 
-  if(--m_temp_counter <= 0)
+  static uint8_t lastState;
+  if(--m_temp_counter <= 0 || hvac.getState() != lastState)
   {
     displayOutTemp();
     addGraphPoints();
+    lastState = hvac.getState();
     m_temp_counter = 5*60;         // update every 5 minutes
   }
 }
@@ -57,7 +59,8 @@ void Display::checkNextion() // all the Nextion recieved commands
   {
     case 0x65: // button
       btn = cBuf[2];
-
+      nex.brightness(NEX_BRIGHT);
+ 
       switch(cBuf[1]) // page
       {
         case Page_Thermostat:
@@ -110,11 +113,15 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
             case 5:  // target temp
             case 25:
-              hvac.enableRemote();
+              hvac.enableRemote(0);
               break;
             case 1: // out
+              break;
             case 3: // in
             case 4: // rh
+              hvac.enableRemote(1);
+              break;
+            case 28: // humidifier indicator
               break;
           }
           break;
@@ -135,7 +142,7 @@ void Display::checkNextion() // all the Nextion recieved commands
 
 void Display::updateTemps()
 {
-  static uint16_t last[7];  // only draw changes
+  static uint16_t last[8];  // only draw changes
 
   if(nex.getPage())
   {
@@ -150,6 +157,13 @@ void Display::updateTemps()
   if(last[4] != hvac.m_EE.coolTemp[0])  nex.itemFp(6, last[4] = hvac.m_EE.coolTemp[0]);
   if(last[5] != hvac.m_EE.heatTemp[1])  nex.itemFp(7, last[5] = hvac.m_EE.heatTemp[1]);
   if(last[6] != hvac.m_EE.heatTemp[0])  nex.itemFp(8, last[6] = hvac.m_EE.heatTemp[0]);
+
+  if(last[7] != hvac.isRemoteTemp())
+  {
+    last[7] = hvac.isRemoteTemp();
+    nex.itemColor("f2", last[7] ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
+    nex.itemColor("f3", last[7] ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
+  }
 }
 
 const char *_days_short[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -243,7 +257,7 @@ void Display::drawForecast(bool bRef)
   // temp scale
   for(i = 0; i <= 3; i++)
   {
-    nex.text(3, y-6, 0, rgb16(31, 0, 31), String(t)); // font height/2=6?
+    nex.text(3, y-6, 0, rgb16(0, 31, 31), String(t)); // font height/2=6?
     y += incy;
     t -= dec;
   }
@@ -503,6 +517,7 @@ void Display::updateRSSI()
   if(nex.getPage()) // must be page 0
   {
     rssiT = 0; // cause a refresh later
+    seccnt = 1;
     return;
   }
   if(--seccnt)
@@ -543,6 +558,7 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
   static bool bOn = false; // blinker
   static bool bCurrent = false; // run indicator
   static bool bPic = false; // red/blue
+  static bool bHumid = false; // next to rH
 
   if(bForce)
   {
@@ -550,6 +566,7 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
     bOn = false;
     bCurrent = false;
     bPic = false;
+    bHumid = false;
   }
 
   if(bFanRun != hvac.getFanRunning() && nex.getPage() == Page_Thermostat)
@@ -570,6 +587,9 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
 
   if(bCurrent != bOn && nex.getPage() == Page_Thermostat)
     nex.visible("p4", (bCurrent = bOn) ? 1:0); // blinking run indicator
+
+  if(bHumid != hvac.getHumidifierRunning() && nex.getPage() == Page_Thermostat)
+    nex.visible("p6", (bHumid = hvac.getHumidifierRunning()) ? 1:0); // blinking run indicator
 }
 
 // Lines demo
@@ -666,14 +686,15 @@ void Display::addGraphPoints()
 // Draw the last 25 hours (todo: add run times)
 void Display::fillGraph()
 {
-  nex.text(292, 219, 2, rgb16(0, 63, 31), String(66));
+  uint16_t textcolor = rgb16(0, 63, 31);
+  nex.text(292, 219, 2, textcolor, String(66));
   nex.line( 10, 164+8, 310, 164+8, rgb16(10, 20, 10) );
-  nex.text(292, 164, 2, rgb16(0, 63, 31), String(72));
+  nex.text(292, 164, 2, textcolor, String(72));
   nex.line( 10, 112+8, 310, 112+8, rgb16(10, 20, 10) );
-  nex.text(292, 112, 2, rgb16(0, 63, 31), String(78));
-  nex.line( 10, 58+8, 310, 58+8, rgb16(10, 20, 10) );
-  nex.text(292, 58, 2, rgb16(0, 63, 31), String(84));
-  nex.text(292,  8, 2, rgb16(0, 63, 31), String(90));
+  nex.text(292, 112, 2, textcolor, String(78));
+  nex.line( 10,  58+8, 310,  58+8, rgb16(10, 20, 10) );
+  nex.text(292, 58, 2, textcolor, String(84));
+  nex.text(292,  8, 2, textcolor, String(90));
 
   int16_t x = m_pointsAdded - 1 - (minute() / 5); // center over even hour
   int8_t h = hourFormat12();
@@ -690,7 +711,7 @@ void Display::fillGraph()
   drawPoints(2, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   drawPoints(3, rgb16( 22, 40, 10) ); // target threshold
   drawPoints(1, rgb16(  0, 53,  0) ); // rh green
-  drawPointsTemp();
+  drawPointsTemp(); // off/cool/heat colors
 //  drawPoints(0, rgb16(31,  0,  0) ); // plain inTemp red
 }
 
