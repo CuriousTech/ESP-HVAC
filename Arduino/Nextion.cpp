@@ -116,6 +116,12 @@ void Nextion::backColor(String sPageName, uint16_t color)
   FFF();
 }
 
+void Nextion::itemColor(String s, uint16_t color)
+{
+  Serial.print(s + ".pco=" + color);
+  FFF();
+}
+
 void Nextion::cls(uint16_t color)
 {
   Serial.print(String("cls ") + color);
