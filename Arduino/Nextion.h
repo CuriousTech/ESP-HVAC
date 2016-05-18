@@ -41,6 +41,7 @@ public:
   uint8_t getPage(void);
   void gauge(uint8_t id, uint16_t angle);
   void backColor(String sPageName, uint16_t color);
+  void itemColor(String s, uint16_t color);
   void cls(uint16_t color);
   void add(uint8_t comp, uint8_t ch, uint16_t val);
   void FFF(void);
