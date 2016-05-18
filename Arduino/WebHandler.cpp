@@ -56,6 +56,11 @@ void handleServer()
   mdns.update();
   server.handleClient();
   hvac.m_bRemoteConnected = remoteStream.service();
+  if(hvac.m_bRemoteConnected && hvac.m_bRemoteDisconnect)
+  {
+    remoteStream.end();
+    hvac.m_bRemoteDisconnect = false;
+  }
 }
 
 void secondsServer() // called once per second
@@ -407,9 +412,8 @@ void handleRoot() // Main webpage interface
    "  document.all.myToken.style.visibility = 'hidden'  // hide sensitive data. remove these if irritating\n"
    "  document.all.hide.value='Show'\n"
    "  document.getElementById('myToken').value = myStorage1\n"
-   "  readSettings()\n"
-   "  setAtt()\n"
    "  }\n"
+   "  readSettings()\n"
    "  \n"
    "  myStorage3 = localStorage.getItem('myStoredText3')\n"
    "  if(myStorage3  != null){\n"
