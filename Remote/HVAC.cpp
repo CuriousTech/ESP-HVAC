@@ -66,11 +66,11 @@ HVAC::HVAC()
   m_fanPostTimer = 0;     // timer for delay
   m_overrideTimer = 0;    // countdown for override in seconds
   m_ovrTemp = 0;          // override delta of target
-  m_remoteTimer = 0;      // in seconds
   m_furnaceFan = 0;       // fake fan timer
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
+  m_bLocalTemp = false;
 }
 
 void HVAC::init()
@@ -111,26 +111,34 @@ void HVAC::sendCmd(char *szName, int value)
   cl.begin(hostIp, szPath, hostPort, false);
 }
 
-void HVAC::enableRemote()
+void HVAC::enableRemote(uint8_t flags)
 {
-  char szPath[64];
+  if(flags == 0)  // target temp hit
+  {
+    char szPath[64];
 
-  JsonClient cl(sc_callback);
-  String path = "/remotes?";
-  path += "key=";
-  path += controlPassword;
-  if(m_bRemoteConnected)
-  {
-    path += "&end=1";
-    m_bRemoteConnected = false;
+    JsonClient cl(sc_callback);
+    String path = "/remote?";
+    path += "key=";
+    path += controlPassword;
+    if(m_bRemoteConnected)
+    {
+      path += "&end=1";
+      m_bRemoteConnected = false;
+    }
+    else
+    {
+      path += "&path=\"/events?i=30&p=1\"";
+      m_bRemoteConnected = true;
+      m_bLocalTemp = true;
+    }
+    path.toCharArray(szPath, 64);
+    cl.begin(hostIp, szPath, hostPort, false);
   }
-  else
+  else if(!m_bRemoteConnected) // temp/rh hit
   {
-    path += "&path=\"/events?i=30&p=1\"";
-    m_bRemoteConnected = true;
+    m_bLocalTemp = !m_bLocalTemp;
   }
-  path.toCharArray(szPath, 64);
-  cl.begin(hostIp, szPath, hostPort, false);
 }
 
 bool HVAC::stateChange()
@@ -185,6 +193,11 @@ uint8_t HVAC::getState()
 bool HVAC::getFanRunning()
 {
   return (m_bRunning || m_furnaceFan || m_bFanRunning);
+}
+
+bool HVAC::getHumidifierRunning()
+{
+  return m_bHumidRunning;
 }
 
 uint8_t HVAC::getMode()
@@ -326,21 +339,17 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 
 bool HVAC::isRemoteTemp()
 {
-  return m_bRemoteConnected ? true:false;
-}
-
-void HVAC::toggleRemoteTemp()
-{
-  
+  return m_bLocalTemp;
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-  if( m_bRemoteConnected == false )
-    return;
-  m_inTemp = Temp + m_EE.adj;
-  m_rh = rh;
+  if( m_bRemoteConnected || m_bLocalTemp)
+  {
+    m_inTemp = Temp + m_EE.adj;
+    m_rh = rh;
+  }
 }
 
 // Update outdoor temp
@@ -401,14 +410,13 @@ void HVAC::updateVar(int iName, int iValue)// host values
       m_bFanRunning = iValue;
       break;
     case 2:
-//      m_state = iValue;
       break;
     case 3:
-      if( m_bRemoteConnected == false )
+      if( m_bRemoteConnected == false && m_bLocalTemp == false)
         m_inTemp = iValue;
       break;
     case 4:
-      if( m_bRemoteConnected == false )
+      if( m_bRemoteConnected == false && m_bLocalTemp == false)
         m_rh = iValue;
       break;
     case 5:
@@ -431,6 +439,9 @@ void HVAC::updateVar(int iName, int iValue)// host values
       break;
     case 12:
       m_runTotal = iValue;
+      break;
+    case 13:
+      m_bHumidRunning = iValue;
       break;
   }
 }
@@ -502,7 +513,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"tempi\":";  s += m_inTemp;
+  s += "\"tempi\":";  s += m_inTemp + m_EE.adj;
   s += ",\"rhi\":";  s += m_rh;
   s += "}";
   return s;
