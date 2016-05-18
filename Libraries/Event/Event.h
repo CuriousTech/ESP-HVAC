@@ -23,7 +23,7 @@ SOFTWARE.
 
 #include <WiFiClient.h>
 
-#define CLIENTS 4
+#define CLIENTS 5
 
 enum Cl_type
 {
