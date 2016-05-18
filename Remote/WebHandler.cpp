@@ -51,7 +51,6 @@ void startServer()
   server.on ( "/events", handleEvents );
   server.onNotFound ( handleNotFound );
   server.begin();
-  startRemote();
 }
 
 void handleServer()
@@ -68,11 +67,20 @@ void secondsServer() // called once per second
     event.pushInstant();
   else event.heartbeat();
 
-  static uint16_t cnt = 5;
+  static uint8_t cnt = 5;
   if(--cnt == 0)
   {
     cnt = 60; // refresh settings every 60 seconds
     getSettings();
+  }
+
+  static uint8_t start = 10; // give it time to settle before initial connect
+  if(start)
+  {
+    if(--start == 0)
+    {
+      startRemote();
+    }
   }
 }
 
