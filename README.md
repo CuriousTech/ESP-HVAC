@@ -19,6 +19,6 @@ The watchdog chip (PIC10F) is unnecessary, but can be used to monitor activity a
 
 Some screens including a keyboard and SSID chooser, but this is using the auto connect with SoftAP server (which attempts to find the stored SSID while waiting on input) so it should never be needed.  The dimmed screensaver will change to a clock, and few other odd displays over time.  
 
-![Some display screenshots](http://www.curioustech.net/images/hvacscreens.png)
+![Some display screenshots](http://www.curioustech.net/images/hvacscreens2.png)
 
 ![The thing](http://www.curioustech.net/images/esphvac2.jpg)
