@@ -293,8 +293,12 @@ bool HVAC::tempChange()
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
 
+  if(nTemp == m_inTemp && nTarget == m_targetTemp)
+    return false;
+
   nTemp = m_inTemp;
   nTarget = m_targetTemp;
+  return true;
 }
 
 // Control switching of system by temp
