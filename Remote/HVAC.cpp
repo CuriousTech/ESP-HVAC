@@ -160,13 +160,11 @@ bool HVAC::stateChange()
 bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
-  static uint16_t nTarget = 0;
 
-  if(nTemp == m_inTemp && nTarget == m_targetTemp)
+  if(nTemp == m_rmtInTemp)
     return false;
 
-  nTemp = m_inTemp;
-  nTarget = m_targetTemp;
+  nTemp = m_rmtInTemp;
   return true;
 }
 
@@ -345,6 +343,9 @@ bool HVAC::isRemoteTemp()
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
+  m_rmtInTemp = Temp + m_EE.adj;
+  m_rmtRh = rh;
+
   if( m_bRemoteConnected || m_bLocalTemp)
   {
     m_inTemp = Temp + m_EE.adj;
@@ -513,8 +514,8 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"tempi\":";  s += m_inTemp + m_EE.adj;
-  s += ",\"rhi\":";  s += m_rh;
+  s += "\"tempi\":";  s += m_rmtInTemp;
+  s += ",\"rhi\":";  s += m_rmtRh;
   s += "}";
   return s;
 }
