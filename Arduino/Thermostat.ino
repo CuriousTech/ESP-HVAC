@@ -203,7 +203,9 @@ void loop()
     static uint8_t read_delay = 2;
     if(--read_delay == 0)
     {
-      hvac.updateIndoorTemp( dht.readTemperature(true) * 10, dht.readHumidity() * 10);
+      float temp = dht.readTemperature(true);
+      if(temp != NAN) // skip bad readings
+        hvac.updateIndoorTemp( temp * 10, dht.readHumidity() * 10);
       read_delay = 5; // update every 5 seconds
     }
 #endif
