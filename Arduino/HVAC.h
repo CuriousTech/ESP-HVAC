@@ -129,6 +129,8 @@ public:
   int16_t   m_outTemp;       // adjusted current temp *10
   int16_t   m_inTemp;        // current indoor temperature *10
   int16_t   m_rh;
+  int16_t   m_rmtInTemp;        // remote indoor temperature *10
+  int16_t   m_rmtRh;
   uint16_t  m_targetTemp;    // end temp for cycle
   uint8_t   m_notif;
   bool      m_bRemoteConnected;
