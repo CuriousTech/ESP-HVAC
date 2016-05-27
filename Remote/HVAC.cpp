@@ -74,7 +74,7 @@ HVAC::HVAC()
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
-  m_bLocalTemp = false;
+  m_bLocalTemp = true;
   m_fanPreElap = 60*10;
 }
 
@@ -123,8 +123,7 @@ void HVAC::enableRemote(uint8_t flags)
     char szPath[64];
 
     JsonClient cl(sc_callback);
-    String path = "/remote?";
-    path += "key=";
+    String path = "/remote?key=";
     path += controlPassword;
     if(m_bRemoteConnected)
     {
@@ -132,8 +131,8 @@ void HVAC::enableRemote(uint8_t flags)
       m_bRemoteConnected = false;
     }
     else
-    {
-      path += "&path=\"/events?i=30&p=1\"&port=";
+    {         // the path needs to be URL encoded
+      path += "&path=%2Fevents%3Fi=30%26p=1&port=";
       path += serverPort;
       m_bRemoteConnected = true;
       m_bLocalTemp = true;
