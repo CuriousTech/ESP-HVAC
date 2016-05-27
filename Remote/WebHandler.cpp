@@ -14,8 +14,8 @@
 
 //-----------------
 const char *controlPassword = "password"; // password on main unit
-int serverPort = 86;            // firewalled
-const char *hostIp = "192.168.0.100"; // Main unit address and port
+uint8_t serverPort = 86;            // firewalled
+const char *hostIp = "192.168.0.100"; // Main unit address (set in router)
 uint8_t hostPort = 85; // Main unit port
 
 //-----------------
@@ -52,7 +52,7 @@ void startServer()
   server.onNotFound ( handleNotFound );
   server.begin();
   // Add service to MDNS-SD
-  MDNS.addService("http", "tcp", 80);
+  MDNS.addService("http", "tcp", serverPort);
 }
 
 void handleServer()
@@ -109,7 +109,7 @@ void handleRoot() // Main webpage interface
    "</head>\n"
    "<body\">\n"
    "<strong><em>CuriousTech HVAC Remote</em></strong><br>\n"
-   "<small>Copyright (c) 2016 CuriousTech.net</small>\n"
+   "<small>Copyright &copy 2016 CuriousTech.net</small>\n"
    "</body>\n"
    "</html>\n";
 
