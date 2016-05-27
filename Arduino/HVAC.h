@@ -67,6 +67,7 @@ enum HumidifierMode
 struct EEConfig
 {
   uint16_t size;
+  uint16_t sum;
   uint16_t coolTemp[2]; // cool to temp *10 low/high
   uint16_t heatTemp[2]; // heat to temp *10 low/high
   int16_t  cycleThresh; // temp range for cycle *10
@@ -76,7 +77,8 @@ struct EEConfig
   uint16_t cycleMax;    // max time to run
   uint16_t idleMin;     // min time to not run
   uint16_t filterMinutes; // resettable minutes run timer (200 hours is standard change interval)
-  uint16_t fanPostDelay[2]; // delay to run auto fan after [hp][cool] stops
+  uint16_t fanPostDelay[2]; // delay to run auto fan after [hp/cool] stops
+  uint16_t fanPreTime[2]; // fan pre-run before [cool/heat]
   uint16_t overrideTime; // time used for an override
   uint8_t  heatMode;    // heating mode (gas, electric)
   int8_t   tz;          // current timezone and DST
@@ -84,7 +86,7 @@ struct EEConfig
   uint8_t  humidMode;   // Humidifier modes
   int8_t   adj;         // temp offset adjust
   char     zipCode[8];  // Your zipcode
-  uint16_t sum;
+  char     reserved[8];
 };
 
 class HVAC
@@ -137,6 +139,7 @@ public:
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTemp;
   int8_t    m_outMin[2], m_outMax[2];
+  uint16_t  m_fanPreElap;
 
 private:
   void  fanSwitch(bool bOn);
@@ -162,6 +165,7 @@ private:
   uint16_t m_fanOnTimer;    // time fan is running
   uint16_t m_cycleTimer;    // time HVAC has been running
   uint16_t m_fanPostTimer;  // timer for delay
+  uint16_t m_fanPreTimer;   // timer for fan pre-run
   uint16_t m_idleTimer;     // time not running
   int16_t  m_overrideTimer; // countdown for override in seconds
   int8_t   m_ovrTemp;       // override delta of target
