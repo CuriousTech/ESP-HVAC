@@ -15,6 +15,7 @@
 
 extern const char *hostIp;
 extern const char *controlPassword;
+extern uint8_t serverPort;
 extern uint8_t hostPort;
 
 HVAC::HVAC()
@@ -132,7 +133,8 @@ void HVAC::enableRemote(uint8_t flags)
     }
     else
     {
-      path += "&path=\"/events?i=30&p=1\"";
+      path += "&path=\"/events?i=30&p=1\"&port=";
+      path += serverPort;
       m_bRemoteConnected = true;
       m_bLocalTemp = true;
     }
