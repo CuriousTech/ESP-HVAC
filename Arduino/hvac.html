@@ -20,6 +20,7 @@
 <!--
 
 var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive
+var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 
 function startEvents()
@@ -27,64 +28,63 @@ function startEvents()
 	eventSource = new EventSource("events?i=30&p=1")
 	eventSource.addEventListener('open',function(e){},false)
 	eventSource.addEventListener('error',function(e){},false)
-	eventSource.addEventListener('state',function(e){ // listen to frequent changed values
-		console.log(e)
-		console.log(e.data)
-		Json = JSON.parse(e.data)
+	eventSource.addEventListener('state',function(e){
+		Json=JSON.parse(e.data)
 
-		running = +Json.r
-		fan = +Json.fr
-		rh = +Json.h
+		running= +Json.r
+		fan= +Json.fr
+		rh= +Json.h
 
-		document.all.intemp.innerHTML = +Json.it/10
-		document.all.rh.innerHTML = +Json.rh/10
-		document.all.target.innerHTML = +Json.tt/10
-		document.all.outtemp.innerHTML = +Json.ot/10
-		document.all.cyctimer.innerHTML = secsToTime(+Json.ct)
-		document.all.runtotal.innerHTML = secsToTime(+Json.rt)
+		a.intemp.innerHTML= +Json.it/10
+		a.rh.innerHTML= +Json.rh/10
+		a.target.innerHTML= +Json.tt/10
+		a.outtemp.innerHTML= +Json.ot/10
+		a.cyctimer.innerHTML=secsToTime(+Json.ct)
+		a.runtotal.innerHTML=secsToTime(+Json.rt)
 
-		document.all.fan.innerHTML = fan?"Fan On":"Fan Off"
-		document.all.run.innerHTML = states[+Json.s]
-		document.all.hm.innerHTML = rh?"Humid On":"Humid Off"
+		a.fan.innerHTML=fan?"Fan On":"Fan Off"
+		a.run.innerHTML=states[+Json.s]
+		a.hm.innerHTML=rh?"Humid On":"Humid Off"
 		setAtt()
 	},false)
-	eventSource.addEventListener('alert',function(e){ // listen to alerts
+	eventSource.addEventListener('alert',function(e){
 		alert(e.data)
 	},false)
 }
 
-function readSettings() // read all settings
+function readSettings()
 {
 	$.getJSON("json", function(Json){
-	   	mode = +Json.m
-		autoMode = +Json.am
-		heatMode = +Json.hm
-		fanMode = +Json.fm
+	   	mode= +Json.m
+		autoMode= +Json.am
+		heatMode= +Json.hm
+		fanMode= +Json.fm
 		humidMode= +Json.rhm
-		ovrActive = +Json.ot
+		ovrActive= +Json.ot
 		setAtt()
 
-		document.all.cooll.value= +Json.c0/10
-		document.all.coolh.value= +Json.c1/10
-		document.all.heatl.value= +Json.h0/10
-		document.all.heath.value= +Json.h1/10
-		document.all.humidl.value= +Json.rh0/10
-		document.all.humidh.value= +Json.rh1/10
-		document.all.idlemin.value= +Json.im
-		document.all.cycmin.value= +Json.cn
-		document.all.cycmax.value= +Json.cx
-		document.all.thresh.value= +Json.ct/10
-		document.all.fandelay.value= +Json.fd
-		document.all.ovrtime.value= +Json.ov
+		a.cooll.value= +Json.c0/10
+		a.coolh.value= +Json.c1/10
+		a.heatl.value= +Json.h0/10
+		a.heath.value= +Json.h1/10
+		a.humidl.value= +Json.rh0/10
+		a.humidh.value= +Json.rh1/10
+		a.idlemin.value= +Json.im
+		a.cycmin.value= +Json.cn
+		a.cycmax.value= +Json.cx
+		a.thresh.value= +Json.ct/10
+		a.fandelay.value= +Json.fd
+		a.ovrtime.value= +Json.ov
+		a.fanpre.value= +Json.fp
 	
-		if( +document.all.ovrtemp.value==0) // set a better default
-			document.all.ovrtemp.value= -1.0
+		if( +a.ovrtemp.value==0)
+			a.ovrtemp.value= -2.0
 	});
 }
 
 function setVar(varName, value)
 {
-  $.get('s?key='+document.all.myToken.value+'&'+varName+'='+value)
+  $.get('s?key='+a.myToken.value+'&'+varName+'='+value)
 }
 
 function setfan(n)
@@ -115,122 +115,127 @@ function setHumidMode(m)
 
 function setAtt()
 {
-	document.all.runCell.setAttribute('class',running?'style5':'style1')
-	document.all.hmCell.setAttribute('class',rh?'style5':'style1')
-	document.all.fAuto.setAttribute('class',fanMode==0?'style5':'')
-	document.all.fOn.setAttribute('class',fanMode==1?'style5':'')
-	document.all.fan.innerHTML = "Fan "+(fanMode?"On":(fan?"On":"Off"))
-	document.all.fanCell.setAttribute('class',fan?'style5' : 'style1')
-	document.all.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
+	a.runCell.setAttribute('class',running?'style5':'style1')
+	a.hmCell.setAttribute('class',rh?'style5':'style1')
+	a.fAuto.setAttribute('class',fanMode==0?'style5':'')
+	a.fOn.setAttribute('class',fanMode==1?'style5':'')
+	a.fan.innerHTML = "Fan "+(fanMode?"On":(fan?"On":"Off"))
+	a.fanCell.setAttribute('class',fan?'style5' : 'style1')
+	a.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
 
-	document.all.mOff.setAttribute('class',mode==0?'style5':'')
-	document.all.mCool.setAttribute('class',mode==1?'style5':'')
-	document.all.mHeat.setAttribute('class',mode==2?'style5':'')
-	document.all.mAuto.setAttribute('class',mode==3?'style5':'')
+	a.mOff.setAttribute('class',mode==0?'style5':'')
+	a.mCool.setAttribute('class',mode==1?'style5':'')
+	a.mHeat.setAttribute('class',mode==2?'style5':'')
+	a.mAuto.setAttribute('class',mode==3?'style5':'')
 
-	document.all.hHP.setAttribute('class',heatMode==0?'style5':'')
-	document.all.hGas.setAttribute('class',heatMode==1?'style5':'')
-	document.all.hAuto.setAttribute('class',heatMode==2?'style5':'')
+	a.hHP.setAttribute('class',heatMode==0?'style5':'')
+	a.hGas.setAttribute('class',heatMode==1?'style5':'')
+	a.hAuto.setAttribute('class',heatMode==2?'style5':'')
 
-	document.all.hmOff.setAttribute('class',humidMode==0?'style5':'')
-	document.all.hmHeat.setAttribute('class',humidMode==1?'style5':'')
-	document.all.hmCool.setAttribute('class',humidMode==2?'style5':'')
-	document.all.hmBoth.setAttribute('class',humidMode==3?'style5':'')
-	document.all.hmAuto1.setAttribute('class',humidMode==4?'style5':'')
-	document.all.hmAuto2.setAttribute('class',humidMode==5?'style5':'')
-	document.all.hmManual.setAttribute('class',humidMode==6?'style5':'')
+	a.hmOff.setAttribute('class',humidMode==0?'style5':'')
+	a.hmHeat.setAttribute('class',humidMode==1?'style5':'')
+	a.hmCool.setAttribute('class',humidMode==2?'style5':'')
+	a.hmBoth.setAttribute('class',humidMode==3?'style5':'')
+	a.hmAuto1.setAttribute('class',humidMode==4?'style5':'')
+	a.hmAuto2.setAttribute('class',humidMode==5?'style5':'')
+	a.hmManual.setAttribute('class',humidMode==6?'style5':'')
 }
 
 function setCoolHi()
 {
-	setVar('cooltemph',(+document.all.coolh.value * 10).toFixed())
+	setVar('cooltemph',(+a.coolh.value*10).toFixed())
 }
 
 function setCoolLo()
 {
-	setVar('cooltempl',(+document.all.cooll.value*10).toFixed())
+	setVar('cooltempl',(+a.cooll.value*10).toFixed())
 }
 
 function incCool(n)
 {
-	document.all.coolh.value= +document.all.coolh.value+n
-	document.all.cooll.value= +document.all.cooll.value+n
+	a.coolh.value= +a.coolh.value+n
+	a.cooll.value= +a.cooll.value+n
 
-	setVar('cooltemph',(+document.all.coolh.value*10).toFixed())
-	setVar('cooltempl',(+document.all.cooll.value*10).toFixed())
+	setVar('cooltemph',(+a.coolh.value*10).toFixed())
+	setVar('cooltempl',(+a.cooll.value*10).toFixed())
 }
 
 function setHeatHi()
 {
-	setVar('heattemph',(+document.all.heath.value*10).toFixed())
+	setVar('heattemph',(+a.heath.value*10).toFixed())
 }
 
 function setHeatLo()
 {
-	setVar('heattempl',(+document.all.heatl.value*10).toFixed())
+	setVar('heattempl',(+a.heatl.value*10).toFixed())
 }
 
 function incHeat(n)
 {
-	document.all.heath.value= +document.all.heath.value+n
-	document.all.heatl.value= +document.all.heatl.value+n
+	a.heath.value= +a.heath.value+n
+	a.heatl.value= +a.heatl.value+n
 
-	setVar('heattemph',(+document.all.heath.value*10).toFixed())
-	setVar('heattempl',(+document.all.heatl.value*10).toFixed())
+	setVar('heattemph',(+a.heath.value*10).toFixed())
+	setVar('heattempl',(+a.heatl.value*10).toFixed())
 }
 
 function setHumidHi()
 {
-	setVar('humidh',(+document.all.humidh.value*10).toFixed())
+	setVar('humidh',(+a.humidh.value*10).toFixed())
 }
 
 function setHumidLo()
 {
-	setVar('humidl',(+document.all.humidl.value*10).toFixed())
+	setVar('humidl',(+a.humidl.value*10).toFixed())
 }
 
 function incHumid(n)
 {
-	document.all.humidh.value= +document.all.humidh.value+n
-	document.all.humidl.value= +document.all.humidl.value+n
+	a.humidh.value= +a.humidh.value+n
+	a.humidl.value= +a.humidl.value+n
 
-	setVar('humidh',(+document.all.humidh.value*10).toFixed())
-	setVar('humidl',(+document.all.humidl.value*10).toFixed())
+	setVar('humidh',(+a.humidh.value*10).toFixed())
+	setVar('humidl',(+a.humidl.value*10).toFixed())
 }
 
 function setThresh()
 {
-	setVar('cyclethresh',(+document.all.thresh.value*10).toFixed())
+	setVar('cyclethresh',(+a.thresh.value*10).toFixed())
 }
 
-function setFeanDelay()
+function setFanDelay()
 {
-	setVar('fanpostdelay', +document.all.fandelay.value)
+	setVar('fanpostdelay',+a.fandelay.value)
+}
+
+function setFanPre()
+{
+	setVar('fanpretime',+a.fanpre.value)
 }
 
 function setIdleMin()
 {
-	setVar('idlemin',document.all.idlemin.value)
+	setVar('idlemin',a.idlemin.value)
 }
 
 function setCycMin()
 {
-	setVar('cyclemin',document.all.cycmin.value)
+	setVar('cyclemin',a.cycmin.value)
 }
 
 function setCycMax()
 {
-	setVar('cyclemax',document.all.cycmax.value)
+	setVar('cyclemax',a.cycmax.value)
 }
 
 function setOvrTime()
 {
-	setVar('overridetime',document.all.ovrtime.value)
+	setVar('overridetime',a.ovrtime.value)
 }
 
 function setOvrTemp()
 {
-	setVar('override',(+document.all.ovrtemp.value *10).toFixed())
+	setVar('override',(+a.ovrtemp.value *10).toFixed())
 }
 
 function cancelOvr()
@@ -269,15 +274,15 @@ function secsToTime( elap )
 <body onload="{
   myStorage1 = localStorage.getItem('myStoredText1')
   if(myStorage1  != null){
-	document.all.myToken.style.visibility = 'hidden'  // hide sensitive data. remove these if irritating
-	document.all.hide.value='Show'
-	document.getElementById('myToken').value = myStorage1
-	readSettings()
+	a.myToken.style.visibility = 'hidden'
+	a.hide.value='Show'
+	document.getElementById('myToken').value=myStorage1
   }
+  readSettings()
   
   myStorage3 = localStorage.getItem('myStoredText3')
   if(myStorage3  != null){
-	document.getElementById('ovrtemp').value = myStorage3
+	document.getElementById('ovrtemp').value=myStorage3
   }
   startEvents()
 }">
@@ -290,21 +295,22 @@ function secsToTime( elap )
 	</tr>
 </table>
 <input type="button" value="Save" onClick="{
-   localStorage.setItem('myStoredText1', document.all.myToken.value)
-   alert( document.all.myToken.value + ' Has been stored')
+   localStorage.setItem('myStoredText1', a.myToken.value)
+   alert(a.myToken.value+' Has been stored')
 }">
 <input type="button" value="Hide" name="hide" onClick="{
-	if(document.all.myToken.style.visibility == 'hidden'){
-    document.all.myToken.style.visibility = 'visible'
-	document.all.hide.value='Hide'
+	if(a.myToken.style.visibility == 'hidden'){
+    a.myToken.style.visibility = 'visible'
+	a.hide.value='Hide'
 	}else{
-    document.all.myToken.style.visibility = 'hidden'
-	document.all.hide.value='Show'
+    a.myToken.style.visibility = 'hidden'
+	a.hide.value='Show'
     }
 }">
 <input type="button" value="Refresh" onClick="{readSettings()}">
 <br>
 <br>
+<font size=4>
 <table style="width: 350px; height: 22px;" cellspacing="0">
 	<tr>
 		<td class="style3">In</td>
@@ -320,17 +326,18 @@ function secsToTime( elap )
 		<td class="style3">&deg</td>
 	</tr>
 </table>
+</font>
 <br>
 <table style="width: 350px" class="style6" cellspacing="1" cellpadding="0">
 	<tr>
-		<td style="width: 81px" id="fanCell" class="style1"><div id="fan">Fan Off</div></td>
+		<td id="fanCell"><div id="fan">Fan Off</div></td>
 		<td colspan="2" style="width: 200px" class="style1">
 		<input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}">
 		<input type="button" value="On" name="fOn" onClick="{setfan(1)}">
 		</td>
 	</tr>
 	<tr>
-		<td style="width: 44px" class="style1" id="runCell"><div id="run">off</div></td>
+		<td id="runCell"><div id="run">off</div></td>
 		<td colspan="2">
 		<input type="button" value="Off" name="mOff" onClick="{setMode(0)}">
 		<input type="button" value="Cool" name="mCool" onClick="{setMode(1)}">
@@ -347,7 +354,7 @@ function secsToTime( elap )
 		</td>
 	</tr>
 	<tr>
-		<td style="width: 44px" class="style1" id="hmCell"><div id="hm">NA</div></td>
+		<td id="hmCell"><div id="hm">NA</div></td>
 		<td colspan="2">
 		<input type="button" value="Off" name="hmOff" onClick="{setHumidMode(0)}">
 		<input type="button" value="H" name="hmHeat" onClick="{setHumidMode(1)}">
@@ -359,77 +366,80 @@ function secsToTime( elap )
 		</td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Cool Hi</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="coolh"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCoolHi()}"><input type="button" value="+1" onClick="{incCool(1)}"></td>
+		<td>Cool Hi</td>
+		<td><input type=text size=5 value=0 id="coolh"></td>
+		<td><input type="button" value="Set" onClick="{setCoolHi()}"><input type="button" value="+1" onClick="{incCool(1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Cool Lo</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cooll"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCoolLo()}"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
+		<td style="width: 81px">Cool Lo</td>
+		<td style="width: 44px"><input type=text size=5 value=0 id="cooll"></td>
+		<td style="width: 200px"><input type="button" value="Set" onClick="{setCoolLo()}"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Heat Hi</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="heath"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHeatHi()}"><input type="button" value="+1" onClick="{incHeat(1)}"></td>
+		<td>Heat Hi</td>
+		<td><input type=text size=5 value=0 id="heath"></td>
+		<td><input type="button" value="Set" onClick="{setHeatHi()}"><input type="button" value="+1" onClick="{incHeat(1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Heat Lo</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="heatl"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHeatLo()}"><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
+		<td>Heat Lo</td>
+		<td><input type=text size=5 value=0 id="heatl"></td>
+		<td><input type="button" value="Set" onClick="{setHeatLo()}"><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Threshold</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="thresh"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setThresh()}"></td>
+		<td>Threshold</td>
+		<td><input type=text size=5 value=0 id="thresh"></td>
+		<td><input type="button" value="Set" onClick="{setThresh()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Humid Hi</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="humidh"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHumidHi()}"><input type="button" value="+1" onClick="{incHumid(1)}"></td>
+		<td>Humid Hi</td>
+		<td><input type=text size=5 value=0 id="humidh"></td>
+		<td><input type="button" value="Set" onClick="{setHumidHi()}"><input type="button" value="+1" onClick="{incHumid(1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Humid Lo</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="humidl"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setHumidLo()}"><input type="button" value=" -1" onClick="{incHumid(-1)}"></td>
+		<td>Humid Lo</td>
+		<td><input type=text size=5 value=0 id="humidl"></td>
+		<td><input type="button" value="Set" onClick="{setHumidLo()}"><input type="button" value=" -1" onClick="{incHumid(-1)}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Fan Delay</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="fandelay"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setFanDelay()}"></td>
+		<td>Fan Pre</td>
+		<td><input type=text size=5 value=0 id="fanpre"></td>
+		<td><input type="button" value="Set" onClick="{setFanPre()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">Idle Min</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="idlemin"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setIdleMin()}"></td>
+		<td>Fan Post</td>
+		<td><input type=text size=5 value=0 id="fandelay"></td>
+		<td><input type="button" value="Set" onClick="{setFanDelay()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">cycle Min</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cycmin"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCycMin()}"></td>
+		<td>Idle Min</td>
+		<td><input type=text size=5 value=0 id="idlemin"></td>
+		<td><input type="button" value="Set" onClick="{setIdleMin()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">cycle Max</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="cycmax"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setCycMax()}"></td>
+		<td>cycle Min</td>
+		<td><input type=text size=5 value=0 id="cycmin"></td>
+		<td><input type="button" value="Set" onClick="{setCycMin()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" class="style1">ovr Time</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="ovrtime"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Set" onClick="{setOvrTime()}"></td>
+		<td>cycle Max</td>
+		<td><input type=text size=5 value=0 id="cycmax"></td>
+		<td><input type="button" value="Set" onClick="{setCycMax()}"></td>
 	</tr>
 	<tr>
-		<td style="width: 81px" id="ovrCell" class="style1">ovrTemp</td>
-		<td style="width: 44px" class="style1"><input type=text size=5 value=0 id="ovrtemp"></td>
-		<td style="width: 200px" class="style1"><input type="button" value="Start" onClick="{
-		localStorage.setItem('myStoredText3', document.all.ovrtemp.value)
+		<td>ovr Time</td>
+		<td><input type=text size=5 value=0 id="ovrtime"></td>
+		<td><input type="button" value="Set" onClick="{setOvrTime()}"></td>
+	</tr>
+	<tr>
+		<td id="ovrCell">ovrTemp</td>
+		<td><input type=text size=5 value=0 id="ovrtemp"></td>
+		<td><input type="button" value="Start" onClick="{
+		localStorage.setItem('myStoredText3', a.ovrtemp.value)
 		setOvrTemp()}">
 		<input type="button" value="Cancel" onClick="{cancelOvr()}">
 		</td>
 	</tr>
 </table>
-
-<br>
 <table style="width: 350px">
 	<tr>
 		<td style="width: 80px" class="style3">Cycle</td>
@@ -439,6 +449,6 @@ function secsToTime( elap )
 		<td class="style3"><div id="runtotal">total</div></td>
 	</tr>
 </table>
-<small>Copyright (c) 2016 CuriousTech.net</small>
+<small>Copyright &copy 2016 CuriousTech.net</small>
 </body>
 </html>
