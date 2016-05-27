@@ -38,8 +38,8 @@ SOFTWARE.
 #include <Wire.h>
 
 // Uncomment only one of these
-//#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
-#include <DHT.h>  // Library Manager -> Adafruit DHT sensor library
+#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+//#include <DHT.h>  // Library Manager -> Adafruit DHT sensor library
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
@@ -203,9 +203,7 @@ void loop()
     static uint8_t read_delay = 2;
     if(--read_delay == 0)
     {
-      float temp = dht.readTemperature(true);
-      if(temp != NAN) // skip bad readings
-        hvac.updateIndoorTemp( temp * 10, dht.readHumidity() * 10);
+      hvac.updateIndoorTemp( dht.readTemperature(true) * 10, dht.readHumidity() * 10);
       read_delay = 5; // update every 5 seconds
     }
 #endif
@@ -259,14 +257,14 @@ void eeWrite() // write the settings if changed
 
   if(old_sum == hvac.m_EE.sum)
     return; // Nothing has changed?
-  wifi.eeWriteData(64, (uint8_t*)&hvac.m_EE, sizeof(EEConfig)); // WiFiManager already has an instance open, so use that at offset 64+
+  wifi.eeWriteData((uint8_t*)&hvac.m_EE, sizeof(EEConfig)); // WiFiManager already has an instance open, so use that at offset 64+
 }
 
 void eeRead()
 {
   EEConfig eeTest;
 
-  wifi.eeReadData(64, (uint8_t*)&eeTest, sizeof(EEConfig));
+  wifi.eeReadData((uint8_t*)&eeTest, sizeof(EEConfig));
   if(eeTest.size != sizeof(EEConfig)) return; // revert to defaults if struct size changes
   uint16_t sum = eeTest.sum;
   eeTest.sum = 0;
