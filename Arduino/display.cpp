@@ -298,7 +298,7 @@ void Display::drawForecast(bool bRef)
   for(i = 0; i < 18; i++) // should be 18 points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - min) * (Fc_Height-2) / (max-min);
-    int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * (Fc_Width) / pts;
+    int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * Fc_Width / pts;
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
     x2 = x1;
     y2 = y1;
@@ -453,14 +453,7 @@ void Display::updateClock()
   float ang =  M_PI * (180-angle) / 180;
   float x2 = x + size * sin(ang);
   float y2 = y + size * cos(ang);
-  nex.line(x, y, x2, y2, rgb16(31, 0, 15) ); // (pink) minute
-
-  size = 70;
-  angle = second() * 6;
-  ang =  M_PI * (180-angle) / 180;
-  x2 = x + size * sin(ang);
-  y2 = y + size * cos(ang);
-  nex.line(x, y, x2, y2, rgb16(0, 63, 0) ); // (green) second
+  nex.line(x, y, x2, y2, rgb16(0, 0, 31) ); // (blue) minute
 
   size = 48;
   angle = hour() * 30;
@@ -468,6 +461,18 @@ void Display::updateClock()
   x2 = x + size * sin(ang);
   y2 = y + size * cos(ang);
   nex.line(x, y, x2, y2, rgb16(0, 63, 31) ); // (cyan) hour
+
+  size = 70;
+  angle = second() * 6;
+  ang =  M_PI * (180-angle) / 180;
+  x2 = x + size * sin(ang);
+  y2 = y + size * cos(ang);
+  ang =  M_PI * (0-angle) / 180;
+  size = 18;
+  float x3 = x + size * sin(ang);
+  float y3 = y + size * cos(ang);
+
+  nex.line(x3, y3, x2, y2, rgb16(31, 0, 0) ); // (red) second
 }
 
 void Display::updateModes() // update any displayed settings
@@ -665,7 +670,7 @@ void Display::addGraphPoints()
   if( hvac.m_inTemp == 0)
     return;
   if(m_pointsAdded == 299)
-    memcpy(&m_points, &m_points+(5*sizeof(uint8_t)), sizeof(m_points) - (5*sizeof(uint8_t)));
+    memcpy(&m_points, &m_points[1], sizeof(m_points) - 5);
 
   const int base = 660; // 66.0 base   Todo: scale all this
   m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 101 / 110; // 66~90 scale to 0~220
