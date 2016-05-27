@@ -25,7 +25,7 @@ extern eventHandler event;
 extern HVAC hvac;
 extern Display display;
 
-void startRemote(void);
+void startListener(void);
 void getSettings(void);
 
 void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
@@ -81,7 +81,7 @@ void secondsServer() // called once per second
   {
     if(--start == 0)
     {
-      startRemote();
+      startListener();
     }
   }
 }
@@ -182,7 +182,7 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psVa
   }
 }
 
-void startRemote()
+void startListener()
 {
   static char path[] = "/events?i=30&p=1";
   remoteStream.begin(hostIp, path, hostPort, true);
@@ -211,7 +211,7 @@ void getSettings()
 }
 
 void handleNotFound() {
-//  Serial.println("handleNotFound\n");
+//  Serial.println("handleNotFound");
 
   String message = "File Not Found\n\n";
   message += "URI: ";
