@@ -610,17 +610,17 @@ void HVAC::enableRemote(uint8_t flags)
 
 bool HVAC::isRemoteTemp()
 {
-  return m_bRemoteConnected ? true:false;
+  return m_bRemoteConnected;
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-  if( m_bRemoteConnected )
-    return;
-  m_inTemp = Temp + m_EE.adj;
-  m_rh = rh;
-
+  if( m_bRemoteConnected == false )
+  {
+    m_inTemp = Temp + m_EE.adj;
+    m_rh = rh;
+  }
   if(m_EE.humidMode == HM_Auto1) // basic humidifier+fan
   {
     if(m_bHumidRunning == true && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
