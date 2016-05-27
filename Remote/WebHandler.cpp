@@ -14,14 +14,13 @@
 
 //-----------------
 const char *controlPassword = "password"; // password on main unit
-int serverPort = 80;            // Doesn't really matter
+int serverPort = 86;            // firewalled
 const char *hostIp = "192.168.0.100"; // Main unit address and port
-uint8_t hostPort = 85;
+uint8_t hostPort = 85; // Main unit port
 
 //-----------------
 ESP8266WebServer server( serverPort );
 WiFiManager wifi(0);  // AP page:  192.168.4.1
-extern MDNSResponder mdns;
 extern eventHandler event;
 extern HVAC hvac;
 extern Display display;
@@ -36,6 +35,7 @@ JsonClient remoteSet(setCallback);
 
 void startServer()
 {
+  WiFi.hostname("HVACRemote");
   wifi.autoConnect("HVACRemote");  // AP you'll see on your phone
 
   Serial.println("");
@@ -43,19 +43,21 @@ void startServer()
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  if ( mdns.begin ( "esp8266", WiFi.localIP() ) ) {
-    Serial.println ( "MDNS responder started" );
+  if ( !MDNS.begin ( "HVACRemote", WiFi.localIP() ) ) {
+    Serial.println ( "MDNS responder failed" );
   }
 
   server.on ( "/", handleRoot );
   server.on ( "/events", handleEvents );
   server.onNotFound ( handleNotFound );
   server.begin();
+  // Add service to MDNS-SD
+  MDNS.addService("http", "tcp", 80);
 }
 
 void handleServer()
 {
-  mdns.update();
+  MDNS.update();
   server.handleClient();
   remoteStream.service();
   remoteSet.service();
@@ -87,8 +89,31 @@ void secondsServer() // called once per second
 void handleRoot() // Main webpage interface
 {
 //  Serial.println("handleRoot");
+  String page = 
+   "<!DOCTYPE html>\n"
+   "<html>\n"
+   "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
+   "<head>\n"
+   "\n"
+   "<title>ESP-HVAC Remote</title>\n"
+   "\n"
+   "<style type=\"text/css\">\n"
+   ".style1 {border-width: 0;}\n"
+   ".style2 {text-align: right;}\n"
+   ".style3 {background-color: #C0C0C0;}\n"
+   ".style4 {text-align: right;background-color: #C0C0C0;}\n"
+   ".style5 {background-color: #00D0D0;}\n"
+   ".style6 {border-style: solid;border-width: 1px;background-color: #C0C0C0;}\n"
+   "</style>\n"
+   "\n"
+   "</head>\n"
+   "<body\">\n"
+   "<strong><em>CuriousTech HVAC Remote</em></strong><br>\n"
+   "<small>Copyright (c) 2016 CuriousTech.net</small>\n"
+   "</body>\n"
+   "</html>\n";
 
-  server.send ( 200, "text/html", "OK" );
+  server.send ( 200, "text/html", page );
 }
 
 // event streamer (assume keep-alive)
