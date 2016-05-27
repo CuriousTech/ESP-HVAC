@@ -37,10 +37,11 @@ HVAC::HVAC()
   m_EE.humidMode = 0;
   m_EE.rhLevel[0] = 450;    // 45.0%
   m_EE.rhLevel[1] = 550;
-  m_EE.humidMode = 0;
   m_EE.tz = -5;
   m_EE.filterMinutes = 0;
   m_EE.adj = 0;
+  m_EE.fanPreTime[0] = 0; // disable by default
+  m_EE.fanPreTime[1] = 0;
   strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -48,6 +49,7 @@ HVAC::HVAC()
   m_inTemp = 0;
   m_rh = 0;
   m_bFanRunning = false;
+  m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
   m_outMax[1] = -50;      // set as invalid
   m_bFanMode = false;     // Auto=false, On=true
@@ -70,13 +72,15 @@ HVAC::HVAC()
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
+  m_bRemoteDisconnect = false;
   m_bLocalTemp = false;
+  m_fanPreElap = 60*10;
 }
 
 void HVAC::init()
 {
   m_setMode = m_EE.Mode;
-  m_idleTimer = m_EE.idleMin / 2;
+  m_idleTimer = m_EE.idleMin - 60; // about 1 minute
   m_setHeat = m_EE.heatMode;
 }
 
