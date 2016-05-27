@@ -13,11 +13,10 @@
 
 #include "WiFiManager.h"
 #include "Nextion.h"
-#include <Time.h>
+#include <TimeLib.h>
 
 extern Nextion nex;
 
-MDNSResponder mdns;
 WiFiServer server_s ( 80 );
 
 WiFiManager::WiFiManager(int eepromStart)
@@ -112,17 +111,17 @@ void WiFiManager::setEEPROMString(int start, int len, String string) {
     }
 }
 
-void WiFiManager::eeReadData(int addr, uint8_t *data, int size)
+void WiFiManager::eeReadData(uint8_t *data, int size)
 {
-  for(int i = 0; i < size; i++, addr++)
+  for(int i = 0, addr = 64; i < size; i++, addr++)
   {
     data[i] = EEPROM.read( addr );
   }
 }
 
-void WiFiManager::eeWriteData(int addr, uint8_t *data, int size)
+void WiFiManager::eeWriteData(uint8_t *data, int size)
 {
-  for(int i = 0; i < size; i++, addr++)
+  for(int i = 0, addr = 64; i < size; i++, addr++)
   {
     EEPROM.write(addr, data[i] );
   }
@@ -148,7 +147,7 @@ void WiFiManager::startWebConfig(String ssid) {
     DEBUG_PRINT("WiFi connected");
     DEBUG_PRINT(WiFi.localIP());
     DEBUG_PRINT(WiFi.softAPIP());
-    if (!mdns.begin(_apName)) {
+    if (!MDNS.begin(_apName)) {
         DEBUG_PRINT("Error setting up MDNS responder!");
         while(1) {
             delay(1000);
@@ -256,7 +255,7 @@ void WiFiManager::beginConfigMode(void) {
 int WiFiManager::serverLoop()
 {
     // Check for any mDNS queries and send responses
-    mdns.update();
+    MDNS.update();
     String s;
 
     WiFiClient client = server_s.available();
