@@ -44,8 +44,8 @@ public:
     
     String getSSID();
     String getPassword();
-    void eeReadData(int addr, uint8_t *data, int size);
-    void eeWriteData(int addr, uint8_t *data, int size);
+    void eeReadData(uint8_t *data, int size);
+    void eeWriteData(uint8_t *data, int size);
     //for conveniennce
     String urldecode(const char*);
 private:
