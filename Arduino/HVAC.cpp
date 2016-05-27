@@ -34,10 +34,11 @@ HVAC::HVAC()
   m_EE.humidMode = 0;
   m_EE.rhLevel[0] = 450;    // 45.0%
   m_EE.rhLevel[1] = 550;
-  m_EE.humidMode = 0;
   m_EE.tz = -5;
   m_EE.filterMinutes = 0;
   m_EE.adj = 0;
+  m_EE.fanPreTime[0] = 0; // disable by default
+  m_EE.fanPreTime[1] = 0;
   strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -70,6 +71,7 @@ HVAC::HVAC()
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
   m_bLocalTemp = false;
+  m_fanPreElap = 60*10;
 
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
@@ -87,7 +89,7 @@ HVAC::HVAC()
 void HVAC::init()
 {
   m_setMode = m_EE.Mode;
-  m_idleTimer = m_EE.idleMin / 2;
+  m_idleTimer = m_EE.idleMin - 60; // about 1 minute
   m_setHeat = m_EE.heatMode;
 }
 
@@ -292,7 +294,7 @@ bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
-
+  
   if(nTemp == m_inTemp && nTarget == m_targetTemp)
     return false;
 
@@ -310,12 +312,12 @@ void HVAC::tempCheck()
   if(m_EE.Mode == Mode_Off)   // nothing to do
     return;
 
+  int8_t mode = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode;
+
   if(m_bRunning)
   {
     if(m_cycleTimer < m_EE.cycleMin)
       return;
-
-    int8_t mode = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode;
 
     if(second() == 0 || m_bRecheck) // readjust while running
     {
@@ -337,13 +339,35 @@ void HVAC::tempCheck()
   }
   else  // not running
   {
-    if(m_idleTimer < m_EE.idleMin)
+    if(m_fanPreTimer) // fan will circulate for the set time before going to actual heat/cool
+    {
+      if(--m_fanPreTimer == 0)
+      {
+        fanSwitch(false);
+        m_fanPreElap = 0;
+        m_bRecheck = true; // check temps again
+      }
+    }
+
+    if(m_idleTimer < m_EE.idleMin || m_fanPreTimer)
       return;
+
+    if(m_fanPreElap < 60*10) // how long since pre-cycle fan has run (if it does)
+      m_fanPreElap++;
 
     if(second() == 0 || m_bRecheck)
     {
       m_bRecheck = false;
-      m_bStart = preCalcCycle(m_EE.Mode);
+      if( m_bStart = preCalcCycle(m_EE.Mode) )
+      {
+        uint16_t t = m_EE.fanPreTime[mode == Mode_Heat];
+        if(t && m_fanPreElap > t * 2) // try to use fan to adjust temp first
+        {
+          m_fanPreTimer = t;
+          fanSwitch(true);
+          m_bStart = false;
+        }
+      }
     }
   }
 }
@@ -392,9 +416,12 @@ bool HVAC::preCalcCycle(int8_t mode)
 void HVAC::calcTargetTemp(int8_t mode)
 {
   if(!m_bRunning)
-    if(digitalRead(P_REV) != (mode == Mode_Cool) )  // set heatpump same as current mode (Note: some models may be reversed)
-      digitalWrite(P_REV, (mode == Mode_Cool) ? HIGH : LOW);
-
+  {
+    if(digitalRead(P_REV) == LOW && (mode == Mode_Cool) )  // set heatpump to cool if cooling
+      digitalWrite(P_REV, HIGH);
+    else if(digitalRead(P_REV) == HIGH && (mode == Mode_Heat) )  // set heatpump to heat if heating
+      digitalWrite(P_REV, LOW);
+  }
   int16_t L = m_outMin[1];
   int16_t H = m_outMax[1];
 
@@ -477,8 +504,10 @@ void HVAC::setMode(int8_t mode)
   m_setMode = mode & 3;
   if(!m_bRunning)
   {
-     if(m_idleTimer < m_EE.idleMin - 30)
-       m_idleTimer = m_EE.idleMin - 10;        // keep it from starting too quickly, but not too long
+     if(m_idleTimer < m_EE.idleMin - 60)
+       m_idleTimer = m_EE.idleMin - 60;        // shorten the idle time
+     if(m_idleTimer >= m_EE.idleMin)
+       m_idleTimer = m_EE.idleMin - 10;        // but at least 10 seconds so mode can be chosen
   }
 }
 
@@ -673,6 +702,7 @@ String HVAC::settingsJson()
   s += ",\"rhm\":";  s += m_EE.humidMode;
   s += ",\"rh0\":";  s += m_EE.rhLevel[0];
   s += ",\"rh1\":";  s += m_EE.rhLevel[1];
+  s += ",\"fp\":";  s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
   s += "}";
   return s;
 }
@@ -722,6 +752,7 @@ static const char *cSCmds[] =
   "humidl",
   "humidh",
   "adj",
+  "fanpretime",
   NULL
 };
 
@@ -822,6 +853,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 20: // adj
       m_EE.adj = val;
+      break;
+    case 21:     // fanPretime
+      m_EE.fanPreTime[m_EE.Mode == Mode_Heat] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
       break;
   }
 }
