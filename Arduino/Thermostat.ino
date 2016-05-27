@@ -39,7 +39,7 @@ SOFTWARE.
 
 // Uncomment only one of these
 #include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
-//#include <DHT.h>  // Library Manager -> Adafruit DHT sensor library
+//#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
@@ -61,8 +61,8 @@ HVAC hvac;
 #ifdef SHT21_H
 SHT21 sht(SDA, SCL, 5);
 #endif
-#ifdef DHT_H
-DHT dht(SDA, DHT22);
+#ifdef dht_h
+DHT dht;
 #endif
 
 XML_tag_t Xtags[] =
@@ -86,7 +86,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   switch(item)
   {
     case 0:            // valid time
-      if(!idx)         // first item isn't really data
+      if(idx == 0)     // first item isn't really data
       {
         hO = 0;        // reset hour offset
         lastd = day();
@@ -94,7 +94,8 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       }
       d = atoi(p + 8);  // 2014-mm-ddThh:00:00-tz:00
       h = atoi(p + 11);
-      if(d != lastd) hO += 24; // change to hours offset
+      if(idx != 1 && d != lastd)
+        hO += 24; // change to hours offset
       lastd = d;
       hvac.m_fcData[idx-1].h = h + hO;
 
@@ -169,8 +170,8 @@ void setup()
 #ifdef SHT21_H
   sht.init();
 #endif
-#ifdef DHT_H
-  dht.begin();
+#ifdef dht_h
+  dht.setup(SDA, DHT::DHT22);
 #endif
 }
 
@@ -199,11 +200,16 @@ void loop()
     display.oneSec();
     hvac.service();   // all HVAC code
 
-#ifdef DHT_H
+#ifdef dht_h
     static uint8_t read_delay = 2;
     if(--read_delay == 0)
     {
-      hvac.updateIndoorTemp( dht.readTemperature(true) * 10, dht.readHumidity() * 10);
+      float temp = dht.toFahrenheit(dht.getTemperature());
+
+      if(dht.getStatus() == DHT::ERROR_NONE)
+      {
+        hvac.updateIndoorTemp( temp * 10, dht.getHumidity() * 10);
+      }
       read_delay = 5; // update every 5 seconds
     }
 #endif
