@@ -104,17 +104,19 @@ void HVAC::fanSwitch(bool bOn)
   if(bOn)
   {
     m_fanOnTimer = 0;       // reset fan on timer
-    if(m_EE.humidMode == HM_ManualOn)
-    {
-      digitalWrite(P_HUMID, LOW); // turn humidifier on
-      m_bHumidRunning = true;
-    }
+    if(m_EE.humidMode == HM_Fan)
+        humidSwitch(true);
   }
   else
   {
-    digitalWrite(P_HUMID, HIGH); // turn off humidifier
-    m_bHumidRunning = false;
+    humidSwitch(false);
   }
+}
+
+void HVAC::humidSwitch(bool bOn)
+{
+  digitalWrite(P_HUMID, bOn ? LOW:HIGH); // turn humidifier on
+  m_bHumidRunning = bOn;
 }
 
 // Accumulate fan running times
@@ -151,7 +153,7 @@ void HVAC::service()
     if(m_fanOnTimer < 0xFFFF)
       m_fanOnTimer++;               // running time counter
 
-    if(m_furnaceFan)                       // fake fan status for furnace fan
+    if(m_furnaceFan)                // fake fan status for furnace fan
       m_furnaceFan--;
   }
 
@@ -189,12 +191,12 @@ void HVAC::service()
 
   if(m_setMode != m_EE.Mode || m_setHeat != m_EE.heatMode)    // requested HVAC mode change
   {
-    if(m_bRunning)                      // cycleTimer is already > 20s here
+    if(m_bRunning)                     // cycleTimer is already > 20s here
       m_bStop = true;
     if(m_idleTimer >= 5)
     {
       m_EE.heatMode = m_setHeat;
-      m_EE.Mode = m_setMode;          // User may be cycling through modes (give 5s)
+      m_EE.Mode = m_setMode;           // User may be cycling through modes (give 5s)
       calcTargetTemp(m_EE.Mode);
     }
   }
@@ -216,11 +218,6 @@ void HVAC::service()
           delay(3000);               //    if no heatpump, remove
         }
         digitalWrite(P_COOL, HIGH);
-        if(m_EE.humidMode == HM_Cool || m_EE.humidMode == HM_Both)
-        {
-          digitalWrite(P_HUMID, LOW);
-          m_bHumidRunning = true;
-        }
         break;
     case Mode_Heat:
         if(hm)  // gas
@@ -237,14 +234,11 @@ void HVAC::service()
           }
           digitalWrite(P_COOL, HIGH);
         }
-        if(m_EE.humidMode == HM_Heat || m_EE.humidMode == HM_Both)
-        {
-          digitalWrite(P_HUMID, LOW);
-          m_bHumidRunning = true;
-        }
         break;
     }
     m_bRunning = true;
+    if(m_EE.humidMode == HM_Run)
+      humidSwitch(true);
     m_cycleTimer = 0;
   }
 
@@ -253,8 +247,11 @@ void HVAC::service()
     m_bStop = false;
     digitalWrite(P_COOL, LOW);
     digitalWrite(P_HEAT, LOW);
-  
-    if(m_bFanRunning && m_bFanMode == false) // Note: furance manages fan
+
+    if(m_EE.humidMode == HM_Run)      // shut off after heat/cool phase
+      humidSwitch(false);
+
+    if(m_bFanRunning && m_bFanMode == false) // Note: furnace manages fan
     {
       if(m_EE.fanPostDelay[digitalRead(P_REV)])         // leave fan running to circulate air longer
         m_fanPostTimer = m_EE.fanPostDelay[digitalRead(P_REV)]; // P_REV == true if heating
@@ -280,7 +277,7 @@ bool HVAC::stateChange()
   static uint8_t lastMode = 0;
   static uint8_t nState = 0;
 
-  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())   // erase prev highlight
+  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())
   {
     lastMode = getMode();
     nState = getState();
@@ -343,25 +340,45 @@ void HVAC::tempCheck()
     {
       if(--m_fanPreTimer == 0)
       {
-        fanSwitch(false);
-        m_fanPreElap = 0;
-        m_bRecheck = true; // check temps again
+        bool bGood = false;
+        switch(mode)
+        {
+          case Mode_Cool:
+            if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
+              bGood = true;
+            break;
+          case Mode_Heat:
+            if(m_inTemp >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
+              bGood = true;
+            break;
+        }
+        if(bGood) // fan hit threshold
+        {
+          fanSwitch(false);
+          m_fanPreElap = 0;
+//          m_bRecheck = true; // check temp again
+        }
+        else
+        {
+          m_bStart = true;  // start the cycle
+          return;
+        }
       }
     }
 
     if(m_idleTimer < m_EE.idleMin || m_fanPreTimer)
       return;
 
-    if(m_fanPreElap < 60*10) // how long since pre-cycle fan has run (if it does)
+    if(m_fanPreElap < 60*30) // how long since pre-cycle fan has run (if it does)
       m_fanPreElap++;
 
     if(second() == 0 || m_bRecheck)
     {
       m_bRecheck = false;
-      if( m_bStart = preCalcCycle(m_EE.Mode) )
+      if( m_bStart = preCalcCycle(m_EE.Mode) && m_bFanRunning == false)
       {
         uint16_t t = m_EE.fanPreTime[mode == Mode_Heat];
-        if(t && m_fanPreElap > t * 2) // try to use fan to adjust temp first
+        if(t && m_fanPreElap > t * 4) // try to use fan to adjust temp first
         {
           m_fanPreTimer = t;
           fanSwitch(true);
@@ -605,7 +622,10 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 void HVAC::enableRemote(uint8_t flags)
 {
   if(m_bRemoteConnected) // if using external sensor, stop
+  {
     m_bRemoteDisconnect = true;
+    m_notif = Note_None;
+  }
 }
 
 bool HVAC::isRemoteTemp()
@@ -621,19 +641,23 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     m_inTemp = Temp + m_EE.adj;
     m_rh = rh;
   }
-  if(m_EE.humidMode == HM_Auto1) // basic humidifier+fan
+  // Auto1 == auto humidifier when running, Auto2 = even when not running (turns fan on)
+  if(m_EE.humidMode == HM_Auto1 || m_EE.humidMode == HM_Auto2) // basic humidifier+fan
   {
-    if(m_bHumidRunning == true && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
+    if(m_bHumidRunning == false && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
     {
-      digitalWrite(P_HUMID, LOW);
-      m_bHumidRunning = true;
-      fanSwitch(true); // will use fan if not running
+      if(m_EE.humidMode == HM_Auto1 && m_bRunning == false); // do nothing
+      else
+      {
+        humidSwitch(true);
+        fanSwitch(true); // will use fan if not running
+      }
     }
-    else if(m_bHumidRunning == false && m_rh > m_EE.rhLevel[1])
+    else if(m_bHumidRunning == true && m_rh > m_EE.rhLevel[1])
     {
-      digitalWrite(P_HUMID, HIGH);
-      m_bHumidRunning = false;
-      fanSwitch(false); // will turn fan off if not running
+      humidSwitch(false);
+      if(m_bRunning == false)  // if not cooling/heating we can turn the fan off
+        fanSwitch(false); // will turn fan off if not running
     }
   }
 }
@@ -840,10 +864,6 @@ void HVAC::setVar(String sCmd, int val)
       m_EE.overrideTime = constrain(val, 60*1, 60*60*5); // Limit 1 min to 5 hours
     case 17: // humidmode
       m_EE.humidMode = val;
-      if(m_bHumidRunning == true && val != HM_ManualOn) // is on
-        fanSwitch(false); // turn off
-      if(m_bHumidRunning == false && val == HM_ManualOn) // if off and should turn on
-        fanSwitch(true);
       break;
     case 18: // humidl
       m_EE.rhLevel[0] = val;
