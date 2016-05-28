@@ -56,12 +56,10 @@ enum State
 enum HumidifierMode
 {
   HM_Off,
-  HM_Heat,
-  HM_Cool,
-  HM_Both,
+  HM_Fan,
+  HM_Run,
   HM_Auto1,
   HM_Auto2,
-  HM_ManualOn,
 };
 
 struct EEConfig
@@ -143,6 +141,7 @@ public:
 
 private:
   void  fanSwitch(bool bOn);
+  void  humidSwitch(bool bOn);
   void  tempCheck(void);
   bool  preCalcCycle(int8_t mode);
   void  calcTargetTemp(int8_t mode);
