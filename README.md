@@ -46,7 +46,7 @@ Override:
 Use to heat or cool by a selected offset temperature for a specified time.
 
 Idle min, cycle min/max:  
-These are timers in seconds to control the thermstat operating limits.  Idle min is the shortest time between cycles.  Cycle min is the shortest time for a cycle, and max is the longest.  
+These are timers in seconds to control the thermstat operating limits.  Idle min is the shortest time between cycles.  Cycle min is the shortest time for a cycle, and max is the longest.  Be careful with these settings.  Running the compressor too short, too long or without the fan can cause damage.
 
 ![remotepage](http://www.curioustech.net/images/hvacremote.png)
 
