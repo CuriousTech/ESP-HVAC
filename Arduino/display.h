@@ -18,10 +18,10 @@ struct Line{
 class Display
 {
 public:
-	Display():
-	  m_pointsAdded(0),
-	  m_adjustMode(0),
-	  m_backlightTimer(NEX_TIMEOUT),
+  Display():
+    m_pointsAdded(0),
+    m_adjustMode(0),
+    m_backlightTimer(NEX_TIMEOUT),
     m_updateFcst(2), // 1-2 minutes from boot
     m_temp_counter(10*60)
   {
@@ -53,7 +53,7 @@ private:
 
   uint16_t m_backlightTimer;
   uint16_t m_pointsAdded;
-  uint8_t m_points[300][5];
+  uint8_t m_points[300][6];
 public:
   uint16_t m_updateFcst;
   uint16_t m_temp_counter;
