@@ -70,7 +70,7 @@ HVAC::HVAC()
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
-  m_bLocalTemp = false;
+  m_bLocalTempDisplay = false;
   m_fanPreElap = 60*10;
 
   pinMode(P_FAN, OUTPUT);
@@ -378,7 +378,7 @@ void HVAC::tempCheck()
       if( m_bStart = preCalcCycle(m_EE.Mode) && m_bFanRunning == false)
       {
         uint16_t t = m_EE.fanPreTime[mode == Mode_Heat];
-        if(t && m_fanPreElap > t * 4) // try to use fan to adjust temp first
+        if(t && m_fanPreElap > m_EE.idleMin) // try to use fan to adjust temp first
         {
           m_fanPreTimer = t;
           fanSwitch(true);
@@ -619,45 +619,69 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   }
 }
 
-void HVAC::enableRemote(uint8_t flags)
+bool HVAC::showLocalTemp()
+{
+  return m_bLocalTempDisplay; // should be displaying local temp
+}
+
+bool HVAC::isRemote()
+{
+  return false;
+}
+
+void HVAC::enableRemote()
 {
   if(m_bRemoteConnected) // if using external sensor, stop
   {
     m_bRemoteDisconnect = true;
     m_notif = Note_None;
+    m_bLocalTempDisplay = true;
   }
-}
-
-bool HVAC::isRemoteTemp()
-{
-  return m_bRemoteConnected;
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
+  m_localTemp = Temp + m_EE.adj; // Using remote vars for local here
+  m_localRh = rh;
+
   if( m_bRemoteConnected == false )
   {
     m_inTemp = Temp + m_EE.adj;
     m_rh = rh;
   }
   // Auto1 == auto humidifier when running, Auto2 = even when not running (turns fan on)
-  if(m_EE.humidMode == HM_Auto1 || m_EE.humidMode == HM_Auto2) // basic humidifier+fan
+  if(m_EE.humidMode >= HM_Auto1)
   {
-    if(m_bHumidRunning == false && m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
+    if(m_bHumidRunning)
     {
-      if(m_EE.humidMode == HM_Auto1 && m_bRunning == false); // do nothing
-      else
+      if(m_rh >= m_EE.rhLevel[1]) // reached high
       {
-        humidSwitch(true);
-        fanSwitch(true); // will use fan if not running
+        humidSwitch(false);
+        if(m_bRunning == false)  // if not cooling/heating we can turn the fan off
+        {
+          fanSwitch(false);
+          if(m_idleTimer > m_EE.idleMin)
+            m_idleTimer = 0; // reset main idle timer if it's high enough (not well thought out)
+        }
       }
     }
-    else if(m_bHumidRunning == true && m_rh > m_EE.rhLevel[1])
+    else // not running
     {
-      humidSwitch(false);
-      if(m_bRunning == false)  // if not cooling/heating we can turn the fan off
-        fanSwitch(false); // will turn fan off if not running
+      if(m_rh < m_EE.rhLevel[0]) // heating and cooling both reduce humidity
+      {
+        if(m_EE.humidMode == HM_Auto1 && m_bRunning == false); // do nothing
+        else
+        {
+          humidSwitch(true);
+          fanSwitch(true); // will use fan if not running
+        }
+      }
+      else if(m_bRunning == false && m_rh > m_EE.rhLevel[1] + 5 &&  m_EE.humidMode == HM_Auto2 && m_EE.Mode == Mode_Cool)
+      {  // humidity over desired level, use compressor to reduce (will run at least for cycleMin)
+          if(m_idleTimer > m_EE.idleMin)
+            m_bStart = true;
+      }
     }
   }
 }
@@ -738,8 +762,10 @@ String HVAC::getPushData()
   s += "\"r\":" ;  s += m_bRunning;
   s += ",\"fr\":";  s += getFanRunning(),
   s += ",\"s\":" ;  s += getState();
-  s += ",\"it\":";  s += m_inTemp;
+  s += ",\"it\":";  s += m_inTemp; // always local
   s += ",\"rh\":";  s += m_rh;
+  s += ",\"lt\":";  s += m_localTemp; // always local
+  s += ",\"lh\":";  s += m_localRh;
   s += ",\"tt\":";  s += m_targetTemp;
   s += ",\"fm\":";  s += m_EE.filterMinutes;
   s += ",\"ot\":";  s += m_outTemp;
@@ -861,7 +887,7 @@ void HVAC::setVar(String sCmd, int val)
       }
       break;
     case 16:    // overridetime
-      m_EE.overrideTime = constrain(val, 60*1, 60*60*5); // Limit 1 min to 5 hours
+      m_EE.overrideTime = constrain(val, 60*1, 60*60*6); // Limit 1 min to 6 hours
     case 17: // humidmode
       m_EE.humidMode = val;
       break;
