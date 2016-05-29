@@ -1,5 +1,5 @@
 # ESP8266-HVAC
-WiFi Smart HVAC Theromstat  
+WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
 <b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
 
@@ -48,5 +48,6 @@ Use to heat or cool by a selected offset temperature for a specified time.
 Idle min, cycle min/max:  
 These are timers in seconds to control the thermstat operating limits.  Idle min is the shortest time between cycles.  Cycle min is the shortest time for a cycle, and max is the longest.  Be careful with these settings.  Running the compressor too short, too long or without the fan can cause damage.
 
-![remotepage](http://www.curioustech.net/images/hvacremote.png)
+![remotepage](http://www.curioustech.net/images/hvacremote.png)  
 
+![dualtherms](http://www.curioustech.net/images/hvac2.jpg)  
