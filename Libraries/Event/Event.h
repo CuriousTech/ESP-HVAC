@@ -38,7 +38,8 @@ public:
   eventClient(){}
   void set(WiFiClient cl, int t, uint8_t nType, bool bOpened);
   bool inUse(void);
-  void push(void);  // event: state, data: JSON.   Push the jscript data
+  void push(void);  // event: state, data: JSON.
+  void push(String Event, String Json);
   void pushInstant(void); // push changes instant if push=1
   void print(String s);   // event: print, data: text  Print anything
   void beat(void);        // 10 second keepalive
@@ -68,6 +69,7 @@ public:
   void set(WiFiClient c, int interval, uint8_t nType);
   void heartbeat(void);
   void push(void); // push to all
+  void push(String Event, String Json); // push to all
   void pushInstant(void); // push changes to all if push=1
   void print(String s); // print remote debug
   void printf(const char *format, ...); // formatted print
