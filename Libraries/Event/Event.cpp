@@ -77,6 +77,12 @@ void eventHandler::push() // push to all
     ec[i].push();
 }
 
+void eventHandler::push(String Event, String Json)
+{
+  for(int i = 0; i < CLIENTS; i++)
+    ec[i].push(Event, Json);
+}
+
 void eventHandler::pushInstant() // push only to instant type
 {
   for(int i = 0; i < CLIENTS; i++)
@@ -114,7 +120,7 @@ void eventClient::set(WiFiClient cl, int t, uint8_t nType, bool bOpened)
   m_timer = 2; // send data in 2 seconds
   m_keepAlive = 10;
   m_nType = nType;
-//  m_client.print(":ok\n\n");
+  m_client.print(":ok\n\n");
   if(bOpened == false)
   {
     alert("restarted");
@@ -134,6 +140,15 @@ void eventClient::push()
   m_timer = m_interval;
   String s = jsonCallback();
   m_client.print("event: state\ndata: " + s + "\n\n");
+}
+
+void eventClient::push(String Event, String Json)
+{
+  if(m_client.connected() == 0)
+    return;
+  m_keepAlive = 11; // anything sent resets keepalive
+  m_timer = m_interval;
+  m_client.print("event: " + Event + "\ndata: " + Json + "\n\n");
 }
 
 void eventClient::pushInstant()
