@@ -109,8 +109,9 @@ public:
   bool    stateChange(void);      // change since last call = true
   int16_t getSetTemp(int8_t mode, int8_t hl); // get temp set for a mode (cool/heat, hi/lo)
   void    setTemp(int8_t mode, int16_t Temp, int8_t hl); // set temp for a mode
-  void    enableRemote(uint8_t flags);
-  bool    isRemoteTemp(void);
+  void    enableRemote(void);
+  bool    showLocalTemp(void);
+  bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
   void    updatePeaks(int8_t min, int8_t max);
@@ -129,13 +130,13 @@ public:
   int16_t   m_outTemp;       // adjusted current temp *10
   int16_t   m_inTemp;        // current indoor temperature *10
   int16_t   m_rh;
-  int16_t   m_rmtInTemp;        // remote indoor temperature *10
-  int16_t   m_rmtRh;
+  int16_t   m_localTemp;     // this device's temperature *10
+  int16_t   m_localRh;
   uint16_t  m_targetTemp;    // end temp for cycle
   uint8_t   m_notif;
   bool      m_bRemoteConnected;
   bool      m_bRemoteDisconnect;
-  bool      m_bLocalTemp;
+  bool      m_bLocalTempDisplay;
   int8_t    m_outMin[2], m_outMax[2];
   uint16_t  m_fanPreElap;
 
@@ -146,7 +147,7 @@ private:
   bool  preCalcCycle(int8_t mode);
   void  calcTargetTemp(int8_t mode);
   int   CmdIdx(String s, const char **pCmds);
-  void  sendCmd(char *szName, int value);
+  void  sendCmd(const char *szName, int value);
 
   bool    m_bFanMode;       // Auto=false, On=true
   bool    m_bFanRunning;    // when fan is running
