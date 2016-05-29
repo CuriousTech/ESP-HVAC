@@ -113,13 +113,14 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
             case 5:  // target temp
             case 25:
-              hvac.enableRemote(0);
+              hvac.enableRemote();
               break;
             case 1: // out
               break;
             case 3: // in
             case 4: // rh
-              hvac.enableRemote(1);
+              hvac.m_bLocalTempDisplay = !hvac.m_bLocalTempDisplay; // toggle remote temp display
+              updateTemps();
               break;
             case 28: // humidifier indicator
               break;
@@ -142,28 +143,33 @@ void Display::checkNextion() // all the Nextion recieved commands
 
 void Display::updateTemps()
 {
-  static uint16_t last[8];  // only draw changes
+  static uint16_t last[7];  // only draw changes
+  static bool bRmt = false;
 
   if(nex.getPage())
   {
     memset(last, 0, sizeof(last));
+    bRmt = false;
     return;
   }
 
-  if(last[0] != hvac.m_inTemp)          nex.itemFp(2, last[0] = hvac.m_inTemp);
-  if(last[1] != hvac.m_rh)              nex.itemFp(3, last[1] = hvac.m_rh);
+  if(bRmt != hvac.showLocalTemp())
+  {
+    bRmt = hvac.showLocalTemp();
+    nex.itemColor("f2", bRmt ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
+    nex.itemColor("f3", bRmt ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
+  }
+
+  uint16_t temp = hvac.showLocalTemp() ? hvac.m_localTemp : hvac.m_inTemp;
+  uint16_t rh = hvac.showLocalTemp() ? hvac.m_localRh : hvac.m_rh;
+
+  if(last[0] != temp)                   nex.itemFp(2, last[0] = temp);
+  if(last[1] != rh)                     nex.itemFp(3, last[1] = rh);
   if(last[2] != hvac.m_targetTemp)      nex.itemFp(4, last[2] = hvac.m_targetTemp);
   if(last[3] != hvac.m_EE.coolTemp[1])  nex.itemFp(5, last[3] = hvac.m_EE.coolTemp[1]);
   if(last[4] != hvac.m_EE.coolTemp[0])  nex.itemFp(6, last[4] = hvac.m_EE.coolTemp[0]);
   if(last[5] != hvac.m_EE.heatTemp[1])  nex.itemFp(7, last[5] = hvac.m_EE.heatTemp[1]);
   if(last[6] != hvac.m_EE.heatTemp[0])  nex.itemFp(8, last[6] = hvac.m_EE.heatTemp[0]);
-
-  if(last[7] != hvac.isRemoteTemp())
-  {
-    last[7] = hvac.isRemoteTemp();
-    nex.itemColor("f2", last[7] ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
-    nex.itemColor("f3", last[7] ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
-  }
 }
 
 const char *_days_short[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -221,6 +227,14 @@ void Display::drawForecast(bool bRef)
     hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
     for(int i = 1; i < 18; i++) // and adjust the times
       hvac.m_fcData[i].h -= 24;
+  }
+  else if(hvac.m_fcData[0].h < hour() - 3) // forecast failure
+  {
+    for(int i = 0; i < 17; i++) // shift over
+    {
+      hvac.m_fcData[i].h = hvac.m_fcData[i+1].h;
+      hvac.m_fcData[i].t = hvac.m_fcData[i+1].t;
+    }
   }
 
   if(mins > 10 && hrs > 2) hrs--;     // wrong
@@ -584,7 +598,7 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
       bPic = (hvac.getState() > State_Cool) ? true:false;
       nex.itemPic(4, bPic ? 3:1); // red or blue indicator
     }
-    if(hvac.isRemoteTemp())
+    if(hvac.m_bRemoteConnected)
       bOn = !bOn; // blink indicator if remote temp
     else bOn = true; // just on
   }
@@ -670,7 +684,7 @@ void Display::addGraphPoints()
   if( hvac.m_inTemp == 0)
     return;
   if(m_pointsAdded == 299)
-    memcpy(&m_points, &m_points[1], sizeof(m_points) - 5);
+    memcpy(&m_points, &m_points[1], sizeof(m_points) - 6);
 
   const int base = 660; // 66.0 base   Todo: scale all this
   m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 101 / 110; // 66~90 scale to 0~220
@@ -683,6 +697,7 @@ void Display::addGraphPoints()
 
   m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 101 / 110;
   m_points[m_pointsAdded][4] = hvac.getState();
+  m_points[m_pointsAdded][5] = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
 
   if(m_pointsAdded < 299) // 300x220
     m_pointsAdded++;
@@ -716,6 +731,8 @@ void Display::fillGraph()
   drawPoints(2, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   drawPoints(3, rgb16( 22, 40, 10) ); // target threshold
   drawPoints(1, rgb16(  0, 53,  0) ); // rh green
+  if(hvac.isRemote())
+    drawPoints(5, rgb16( 31, 0,  15) ); // remote temp
   drawPointsTemp(); // off/cool/heat colors
 //  drawPoints(0, rgb16(31,  0,  0) ); // plain inTemp red
 }
