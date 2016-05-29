@@ -26,8 +26,8 @@ class JsonClient
 public:
   JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue));
   bool  addList(const char **pList);
-  bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive);
-  bool  service();
+  bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
+  bool  service(void);
   void  end(void);
 
 private:
@@ -41,15 +41,20 @@ private:
   WiFiClient m_client;
   char m_szHost[64];
   char m_szPath[64];
+  char m_szData[256];
   const char **m_jsonList[8];
+  const char **m_pHeaders;
   uint16_t m_bufcnt;
   uint16_t m_event;
   uint16_t m_nPort;
   char     m_buffer[JC_BUF_SIZE];
   unsigned long m_timeOut;
   uint8_t m_jsonCnt;
+  int16_t m_brace;
   int8_t  m_Status;
   bool    m_bKeepAlive;
+  bool    m_bPost;
 };
 
 #endif // JSONCLIENT_H
+
