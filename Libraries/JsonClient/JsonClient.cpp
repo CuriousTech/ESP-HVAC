@@ -35,17 +35,23 @@ bool JsonClient::addList(const char **pList)
 }
 
 // begin with host, /path?param=x&param=x, port, streaming
-bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive)
+bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData)
 {
   m_jsonCnt = 0;
   m_event = 0;
   m_bufcnt = 0;
   strncpy(m_szHost, pHost, sizeof(m_szHost) );
   strncpy(m_szPath, pPath, sizeof(m_szPath) );
+  m_szData[0] = 0;
+  if(pData)
+    strncpy(m_szData, pData, sizeof(m_szData) );
+
   m_nPort = port;
   m_bKeepAlive = bKeepAlive;
   m_timeOut = millis() - 1000;
   m_Status = JC_IDLE;
+  m_pHeaders = pHeaders;
+  m_bPost = bPost;
   return connect();
 }
 
@@ -81,6 +87,7 @@ bool JsonClient::service()
       if(m_bufcnt > 1) // ignore keepalive
       {
         m_buffer[m_bufcnt-1] = '\0';
+//		Serial.println(m_buffer);
         processLine();
       }
       m_bufcnt = 0;
@@ -144,110 +151,98 @@ bool JsonClient::connect()
     return false;
   }
 
-  m_client.print("GET ");
+  m_client.print(m_bPost ? "POST ":"GET ");
   m_client.print(m_szPath);
   m_client.println(" HTTP/1.1");
 
   sendHeader("Host", m_szHost);
+  sendHeader("User-Agent", "Arduino");
   sendHeader("Connection", m_bKeepAlive ? "keep-alive" : "close");
-  sendHeader("Accept", "*/*"); // use text/json for strict
+  sendHeader("Accept", "*/*"); // use application/json for strict
+  if(m_pHeaders)
+  {
+    for(int i = 0; m_pHeaders[i] && m_pHeaders[i+1]; i += 2)
+    {
+      sendHeader(m_pHeaders[i], m_pHeaders[i+1]);
+    }
+  }
+  if(m_szData[0])
+    sendHeader("Content-Length", strlen(m_szData));
 
   m_client.println();
+  if(m_szData[0])
+    m_client.println(m_szData);
   m_client.flush();
 
   m_Status = JC_CONNECTED;
+  m_brace = 0;
   return true;
 }
 
 void JsonClient::processLine()
 {
-  if(!strcmp(m_buffer, ":ok")) // started
-    return;
-
   if(m_jsonCnt == 0)
     return;
 
-  char *p = strchr(m_buffer, ':');
-  char *p2 = strchr(m_buffer, '{');
-  if(p == NULL)
-  {
-    return;
-  }
+  char *pPair[2]; // param:data pair
 
-  if(p2 && p > p2) // no event name
-  {
-    p = m_buffer;
-  }
-  else
-  {
-    *p = 0; // term the :
-    p++;
-  }
+  char *p = m_buffer;
 
-  p = skipwhite(p);
+  while(*p)
+  {
+    p = skipwhite(p);
+    if(*p == '{'){p++; m_brace++;}
+    if(*p == ',') p++;
+    p = skipwhite(p);
 
-  if(!strcmp(m_buffer, "event") && m_jsonList[0][0]) // need event names
-  {
-    for(int i = 0; i < m_jsonCnt; i++)
-      if(!strcmp(p, m_jsonList[i][0]))
-        m_event = i;
-  }
-  else if(!strcmp(m_buffer, "data") || m_jsonList[0][0] == NULL || m_jsonList[0][0][0] == 0)
-  {
-    p = skipwhite(p); // skip leading spaces
-    if(*p != '{')
+    bool bInQ = false;
+    if(*p == '"'){p++; bInQ = true;}
+    pPair[0] = p;
+    if(bInQ)
     {
-      m_callback(m_event, 0, atoi(p), p);
-      return;
+       while(*p && *p!= '"') p++;
+       if(*p == '"') *p++ = 0;
+    }else
+    {
+      while(*p && *p != ':') p++;
     }
-    p = strtok(p+1, ",}");
-    if(p == NULL)
+    if(*p != ':') return;
+    *p++ = 0;
+    p = skipwhite(p);
+    if(*p == '{'){p++; m_brace++; continue;} // data: {
+
+    bInQ = false;
+    if(*p == '"'){p++; bInQ = true;}
+    pPair[1] = p;
+    if(bInQ)
     {
-      Serial.println("No } found");
-      return;
+	   while(*p && *p!= '"') p++;
+       if(*p == '"') *p++ = 0;
+    }else
+    {
+      while(*p && *p != ',') p++;
+      *p++ = 0;
     }
-    do // for each pair
-    {
-      bool bInQ = false;
-      p = skipwhite(p); // skip leading spaces
-      if(*p == '"') // name in quotes?
-      {
-        p++;
-        bInQ = true;
-      }
-      char *pName = p;
-      p++;
-      if(bInQ) while(*p && *p != '"' && *p != ':') p++; // find end quote (if missing, it'll find :)
-      else while(*p && *p != ':') p++; // or : if no quotes
-      *p++ = 0; // null term at end of name
-      if(*p == ':') p++;
-      p = skipwhite(p); // skip any spaces
-      bInQ = false;
-      if(*p == '"'){ // value in quotes?
-        p++;
-        bInQ = true;
-      }
-      int16_t value = atoi(p); // possibly intenger
-      char *pValue = p;       // string, float etc.
-      p += strlen(p)-1;
+    p = skipwhite(p);
+    if(*p == '}'){p++; m_brace--;}
 
-      if(*p == '"')
-        *p = 0;
-
-      for(int i = 1; m_jsonList[m_event][i]; i++)
+	if(pPair[0][0])
+	{
+      if(!strcmp(pPair[0], "event") && m_jsonList[0][0]) // need event names
       {
-        if(!strcmp(pName, m_jsonList[m_event][i]))
+        for(int i = 0; i < m_jsonCnt; i++)
+          if(!strcmp(pPair[1], m_jsonList[i][0]))
+            m_event = i;
+      }
+      else for(int i = 1; m_jsonList[m_event][i]; i++)
+      {
+        if(!strcmp(pPair[0], m_jsonList[m_event][i]))
         {
-            m_callback(m_event, i-1, value, pValue);
+            m_callback(m_event, i-1, atoi(pPair[1]), pPair[1]);
             break;
         }
       }
-    }while( p = strtok(NULL, ",}") );
-  }
-  else
-  {
-//    Serial.print("JsonClient: invalid label ");
-//    Serial.println(m_buffer);
+    }
   }
 }
 
