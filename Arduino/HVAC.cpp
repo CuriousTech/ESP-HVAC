@@ -338,31 +338,28 @@ void HVAC::tempCheck()
   {
     if(m_fanPreTimer) // fan will circulate for the set time before going to actual heat/cool
     {
-      if(--m_fanPreTimer == 0)
+      bool bGood = false;
+      switch(mode)
       {
-        bool bGood = false;
-        switch(mode)
-        {
-          case Mode_Cool:
-            if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
-              bGood = true;
-            break;
-          case Mode_Heat:
-            if(m_inTemp >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
-              bGood = true;
-            break;
-        }
-        if(bGood) // fan hit threshold
-        {
-          fanSwitch(false);
-          m_fanPreElap = 0;
-//          m_bRecheck = true; // check temp again
-        }
-        else
-        {
-          m_bStart = true;  // start the cycle
-          return;
-        }
+        case Mode_Cool:
+          if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
+            bGood = true;
+          break;
+        case Mode_Heat:
+          if(m_inTemp >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
+            bGood = true;
+          break;
+      }
+      if(bGood) // fan hit threshold
+      {
+        fanSwitch(false);
+        m_fanPreElap = 0;
+        m_fanPreTimer = 0;
+      }
+      if(--m_fanPreTimer == 0) // timed out, didn't hit threshold
+      {
+        m_bStart = true;  // start the cycle
+        return;
       }
     }
 
