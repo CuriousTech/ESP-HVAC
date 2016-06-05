@@ -7,6 +7,7 @@
 #include "WiFiManager.h"
 #include <ESP8266WebServer.h>
 #include <WiFiUdp.h>
+#include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
 #include <Event.h>
 #include "HVAC.h"
@@ -25,7 +26,13 @@ extern eventHandler event;
 extern HVAC hvac;
 extern Display display;
 
-void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
+const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
+byte packetBuffer[ NTP_PACKET_SIZE]; //buffer to hold incoming and outgoing packets
+WiFiUDP Udp;
+bool bNeedUpdate;
+bool checkUdpTime(void);
+
+void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
 
 int nWrongPass;
@@ -61,11 +68,16 @@ void handleServer()
   MDNS.update();
   server.handleClient();
   hvac.m_bRemoteConnected = remoteStream.service();
-  if(hvac.m_bRemoteConnected && hvac.m_bRemoteDisconnect)
+  if(hvac.m_bRemoteConnected)
   {
-    remoteStream.end();
-    hvac.m_bRemoteDisconnect = false;
+    if(remoteStream.status() == JC_NO_CONNECT || hvac.m_bRemoteDisconnect) // user or failures
+    {
+      remoteStream.end();
+      hvac.m_bRemoteDisconnect = false;
+    }
   }
+  if(bNeedUpdate)   // if getUpdTime was called
+    checkUdpTime();
 }
 
 void secondsServer() // called once per second
@@ -116,7 +128,7 @@ void parseParams()
     {
       if(nWrongPass == 0 && password == controlPassword)
         hvac.setVar(server.argName(i), s.toInt() );
-      display.screen(true); // switch to main page, undim when varabled are changed
+      display.screen(true); // switch to main page, undim when variables are changed
     }
   }
  
@@ -130,7 +142,12 @@ void parseParams()
       nWrongPass <<= 1;
     if(ip != lastIP)  // if different IP drop it down
        nWrongPass = 10;
-    event.alert("HackIP=" + ipString(ip) ); // log attempts
+    String data = "{ip:\"";
+    data += ipString(ip);
+    data += "\",pass:\"";
+    data += password;
+    data += "\"}";
+    event.push("hack", data); // log attempts
   }
   
   lastIP = ip;
@@ -664,7 +681,7 @@ String dataJson()
 const char *jsonList1[] = { "state", "temp", "rh", "tempi", "rhi", NULL };
 const char *jsonList2[] = { "alert", NULL };
 
-void remoteCallback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue)
+void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
   {
@@ -724,7 +741,15 @@ void handleRemote()
   server.send ( 200, "text/html", "OK" );
 
   if(sKey != controlPassword)
+  {
+    String data = "{ip:\"";
+    data += ipString(server.client().remoteIP());
+    data += "\",pass:\"";
+    data += sKey;
+    data += "\"}";
+    event.push("hack", data); // log attempts
     return;
+  }
 
   if(bEnd) // end a remote sensor
   {
@@ -791,4 +816,76 @@ void pushBullet(const char *pTitle, const char *pBody)
     String line = client.readStringUntil('\n');
     Serial.println(line);
   }
+}
+
+
+void getUdpTime()
+{
+  if(bNeedUpdate) return;
+//  Serial.println("getUdpTime");
+  Udp.begin(2390);
+  // set all bytes in the buffer to 0
+  memset(packetBuffer, 0, NTP_PACKET_SIZE);
+  // Initialize values needed to form NTP request
+  // (see URL above for details on the packets)
+  packetBuffer[0] = 0b11100011;   // LI, Version, Mode
+  packetBuffer[1] = 0;     // Stratum, or type of clock
+  packetBuffer[2] = 6;     // Polling Interval
+  packetBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  packetBuffer[12]  = 49;
+  packetBuffer[13]  = 0x4E;
+  packetBuffer[14]  = 49;
+  packetBuffer[15]  = 52;
+  
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:
+  // time.nist.gov
+  Udp.beginPacket("0.us.pool.ntp.org", 123); //NTP requests are to port 123
+  Udp.write(packetBuffer, NTP_PACKET_SIZE);
+  Udp.endPacket();
+  bNeedUpdate = true;
+}
+
+bool checkUdpTime()
+{
+  static int retry = 0;
+
+  if(!Udp.parsePacket())
+  {
+    if(++retry > 500)
+     {
+        getUdpTime();
+        retry = 0;
+     }
+    return false;
+  }
+//  Serial.println("checkUdpTime good");
+
+  // We've received a packet, read the data from it
+  Udp.read(packetBuffer, NTP_PACKET_SIZE); // read the packet into the buffer
+
+  Udp.stop();
+  // the timestamp starts at byte 40 of the received packet and is four bytes,
+  // or two words, long. First, extract the two words:
+
+  unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+  unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+  unsigned long secsSince1900 = highWord << 16 | lowWord;
+  // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+  const unsigned long seventyYears = 2208988800UL;
+  long timeZoneOffset = 3600 * hvac.m_EE.tz;
+  unsigned long epoch = secsSince1900 - seventyYears + timeZoneOffset + 1; // bump 1 second
+
+  // Grab the fraction
+  highWord = word(packetBuffer[44], packetBuffer[45]);
+  lowWord = word(packetBuffer[46], packetBuffer[47]);
+  unsigned long d = (highWord << 16 | lowWord) / 4295000; // convert to ms
+  delay(d); // delay to next second (meh)
+  setTime(epoch);
+  
+//  Serial.print("Time ");
+//  Serial.println(timeFmt(true, true));
+  bNeedUpdate = false;
+  return true;
 }
