@@ -74,7 +74,8 @@ HVAC::HVAC()
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
-  m_bLocalTemp = true;
+  m_bLocalTempDisplay = true; // default to local/remote temp
+  m_localTemp = 0;
   m_fanPreElap = 60*10;
 }
 
@@ -96,11 +97,11 @@ void HVAC::service()
   tempCheck();
 }
 
-void sc_callback(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue)
+void sc_callback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
 }
 
-void HVAC::sendCmd(char *szName, int value)
+void HVAC::sendCmd(const char *szName, int value)
 {
   char szPath[64];
 
@@ -116,34 +117,28 @@ void HVAC::sendCmd(char *szName, int value)
   cl.begin(hostIp, szPath, hostPort, false);
 }
 
-void HVAC::enableRemote(uint8_t flags)
+void HVAC::enableRemote()
 {
-  if(flags == 0)  // target temp hit
-  {
-    char szPath[64];
+  char szPath[64];
 
-    JsonClient cl(sc_callback);
-    String path = "/remote?key=";
-    path += controlPassword;
-    if(m_bRemoteConnected)
-    {
-      path += "&end=1";
-      m_bRemoteConnected = false;
-    }
-    else
-    {         // the path needs to be URL encoded
-      path += "&path=%2Fevents%3Fi=30%26p=1&port=";
-      path += serverPort;
-      m_bRemoteConnected = true;
-      m_bLocalTemp = true;
-    }
-    path.toCharArray(szPath, 64);
-    cl.begin(hostIp, szPath, hostPort, false);
-  }
-  else if(!m_bRemoteConnected) // temp/rh hit
+  JsonClient cl(sc_callback);
+  String path = "/remote?key=";
+  path += controlPassword;
+  if(m_bRemoteConnected)
   {
-    m_bLocalTemp = !m_bLocalTemp;
+    path += "&end=1";
+    m_bRemoteConnected = false;
+    m_bLocalTempDisplay = false;
   }
+  else
+  {         // the path needs to be URL encoded
+    path += "&path=%2Fevents%3Fi=30%26p=1&port=";
+    path += serverPort;
+    m_bRemoteConnected = true;
+    m_bLocalTempDisplay = true;
+  }
+  path.toCharArray(szPath, 64);
+  cl.begin(hostIp, szPath, hostPort, false);
 }
 
 bool HVAC::stateChange()
@@ -166,10 +161,10 @@ bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
 
-  if(nTemp == m_rmtInTemp)
+  if(nTemp == m_localTemp)
     return false;
 
-  nTemp = m_rmtInTemp;
+  nTemp = m_localTemp;
   return true;
 }
 
@@ -340,18 +335,23 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   if(old[3] != m_EE.heatTemp[1])    sendCmd("heath", m_EE.heatTemp[1]);
 }
 
-bool HVAC::isRemoteTemp()
+bool HVAC::showLocalTemp()
 {
-  return m_bLocalTemp;
+  return m_bLocalTempDisplay;
+}
+
+bool HVAC::isRemote()
+{
+  return true;
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-  m_rmtInTemp = Temp + m_EE.adj;
-  m_rmtRh = rh;
+  m_localTemp = Temp + m_EE.adj;
+  m_localRh = rh;
 
-  if( m_bRemoteConnected || m_bLocalTemp)
+  if( m_bRemoteConnected )
   {
     m_inTemp = Temp + m_EE.adj;
     m_rh = rh;
@@ -409,26 +409,22 @@ void HVAC::updateVar(int iName, int iValue)// host values
 {
   switch(iName)
   {
-    case 0:
+    case 0: // r
       m_bRunning = iValue;
       break;
-    case 1:
+    case 1: // fr
       m_bFanRunning = iValue;
       break;
-    case 2:
+    case 2: // s
       break;
-    case 3:
-      if( m_bRemoteConnected == false && m_bLocalTemp == false)
-        m_inTemp = iValue;
+    case 3: // it
       break;
-    case 4:
-      if( m_bRemoteConnected == false && m_bLocalTemp == false)
-        m_rh = iValue;
+    case 4: // rh
       break;
-    case 5:
+    case 5: // tt
       m_targetTemp = iValue;
       break;
-    case 6:
+    case 6: // fm
       m_EE.filterMinutes = iValue;
       break;
     case 7: // outTemp
@@ -437,17 +433,23 @@ void HVAC::updateVar(int iName, int iValue)// host values
       break;
     case 9: // outmax
       break;
-    case 10:
+    case 10: // ct
       m_cycleTimer = iValue;
       break;
-    case 11:
+    case 11: // ft
       m_fanOnTimer = iValue;
       break;
-    case 12:
+    case 12: // rt
       m_runTotal = iValue;
       break;
-    case 13:
+    case 13: // h
       m_bHumidRunning = iValue;
+      break;
+    case 14: // lt (localTemp on host)
+      m_inTemp = iValue;
+      break;
+    case 15: // lh
+      m_rh = iValue;
       break;
   }
 }
@@ -519,8 +521,8 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"tempi\":";  s += m_rmtInTemp;
-  s += ",\"rhi\":";  s += m_rmtRh;
+  s += "\"tempi\":";  s += m_localTemp;
+  s += ",\"rhi\":";  s += m_localRh;
   s += "}";
   return s;
 }
