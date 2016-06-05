@@ -870,18 +870,17 @@ void HVAC::setVar(String sCmd, int val)
       m_EE.eHeatThresh = constrain(val, 5, 50); // Limit 5 to 50 degrees F
       break;
     case 15:    // override
-      if(val <= 0)    // cancel
+      if(val == 0)    // cancel
       {
         m_ovrTemp = 0;
         m_overrideTimer = 0;
-        m_bRecheck = true;
       }
       else
       {
         m_ovrTemp = constrain(val, -90, 90); // Limit to -9.0 to +9.0 degrees F
         m_overrideTimer = m_EE.overrideTime;
-        m_bRecheck = true;
       }
+      m_bRecheck = true;
       break;
     case 16:    // overridetime
       m_EE.overrideTime = constrain(val, 60*1, 60*60*6); // Limit 1 min to 6 hours
