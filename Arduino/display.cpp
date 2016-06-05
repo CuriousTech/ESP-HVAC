@@ -213,7 +213,7 @@ void Display::drawForecast(bool bRef)
 {
   int8_t min = 126;
   int8_t max = -50;
-  int8_t i;
+  int i;
 
   if(hvac.m_fcData[0].h == -1 || nex.getPage()) // no data yet or display on different page
     return;
@@ -221,27 +221,28 @@ void Display::drawForecast(bool bRef)
   int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..
   int8_t mins = (60 - minute() + 54) % 60;   // mins to :54, retry will be :59
 
-  if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
+  if(hrs < 0 || hrs > 3) // something's wrong
+    hrs = 0;
+
+  if(hvac.m_fcData[0].h == 23 && hour() < 6) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
     hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
     hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
-    for(int i = 1; i < 18; i++) // and adjust the times
+    for(i = 1; i < 18; i++) // and adjust the times
       hvac.m_fcData[i].h -= 24;
   }
   else if(hvac.m_fcData[0].h < hour() - 3) // forecast failure
   {
-    for(int i = 0; i < 17; i++) // shift over
+    for(i = 0; i < 17; i++) // shift over
     {
       hvac.m_fcData[i].h = hvac.m_fcData[i+1].h;
       hvac.m_fcData[i].t = hvac.m_fcData[i+1].t;
     }
   }
 
-  if(mins > 10 && hrs > 2) hrs--;     // wrong
-
   m_updateFcst = ((hrs * 60) + mins);
-    // Get min/max
 
+  // Get min/max
   for(i = 0; i < 18; i++)
   {
     int8_t t = hvac.m_fcData[i].t;
@@ -253,12 +254,6 @@ void Display::drawForecast(bool bRef)
 
   hvac.updatePeaks(min, max);
 
-  int16_t y = Fc_Top+1;
-  int16_t incy = (Fc_Height-4) / 3;
-  int16_t dec = (max - min)/3;
-  int16_t t = max;
-  int16_t x;
-
   if(bRef) // new forecast
   {
     m_temp_counter = 2; // Todo: just for first point
@@ -267,7 +262,13 @@ void Display::drawForecast(bool bRef)
     nex.refreshItem("s0");
     delay(5); // 5 works
   }
-  
+
+  int16_t y = Fc_Top+1;
+  int16_t incy = (Fc_Height-4) / 3;
+  int16_t dec = (max - min)/3;
+  int16_t t = max;
+  int16_t x;
+
   // temp scale
   for(i = 0; i <= 3; i++)
   {
@@ -278,7 +279,7 @@ void Display::drawForecast(bool bRef)
 
   int8_t day = weekday()-1;              // current day
   int8_t h0 = hour();                    // zeroeth hour
-  int8_t pts = hvac.m_fcData[17].h - h0;
+  int8_t pts = hvac.m_fcData[17].h - h0; // normally 52 hours
   int8_t h;
   int16_t day_x = 0;
 
@@ -309,10 +310,11 @@ void Display::drawForecast(bool bRef)
   int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[0].t - min) * (Fc_Height-2) / (max-min);
   int16_t x2 = Fc_Left;
 
-  for(i = 0; i < 18; i++) // should be 18 points
+  for(i = 0; i < 18; i++) // should be 18 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - min) * (Fc_Height-2) / (max-min);
     int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * Fc_Width / pts;
+    if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
     x2 = x1;
     y2 = y1;
