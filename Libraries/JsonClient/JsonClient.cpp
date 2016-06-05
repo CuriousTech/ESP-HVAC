@@ -12,7 +12,7 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
-JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue) )
+JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue) )
 {
   m_callback = callback;
   m_Status = JC_IDLE;
@@ -52,6 +52,7 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   m_Status = JC_IDLE;
   m_pHeaders = pHeaders;
   m_bPost = bPost;
+  m_retryCnt = 0;
   return connect();
 }
 
@@ -112,6 +113,11 @@ void JsonClient::end()
   m_Status = JC_IDLE;
 }
 
+int JsonClient::status()
+{
+  return m_Status;
+}
+
 void JsonClient::sendHeader(const char *pHeaderName, const char *pHeaderValue) // string
 {
   m_client.print(pHeaderName);
@@ -128,13 +134,13 @@ void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // intege
 
 bool JsonClient::connect()
 {
-  if(m_szHost[0] == 0 || m_szPath[0] == 0)
+  if(m_szHost[0] == 0 || m_szPath[0] == 0 || m_retryCnt > RETRIES)
     return false;
 
   if(m_client.connected())
     return false;
 
-  if((millis() - m_timeOut) < 1000) // 1 second between retries
+  if((millis() - m_timeOut) < 5000) // 5 seconds between retries
     return false;
 
   m_timeOut = millis();
@@ -148,6 +154,7 @@ bool JsonClient::connect()
     Serial.print(m_szPath);
     Serial.print(" ");
     Serial.println(m_nPort);
+    m_retryCnt++;
     return false;
   }
 
@@ -252,4 +259,3 @@ char * JsonClient::skipwhite(char *p)
     p++;
   return p;
 }
-
