@@ -19,23 +19,26 @@ enum JC_Status
     JC_NO_CONNECT,
 };
 
+#define RETRIES 10
+
 #define JC_BUF_SIZE 1024
 
 class JsonClient
 {
 public:
-  JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue));
+  JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue));
   bool  addList(const char **pList);
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
   bool  service(void);
   void  end(void);
+  int   status(void);
 
 private:
   bool  connect(void);
   void  processLine(void);
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue);
   void  sendHeader(const char *pHeaderName, int nHeaderValue);
-  void  (*m_callback)(uint16_t iEvent, uint16_t iName, uint16_t iValue, char *psValue);
+  void  (*m_callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
   char *skipwhite(char *p);
 
   WiFiClient m_client;
@@ -49,8 +52,9 @@ private:
   uint16_t m_nPort;
   char     m_buffer[JC_BUF_SIZE];
   unsigned long m_timeOut;
-  uint8_t m_jsonCnt;
   int16_t m_brace;
+  int16_t m_retryCnt;
+  uint8_t m_jsonCnt;
   int8_t  m_Status;
   bool    m_bKeepAlive;
   bool    m_bPost;
