@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.5.0">
+<eagle version="7.6.0">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -6140,7 +6140,7 @@ Grid 3.5 mm&lt;p&gt;
 <part name="GND8" library="supply1" deviceset="GND" device=""/>
 <part name="GND23" library="supply1" deviceset="GND" device=""/>
 <part name="C3" library="SparkFun-Capacitors" deviceset="CAP" device="0805" value="0.1uF"/>
-<part name="3V3R" library="Microchip_By_element14_Batch_1" deviceset="MCP1801T-3302I/OT" device=""/>
+<part name="3V3R" library="Microchip_By_element14_Batch_1" deviceset="MCP1801T-3302I/OT" device="" value="MCP1755T-3302E/OT"/>
 <part name="R17" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="5K6"/>
 <part name="10F" library="Microchip_By_element14_Batch_1" deviceset="PIC10F202T-I/OT" device=""/>
 <part name="GND24" library="supply1" deviceset="GND" device=""/>
@@ -6152,7 +6152,7 @@ Grid 3.5 mm&lt;p&gt;
 <part name="GND26" library="supply1" deviceset="GND" device=""/>
 <part name="R12" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="4K7"/>
 <part name="R13" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="4K7"/>
-<part name="NEXPRG" library="SparkFun-Connectors" deviceset="M04" device="PTH"/>
+<part name="." library="SparkFun-Connectors" deviceset="M04" device="PTH"/>
 <part name="GND17" library="supply1" deviceset="GND" device=""/>
 <part name="U$2" library="CuriousTech" deviceset="SMD-PAD1" device=""/>
 <part name="U$5" library="CuriousTech" deviceset="SMD-PAD1" device=""/>
@@ -6169,7 +6169,7 @@ Grid 3.5 mm&lt;p&gt;
 <part name="C9" library="SparkFun-Capacitors" deviceset="CAP" device="0805" value="0.1uF"/>
 <part name="GND29" library="supply1" deviceset="GND" device=""/>
 <part name="R19" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="10K"/>
-<part name="R20" library="SparkFun-Passives" deviceset="RESISTOR" device="0805-RES" value="1K"/>
+<part name="R20" library="SparkFun-Passives" deviceset="RESISTOR" device="0805-RES" value="4K7"/>
 </parts>
 <sheets>
 <sheet>
@@ -6246,7 +6246,7 @@ Grid 3.5 mm&lt;p&gt;
 <instance part="GND26" gate="1" x="220.98" y="91.44"/>
 <instance part="R12" gate="G$1" x="218.44" y="119.38" rot="R90"/>
 <instance part="R13" gate="G$1" x="273.05" y="119.38" rot="R90"/>
-<instance part="NEXPRG" gate="G$1" x="349.25" y="156.21" rot="MR0"/>
+<instance part="." gate="G$1" x="349.25" y="156.21" rot="MR0"/>
 <instance part="GND17" gate="1" x="318.77" y="97.79" rot="MR0"/>
 <instance part="U$2" gate="G$1" x="406.4" y="135.89"/>
 <instance part="U$5" gate="G$1" x="406.4" y="142.24"/>
@@ -6468,7 +6468,7 @@ Grid 3.5 mm&lt;p&gt;
 <pinref part="SHT21" gate="G$1" pin="VSS"/>
 </segment>
 <segment>
-<pinref part="NEXPRG" gate="G$1" pin="1"/>
+<pinref part="." gate="G$1" pin="1"/>
 <wire x1="344.17" y1="153.67" x2="334.01" y2="153.67" width="0.1524" layer="91"/>
 <label x="334.01" y="153.67" size="1.778" layer="95" rot="R180" xref="yes"/>
 </segment>
@@ -6893,7 +6893,7 @@ Grid 3.5 mm&lt;p&gt;
 <junction x="170.18" y="163.83"/>
 </segment>
 <segment>
-<pinref part="NEXPRG" gate="G$1" pin="4"/>
+<pinref part="." gate="G$1" pin="4"/>
 <wire x1="344.17" y1="161.29" x2="341.63" y2="161.29" width="0.1524" layer="91"/>
 <label x="341.63" y="161.29" size="1.778" layer="95" rot="R180" xref="yes"/>
 </segment>
@@ -6901,58 +6901,6 @@ Grid 3.5 mm&lt;p&gt;
 <pinref part="J2" gate="G$1" pin="VBUS"/>
 <wire x1="354.33" y1="114.3" x2="349.25" y2="114.3" width="0.1524" layer="91"/>
 <label x="349.25" y="114.3" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-</net>
-<net name="SCL" class="0">
-<segment>
-<pinref part="U$1" gate="G$1" pin="P$6"/>
-<wire x1="269.24" y1="31.75" x2="274.32" y2="31.75" width="0.1524" layer="91"/>
-<label x="274.32" y="31.75" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
-<wire x1="265.43" y1="110.49" x2="273.05" y2="110.49" width="0.1524" layer="91"/>
-<pinref part="R13" gate="G$1" pin="1"/>
-<wire x1="273.05" y1="110.49" x2="281.94" y2="110.49" width="0.1524" layer="91"/>
-<wire x1="273.05" y1="114.3" x2="273.05" y2="110.49" width="0.1524" layer="91"/>
-<junction x="273.05" y="110.49"/>
-<label x="281.94" y="110.49" size="1.778" layer="95" xref="yes"/>
-<pinref part="SHT21" gate="G$1" pin="SCL"/>
-</segment>
-<segment>
-<pinref part="10F" gate="A" pin="GP3/~MCLR/VPP"/>
-<wire x1="387.35" y1="156.21" x2="379.73" y2="156.21" width="0.1524" layer="91"/>
-<label x="379.73" y="156.21" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-<segment>
-<pinref part="U$5" gate="G$1" pin="P$1"/>
-<wire x1="401.32" y1="142.24" x2="396.24" y2="142.24" width="0.1524" layer="91"/>
-<label x="396.24" y="142.24" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-<segment>
-<pinref part="R18" gate="G$1" pin="1"/>
-<wire x1="162.56" y1="107.95" x2="160.02" y2="107.95" width="0.1524" layer="91"/>
-<label x="160.02" y="107.95" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-</net>
-<net name="SDA" class="0">
-<segment>
-<pinref part="U$1" gate="G$1" pin="P$10"/>
-<wire x1="223.52" y1="26.67" x2="212.09" y2="26.67" width="0.1524" layer="91"/>
-<label x="212.09" y="26.67" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-<segment>
-<wire x1="167.64" y1="105.41" x2="179.07" y2="105.41" width="0.1524" layer="91"/>
-<pinref part="AM2302" gate="G$1" pin="3"/>
-<label x="167.64" y="105.41" size="1.778" layer="95" rot="R180" xref="yes"/>
-</segment>
-<segment>
-<wire x1="224.79" y1="110.49" x2="218.44" y2="110.49" width="0.1524" layer="91"/>
-<pinref part="R12" gate="G$1" pin="1"/>
-<wire x1="218.44" y1="110.49" x2="212.09" y2="110.49" width="0.1524" layer="91"/>
-<wire x1="218.44" y1="114.3" x2="218.44" y2="110.49" width="0.1524" layer="91"/>
-<junction x="218.44" y="110.49"/>
-<label x="212.09" y="110.49" size="1.778" layer="95" rot="R180" xref="yes"/>
-<pinref part="SHT21" gate="G$1" pin="SDA"/>
 </segment>
 </net>
 <net name="TXD2" class="0">
@@ -6963,7 +6911,7 @@ Grid 3.5 mm&lt;p&gt;
 <label x="300.99" y="156.21" size="1.778" layer="95" xref="yes"/>
 </segment>
 <segment>
-<pinref part="NEXPRG" gate="G$1" pin="2"/>
+<pinref part="." gate="G$1" pin="2"/>
 <wire x1="344.17" y1="156.21" x2="341.63" y2="156.21" width="0.1524" layer="91"/>
 <label x="341.63" y="156.21" size="1.778" layer="95" rot="R180" xref="yes"/>
 </segment>
@@ -7058,7 +7006,7 @@ Grid 3.5 mm&lt;p&gt;
 <wire x1="294.64" y1="158.75" x2="309.88" y2="158.75" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="NEXPRG" gate="G$1" pin="3"/>
+<pinref part="." gate="G$1" pin="3"/>
 <wire x1="344.17" y1="158.75" x2="334.01" y2="158.75" width="0.1524" layer="91"/>
 <label x="334.01" y="158.75" size="1.778" layer="95" rot="R180" xref="yes"/>
 </segment>
@@ -7075,6 +7023,58 @@ Grid 3.5 mm&lt;p&gt;
 <pinref part="Q1" gate="G$1" pin="G"/>
 <pinref part="R20" gate="G$1" pin="1"/>
 <wire x1="132.08" y1="38.1" x2="134.62" y2="38.1" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="SCL" class="0">
+<segment>
+<wire x1="265.43" y1="110.49" x2="273.05" y2="110.49" width="0.1524" layer="91"/>
+<pinref part="R13" gate="G$1" pin="1"/>
+<wire x1="273.05" y1="110.49" x2="281.94" y2="110.49" width="0.1524" layer="91"/>
+<wire x1="273.05" y1="114.3" x2="273.05" y2="110.49" width="0.1524" layer="91"/>
+<junction x="273.05" y="110.49"/>
+<label x="281.94" y="110.49" size="1.778" layer="95" xref="yes"/>
+<pinref part="SHT21" gate="G$1" pin="SCL"/>
+</segment>
+<segment>
+<pinref part="AM2302" gate="G$1" pin="3"/>
+<wire x1="179.07" y1="105.41" x2="165.1" y2="105.41" width="0.1524" layer="91"/>
+<label x="165.1" y="105.41" size="1.778" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="U$1" gate="G$1" pin="P$10"/>
+<wire x1="223.52" y1="26.67" x2="212.09" y2="26.67" width="0.1524" layer="91"/>
+<label x="212.09" y="26.67" size="1.778" layer="95" rot="R180" xref="yes"/>
+</segment>
+</net>
+<net name="SDA" class="0">
+<segment>
+<wire x1="224.79" y1="110.49" x2="218.44" y2="110.49" width="0.1524" layer="91"/>
+<pinref part="R12" gate="G$1" pin="1"/>
+<wire x1="218.44" y1="110.49" x2="212.09" y2="110.49" width="0.1524" layer="91"/>
+<wire x1="218.44" y1="114.3" x2="218.44" y2="110.49" width="0.1524" layer="91"/>
+<junction x="218.44" y="110.49"/>
+<label x="212.09" y="110.49" size="1.778" layer="95" rot="R180" xref="yes"/>
+<pinref part="SHT21" gate="G$1" pin="SDA"/>
+</segment>
+<segment>
+<pinref part="U$5" gate="G$1" pin="P$1"/>
+<wire x1="401.32" y1="142.24" x2="396.24" y2="142.24" width="0.1524" layer="91"/>
+<label x="396.24" y="142.24" size="1.778" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="10F" gate="A" pin="GP3/~MCLR/VPP"/>
+<wire x1="387.35" y1="156.21" x2="379.73" y2="156.21" width="0.1524" layer="91"/>
+<label x="379.73" y="156.21" size="1.778" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="R18" gate="G$1" pin="1"/>
+<wire x1="162.56" y1="107.95" x2="156.21" y2="107.95" width="0.1524" layer="91"/>
+<label x="156.21" y="107.95" size="1.778" layer="95" rot="R180" xref="yes"/>
+</segment>
+<segment>
+<pinref part="U$1" gate="G$1" pin="P$6"/>
+<wire x1="269.24" y1="31.75" x2="274.32" y2="31.75" width="0.1524" layer="91"/>
+<label x="274.32" y="31.75" size="1.778" layer="95" xref="yes"/>
 </segment>
 </net>
 </nets>
