@@ -3,16 +3,15 @@ USB Mini-B      Only use for powering remote unit with wall adapter
 Nextion HMI     2.8" eBay
 AM2302/DHT22    Don't use with SHT21
 SHT21           Don't use with DHT22
-R1-R5        *  0805 470
-R6-R9        *  0805 10K (do not remove R9 - GPIO15 must be low on boot)
+R1-R5       *   0805 470
+R6-R9       *   0805 10K (do not remove R9 - GPIO15 must be low on boot)
 R10,R11         0805 10K
-R12,R13         0805 4K7 (SHT21 pullups - 4K7 works best)
+R12,R13         0805 4K7
 R14,R15         ADC voltage divider (not used)
-R16             1K (only works with serial debug disconnected)
-R17             5K6 (works with and without serial debug but R13 (10K) on the Nextion display must be removed)
+R16,R17         5K6
 R18             0 jumper (Do not use: Allows for I2C device in place of DHT22)
 R19             10K 0805 (pullup in case 10K isn't removed from Nextion)
-R20         *   1K 0805
+R20         *   4K7 0805
 C1          *   UWD1V150MCL1 35V 15uF
 C2          *   UCL1A221MCL1GS 10V 220uF
 C3,C4           0805 16V 0.1uF
@@ -22,9 +21,9 @@ C9              0805 16V 0.1uF
 F1          *   1812 PPTC Fuse 1.5A PTS181224V150
 LCD,NEXPROG     4-pin 0.1" header.  Same pinout.  Use either for serial programming of display.
 J1              ADC expansion.  Not used.
-PRG,TXRX        2-pin headers.  Use for serial programming ESP, debug, Nextion simulator.
 PIC10F      *   Not used.  Watchdog connected to SCL for monitor, RESET output.
 5VSWPP      *   MIC4680-5.0YM
+3V3R            MCP1755T-3302E/OT
 L1          *   SRU1048-680Y
 K1-K5       *   AQY282SZ or AQY282S (3 main, 1 for HP, 1 for humidifier)
 B1          *   DF206S-G
@@ -32,5 +31,6 @@ D1          *   B260A-13-F
 X1          *   39357-0008 Screw terimal, 8 position 3.5mm pitch
 Encoder         EC12E24204A2 or other 12mm short shaft
 Q1          *   MMBT2907ALT1G (general purpose BJT PNP) GPIO0 must be high or Z on boot.
+PRG,TXRX        2-pin headers.  Use for serial programming ESP, debug, Nextion simulator.
 
 * Only for main controller
