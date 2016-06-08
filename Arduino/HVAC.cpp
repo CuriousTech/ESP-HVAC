@@ -352,7 +352,8 @@ void HVAC::tempCheck()
       }
       if(bGood) // fan hit threshold
       {
-        fanSwitch(false);
+        if(m_bFanMode == false)
+          fanSwitch(false);
         m_fanPreElap = 0;
         m_fanPreTimer = 0;
       }
@@ -655,7 +656,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
       if(m_rh >= m_EE.rhLevel[1]) // reached high
       {
         humidSwitch(false);
-        if(m_bRunning == false)  // if not cooling/heating we can turn the fan off
+        if(m_bRunning == false && m_bFanMode == false)  // if not cooling/heating we can turn the fan off
         {
           fanSwitch(false);
           if(m_idleTimer > m_EE.idleMin)
