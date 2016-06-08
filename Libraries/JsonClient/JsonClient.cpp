@@ -48,7 +48,7 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
 
   m_nPort = port;
   m_bKeepAlive = bKeepAlive;
-  m_timeOut = millis() - 1000;
+  m_timeOut = millis();
   m_Status = JC_IDLE;
   m_pHeaders = pHeaders;
   m_bPost = bPost;
@@ -59,7 +59,6 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
 // Call this from loop()
 bool JsonClient::service()
 {
-  char c;
   if(m_Status == JC_DONE)
     return false;
   if(!m_client.connected())
@@ -74,6 +73,10 @@ bool JsonClient::service()
       }
       return false;
     }
+
+    if((millis() - m_timeOut) < 5000) // 5 seconds between retries
+      return true;
+
     return connect();
   }
 
@@ -136,12 +139,8 @@ bool JsonClient::connect()
 {
   if(m_szHost[0] == 0 || m_szPath[0] == 0 || m_retryCnt > RETRIES)
     return false;
-
   if(m_client.connected())
-    return false;
-
-  if((millis() - m_timeOut) < 5000) // 5 seconds between retries
-    return false;
+    return true;
 
   m_timeOut = millis();
 
