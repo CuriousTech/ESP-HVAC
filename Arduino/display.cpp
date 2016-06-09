@@ -215,23 +215,20 @@ void Display::drawForecast(bool bRef)
   int8_t max = -50;
   int i;
 
-  if(hvac.m_fcData[0].h == -1 || nex.getPage()) // no data yet or display on different page
+  if(hvac.m_fcData[0].h == -1) // no data yet
     return;
 
-  int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..
-  int8_t mins = (60 - minute() + 54) % 60;   // mins to :54, retry will be :59
-
-  if(hrs < 0 || hrs > 3) // something's wrong
-    hrs = 0;
-
-  if(hvac.m_fcData[0].h == 23 && hour() < 6) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
+  if(hvac.m_fcData[0].h == 23) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
-    hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-    hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
-    for(i = 1; i < 18; i++) // and adjust the times
-      hvac.m_fcData[i].h -= 24;
+    if(hour() == 0)
+    {
+      hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
+      hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
+      for(i = 1; i < 18; i++) // and adjust the times
+        hvac.m_fcData[i].h -= 24;
+    }
   }
-  else if(hvac.m_fcData[0].h < hour() - 3) // forecast failure
+  else if(hour() < 21 && hvac.m_fcData[0].h < hour() - 3) // forecast failure
   {
     for(i = 0; i < 17; i++) // shift over
     {
@@ -239,6 +236,12 @@ void Display::drawForecast(bool bRef)
       hvac.m_fcData[i].t = hvac.m_fcData[i+1].t;
     }
   }
+
+  int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..20,23
+  int8_t mins = (60 - minute() + 53) % 60;   // mins to :53, retry will be :58
+
+  if(hrs < 0 || hrs > 3) // something's wrong (could be local time)
+    hrs = 0;
 
   m_updateFcst = ((hrs * 60) + mins);
 
@@ -253,6 +256,9 @@ void Display::drawForecast(bool bRef)
   if(min == max) max++;   // div by 0 check
 
   hvac.updatePeaks(min, max);
+
+  if(nex.getPage()) // on different page
+    return;
 
   if(bRef) // new forecast
   {
