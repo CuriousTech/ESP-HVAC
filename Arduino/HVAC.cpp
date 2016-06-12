@@ -71,6 +71,7 @@ HVAC::HVAC()
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = false;
+  m_bAvgRemote = false;
   m_fanPreElap = 60*10;
 
   pinMode(P_FAN, OUTPUT);
