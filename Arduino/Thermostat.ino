@@ -86,6 +86,8 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       {
         hO = 0;        // reset hour offset
         lastd = day();
+        hvac.m_fcData[0].t = hvac.m_fcData[1].t; // keep a copy of first hour data
+        hvac.m_fcData[0].h = hvac.m_fcData[1].h;
         break;
       }
       d = atoi(p + 8);  // 2014-mm-ddThh:00:00-tz:00
@@ -93,7 +95,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       if(idx != 1 && d != lastd)
         hO += 24; // change to hours offset
       lastd = d;
-      hvac.m_fcData[idx-1].h = h + hO;
+      hvac.m_fcData[idx].h = h + hO;
 
       newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
       if(p[19] == '-') // its negative
@@ -107,7 +109,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       break;
     case 1:                  // temperature
       if(idx)               // 1st value is not temp
-        hvac.m_fcData[idx-1].t = atoi(p);
+        hvac.m_fcData[idx].t = atoi(p);
       break;
   }
 }
@@ -231,8 +233,8 @@ void loop()
         {
           case XML_DONE:
             hvac.enable();
-            display.drawForecast(true);
             event.alert("Forecast success");
+            display.drawForecast(true);
             break;
           default:
             hvac.disable();
