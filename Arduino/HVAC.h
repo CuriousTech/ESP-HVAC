@@ -84,7 +84,9 @@ struct EEConfig
   uint8_t  humidMode;   // Humidifier modes
   int8_t   adj;         // temp offset adjust
   char     zipCode[8];  // Your zipcode
-  char     reserved[8];
+  uint8_t  hostIp[4];   // IP of main or remote
+  uint8_t  hostPort;
+  char     reserved[3];
 };
 
 class HVAC
@@ -137,6 +139,7 @@ public:
   bool      m_bRemoteConnected;
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
+  bool      m_bAvgRemote;
   int8_t    m_outMin[2], m_outMax[2];
   uint16_t  m_fanPreElap;
 
