@@ -215,20 +215,17 @@ void Display::drawForecast(bool bRef)
   int8_t max = -50;
   int i;
 
-  if(hvac.m_fcData[0].h == -1) // no data yet
+  if(hvac.m_fcData[1].h == -1) // no data yet
     return;
 
-  if(hvac.m_fcData[0].h == 23) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
+  if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
   {
-    if(hour() == 0)
-    {
-      hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-      hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
-      for(i = 1; i < 18; i++) // and adjust the times
-        hvac.m_fcData[i].h -= 24;
-    }
-  }
-  else if(hour() < 21 && hvac.m_fcData[0].h < hour() - 3) // forecast failure
+    hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
+    hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
+    for(i = 1; i < 18; i++) // and adjust the times
+      hvac.m_fcData[i].h -= 24;
+  }  // internet problems maybe || first time || same data read
+  else if(hour() < 21 && hvac.m_fcData[0].h < hour() - 3 || hvac.m_fcData[0].h == -1 || hvac.m_fcData[0].h == hvac.m_fcData[1].h)
   {
     for(i = 0; i < 17; i++) // shift over
     {
@@ -238,7 +235,7 @@ void Display::drawForecast(bool bRef)
   }
 
   int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..20,23
-  int8_t mins = (60 - minute() + 53) % 60;   // mins to :53, retry will be :58
+  int8_t mins = (60 - minute() + 52) % 60;   // mins to :52, retry will be :57
 
   if(hrs < 0 || hrs > 3) // something's wrong (could be local time)
     hrs = 0;
@@ -316,7 +313,7 @@ void Display::drawForecast(bool bRef)
   int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[0].t - min) * (Fc_Height-2) / (max-min);
   int16_t x2 = Fc_Left;
 
-  for(i = 0; i < 18; i++) // should be 18 data points
+  for(i = 1; i < 18; i++) // should be 18 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - min) * (Fc_Height-2) / (max-min);
     int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * Fc_Width / pts;
