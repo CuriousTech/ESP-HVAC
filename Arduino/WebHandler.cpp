@@ -124,11 +124,16 @@ void parseParams()
     server.arg(i).toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
 
-    if(server.argName(i) != "key")
+    if(nWrongPass == 0 && password == controlPassword)
     {
-      if(nWrongPass == 0 && password == controlPassword)
+      if(server.argName(i) == "key");
+      else if(server.argName(i) == "time") // cause a clock reset
+        getUdpTime();
+      else
+      {
         hvac.setVar(server.argName(i), s.toInt() );
-      display.screen(true); // switch to main page, undim when variables are changed
+        display.screen(true); // switch to main page, undim when variables are changed
+      }
     }
   }
  
@@ -689,16 +694,28 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // temp
-          hvac.m_inTemp = (int)(atof(psValue)*10);
+          if(hvac.m_bAvgRemote)
+            hvac.m_inTemp = ((int)(atof(psValue)*10) + hvac.m_localTemp) / 2; // average local and remote temperature
+          else
+            hvac.m_inTemp = (int)(atof(psValue)*10); // remote only
           break;
         case 1: // rh
-          hvac.m_rh = (int)(atof(psValue)*10);
+          if(hvac.m_bAvgRemote)
+            hvac.m_rh = ((int)(atof(psValue)*10) + hvac.m_localRh) / 2;
+          else
+            hvac.m_rh = (int)(atof(psValue)*10);
           break;
         case 2: // tempi
-          hvac.m_inTemp = iValue;
+          if(hvac.m_bAvgRemote)
+            hvac.m_inTemp = (iValue + hvac.m_localTemp) / 2;
+          else
+            hvac.m_inTemp = iValue;
           break;
         case 3: // rhi
-          hvac.m_rh = iValue;
+          if(hvac.m_bAvgRemote)
+            hvac.m_rh = (iValue + hvac.m_localRh) / 2;
+          else
+            hvac.m_rh = iValue;
           break;
       }
       break;
@@ -717,6 +734,7 @@ void handleRemote()
   String sKey;
   int nPort = 80;
   bool bEnd = false;
+  bool bAvg = false;
 //  Serial.println("handleRemote");
 
   ipString(server.client().remoteIP()).toCharArray(ip, 64); // default host IP is client
@@ -734,6 +752,8 @@ void handleRemote()
        nPort = s.toInt();
     else if(server.argName(i) == "end")
        bEnd = true;
+    else if(server.argName(i) == "avg")
+       bAvg = true;
     else if(server.argName(i) == "key")
        sKey = s;
   }
@@ -762,6 +782,7 @@ void handleRemote()
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
   hvac.m_notif = Note_RemoteOn;
+  hvac.m_bAvgRemote = bAvg;
 }
 
 void handleNotFound() {
@@ -817,7 +838,6 @@ void pushBullet(const char *pTitle, const char *pBody)
     Serial.println(line);
   }
 }
-
 
 void getUdpTime()
 {
