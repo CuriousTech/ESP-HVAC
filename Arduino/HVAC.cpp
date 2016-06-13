@@ -39,6 +39,7 @@ HVAC::HVAC()
   m_EE.adj = 0;
   m_EE.fanPreTime[0] = 0; // disable by default
   m_EE.fanPreTime[1] = 0;
+  m_EE.fanCycleTime = 60*60; // 1 hour
   strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -105,7 +106,7 @@ void HVAC::fanSwitch(bool bOn)
   if(bOn)
   {
     m_fanOnTimer = 0;       // reset fan on timer
-    if(m_EE.humidMode == HM_Fan)
+    if(m_EE.humidMode == HM_Fan) // run humidifier when fan is on
         humidSwitch(true);
   }
   else
@@ -158,7 +159,7 @@ void HVAC::service()
       m_furnaceFan--;
   }
 
-  if(m_fanPostTimer)                // Fan conintuation delay
+  if(m_fanPostTimer)                // Fan continuation delay
   {
     if(--m_fanPostTimer == 0)
       if(!m_bRunning && m_bFanMode == false) // Ensure system isn't running and fanMode is auto
@@ -576,7 +577,7 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   switch(mode)
   {
     case Mode_Cool:
-      if(Temp < 650 || Temp > 880)    // ensure sane values
+      if(Temp < 650 || Temp > 900)    // ensure sane values
         break;
       m_EE.coolTemp[hl] = Temp;
       if(hl)
@@ -802,6 +803,7 @@ static const char *cSCmds[] =
   "humidh",
   "adj",
   "fanpretime",
+  "fancycletime",
   NULL
 };
 
@@ -823,7 +825,14 @@ void HVAC::setVar(String sCmd, int val)
   switch( CmdIdx( sCmd, cSCmds ) )
   {
     case 0:     // fanmode
-      setFan( (val) ? true:false);
+      if(val == 2) // "freshen"
+      {
+        if(m_bRunning || m_furnaceFan || m_bFanMode) // don't run if system or fan is running
+          break;
+        m_fanPostTimer = m_EE.fanCycleTime; // use the post fan timer to shut off
+        fanSwitch(true);
+      }
+      else setFan( (val) ? true:false);
       break;
     case 1:     // mode
       setMode( val );
@@ -886,20 +895,24 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 16:    // overridetime
       m_EE.overrideTime = constrain(val, 60*1, 60*60*6); // Limit 1 min to 6 hours
+      break;
     case 17: // humidmode
-      m_EE.humidMode = val;
+      m_EE.humidMode = constrain(val, HM_Off, HM_Auto2);
       break;
     case 18: // humidl
-      m_EE.rhLevel[0] = val;
+      m_EE.rhLevel[0] = constrain(val, 30, 90); // no idea really
       break;
     case 19: // humidh
-      m_EE.rhLevel[1] = val;
+      m_EE.rhLevel[1] = constrain(val, 30, 90);
       break;
     case 20: // adj
       m_EE.adj = val;
       break;
     case 21:     // fanPretime
       m_EE.fanPreTime[m_EE.Mode == Mode_Heat] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
+      break;
+    case 22: // fancycletime
+      m_EE.fanCycleTime = val;
       break;
   }
 }
