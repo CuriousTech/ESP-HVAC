@@ -86,7 +86,8 @@ struct EEConfig
   char     zipCode[8];  // Your zipcode
   uint8_t  hostIp[4];   // IP of main or remote
   uint8_t  hostPort;
-  char     reserved[3];
+  uint16_t fanCycleTime; // for user fan cycles
+  char     reserved;
 };
 
 class HVAC
