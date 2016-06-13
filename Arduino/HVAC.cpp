@@ -906,7 +906,7 @@ void HVAC::setVar(String sCmd, int val)
       m_EE.rhLevel[1] = constrain(val, 30, 90);
       break;
     case 20: // adj
-      m_EE.adj = val;
+      m_EE.adj = constrain(val, -30, 30); // calibrate can only be +/-3.0
       break;
     case 21:     // fanPretime
       m_EE.fanPreTime[m_EE.Mode == Mode_Heat] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
