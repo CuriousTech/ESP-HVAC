@@ -66,8 +66,24 @@ void handleServer()
 {
   MDNS.update();
   server.handleClient();
+
+  static bool bConn = false;
   if(!remoteStream.service())
-    event.alert("Remote connection failed");
+  {
+    if(bConn)
+    {
+      event.alert("Remote link disconnected");
+      hvac.m_bLocalTempDisplay = true;
+      bConn = false;
+    }
+  }
+  else if(!bConn)
+  {
+      event.alert("Remote link connected");
+      hvac.m_bLocalTempDisplay = false;
+      bConn = true;
+  }
+  
   remoteSet.service();
   if(bNeedUpdate)   // if getUpdTime was called
     checkUdpTime();
@@ -122,6 +138,8 @@ bool parseArgs()
           break;
       case 'F': // temp offset
           hvac.m_EE.adj = val;
+          break;
+      case 'H': // host
           break;
     }
   }
@@ -226,8 +244,7 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 void startListener()
 {
   static char path[] = "/events?i=30&p=1";
-  if(remoteStream.begin(hostIp, path, hostPort, true))
-    hvac.m_bLocalTempDisplay = false;
+  remoteStream.begin(hostIp, path, hostPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
 }
