@@ -39,7 +39,7 @@ HVAC::HVAC()
   m_EE.adj = 0;
   m_EE.fanPreTime[0] = 0; // disable by default
   m_EE.fanPreTime[1] = 0;
-  m_EE.fanCycleTime = 60*60; // 1 hour
+  m_EE.fanCycleTime = 30*60; // 30 mins
   strcpy(m_EE.zipCode, "41042");
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -340,26 +340,26 @@ void HVAC::tempCheck()
   {
     if(m_fanPreTimer) // fan will circulate for the set time before going to actual heat/cool
     {
-      bool bGood = false;
+      bool bHit = false;
       switch(mode)
       {
         case Mode_Cool:
           if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
-            bGood = true;
+            bHit = true;
           break;
         case Mode_Heat:
           if(m_inTemp >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
-            bGood = true;
+            bHit = true;
           break;
       }
-      if(bGood) // fan hit threshold
+      if(bHit) // fan hit threshold
       {
         if(m_bFanMode == false)
           fanSwitch(false);
         m_fanPreElap = 0;
         m_fanPreTimer = 0;
       }
-      if(--m_fanPreTimer == 0) // timed out, didn't hit threshold
+      else if(--m_fanPreTimer == 0) // timed out, didn't hit threshold
       {
         m_bStart = true;  // start the cycle
         return;
@@ -751,6 +751,7 @@ String HVAC::settingsJson()
   s += ",\"rh0\":";  s += m_EE.rhLevel[0];
   s += ",\"rh1\":";  s += m_EE.rhLevel[1];
   s += ",\"fp\":";  s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
+  s += ",\"fct\":";  s += m_EE.fanCycleTime;
   s += "}";
   return s;
 }
