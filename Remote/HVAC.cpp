@@ -34,7 +34,7 @@ HVAC::HVAC()
   m_EE.fanPostDelay[0] = 60;  // 1 minute after compressor stops (HP)
   m_EE.fanPostDelay[1] = 120; // 2 minutes after compressor stops (cool)
   m_EE.overrideTime = 60*10;  // 10 mins default for override
-  m_remoteTimeout   = 60*5;   // 5 minutes default
+  m_remoteTimeout   = 0;   // remote transmit delay
   m_EE.humidMode = 0;
   m_EE.rhLevel[0] = 450;    // 45.0%
   m_EE.rhLevel[1] = 550;
@@ -75,6 +75,7 @@ HVAC::HVAC()
   m_bRemoteConnected = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = true; // default to local/remote temp
+  m_bAvgRemote = false;
   m_localTemp = 0;
   m_fanPreElap = 60*10;
 }
@@ -95,6 +96,21 @@ void HVAC::disable()
 void HVAC::service()
 {
   tempCheck();
+
+  static uint16_t old[4];
+  if(m_remoteTimer) // let user change values for some time before sending
+  {
+    if(--m_remoteTimer == 0)
+    {
+      if(old[0] != m_EE.coolTemp[0])  sendCmd("cooll", old[0] = m_EE.coolTemp[0]); 
+      if(old[1] != m_EE.coolTemp[1])  sendCmd("coolh", old[1] = m_EE.coolTemp[1]);
+      if(old[2] != m_EE.heatTemp[0])  sendCmd("heatl", old[2] = m_EE.heatTemp[0]);
+      if(old[3] != m_EE.heatTemp[1])  sendCmd("heath", old[3] = m_EE.heatTemp[1]);
+
+      if(m_EE.heatMode != m_setHeat)  sendCmd("heatmode", m_EE.heatMode = m_setHeat);
+      if(m_EE.Mode != m_setMode)      sendCmd("mode", m_EE.Mode = m_setMode);
+    }
+  }
 }
 
 void sc_callback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
@@ -206,8 +222,7 @@ uint8_t HVAC::getMode()
 void HVAC::setHeatMode(uint8_t mode)
 {
   m_setHeat = mode % 3;
-  sendCmd("heatmode", m_setHeat);
-  m_EE.heatMode = m_setHeat;
+  m_remoteTimer = 3;
 }
 
 uint8_t HVAC::getHeatMode()
@@ -229,8 +244,7 @@ int8_t HVAC::getSetMode()
 void HVAC::setMode(int8_t mode)
 {
   m_setMode = mode & 3;
-  sendCmd("mode", m_setMode);
-  m_EE.Mode = m_setMode;
+  m_remoteTimer = 3;
 }
 
 void HVAC::enable()
@@ -286,11 +300,7 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   }
 
   int8_t save;
-  uint16_t old[4];
-  old[0] = m_EE.coolTemp[0];
-  old[1] = m_EE.coolTemp[1];
-  old[2] = m_EE.heatTemp[0];
-  old[3] = m_EE.heatTemp[1];
+  m_remoteTimer = 5; // 5 second hold before transmit
 
   switch(mode)
   {
@@ -328,11 +338,6 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
       m_EE.coolTemp[1] = m_EE.coolTemp[0] + save;
       break;
   }
-
-  if(old[0] != m_EE.coolTemp[0])    sendCmd("cooll", m_EE.coolTemp[0]);
-  if(old[1] != m_EE.coolTemp[1])    sendCmd("coolh", m_EE.coolTemp[1]);
-  if(old[2] != m_EE.heatTemp[0])    sendCmd("heatl", m_EE.heatTemp[0]);
-  if(old[3] != m_EE.heatTemp[1])    sendCmd("heath", m_EE.heatTemp[1]);
 }
 
 bool HVAC::showLocalTemp()
