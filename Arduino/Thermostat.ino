@@ -28,7 +28,6 @@ SOFTWARE.
 #include "WiFiManager.h"
 #include <ESP8266WebServer.h>
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
-#include <WiFiUdp.h>
 #include "HVAC.h"
 #include <Event.h>
 #include <XMLReader.h>
@@ -164,7 +163,7 @@ void setup()
   eeRead(); // don't access EE before WiFi init
   hvac.init();
   display.init();
-  getUdpTime(); // start the SMTP get
+  getUdpTime(); // start the SNTP get
 #ifdef SHT21_H
   sht.init();
 #endif
