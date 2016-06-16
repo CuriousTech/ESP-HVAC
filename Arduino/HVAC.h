@@ -137,7 +137,7 @@ public:
   int16_t   m_localRh;
   uint16_t  m_targetTemp;    // end temp for cycle
   uint8_t   m_notif;
-  bool      m_bRemoteConnected;
+  bool      m_bRemoteStream; // remote is streaming temp/rh
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
   bool      m_bAvgRemote;
@@ -152,6 +152,7 @@ private:
   void  calcTargetTemp(int8_t mode);
   int   CmdIdx(String s, const char **pCmds);
   void  sendCmd(const char *szName, int value);
+  void  connectRemote(void); // connect remote to main
 
   bool    m_bFanMode;       // Auto=false, On=true
   bool    m_bFanRunning;    // when fan is running
