@@ -69,7 +69,7 @@ HVAC::HVAC()
   m_furnaceFan = 0;       // fake fan timer
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
-  m_bRemoteConnected = false;
+  m_bRemoteStream = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = false;
   m_bAvgRemote = false;
@@ -279,7 +279,7 @@ bool HVAC::stateChange()
   static uint8_t lastMode = 0;
   static uint8_t nState = 0;
 
-  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())
+  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning() || m_bRemoteDisconnect)
   {
     lastMode = getMode();
     nState = getState();
@@ -631,9 +631,10 @@ bool HVAC::isRemote()
 
 void HVAC::enableRemote()
 {
-  if(m_bRemoteConnected) // if using external sensor, stop
+  if(m_bRemoteStream) // if using external sensor, stop
   {
     m_bRemoteDisconnect = true;
+    m_bRemoteStream = false;
     m_notif = Note_None;
     m_bLocalTempDisplay = true;
   }
@@ -645,7 +646,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   m_localTemp = Temp + m_EE.adj; // Using remote vars for local here
   m_localRh = rh;
 
-  if( m_bRemoteConnected == false )
+  if( m_bRemoteStream == false )
   {
     m_inTemp = Temp + m_EE.adj;
     m_rh = rh;
@@ -752,6 +753,7 @@ String HVAC::settingsJson()
   s += ",\"rh1\":";  s += m_EE.rhLevel[1];
   s += ",\"fp\":";  s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
   s += ",\"fct\":";  s += m_EE.fanCycleTime;
+  s += ",\"ar\":";  s += m_bAvgRemote;
   s += "}";
   return s;
 }
@@ -763,7 +765,7 @@ String HVAC::getPushData()
   s += "\"r\":" ;  s += m_bRunning;
   s += ",\"fr\":";  s += getFanRunning(),
   s += ",\"s\":" ;  s += getState();
-  s += ",\"it\":";  s += m_inTemp; // always local
+  s += ",\"it\":";  s += m_inTemp;
   s += ",\"rh\":";  s += m_rh;
   s += ",\"lt\":";  s += m_localTemp; // always local
   s += ",\"lh\":";  s += m_localRh;
@@ -776,6 +778,12 @@ String HVAC::getPushData()
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
   s += ",\"h\":";  s += m_bHumidRunning;
+  if(m_bRemoteDisconnect)
+  {
+    s += ",\"rmt\":0";
+    m_bRemoteDisconnect = false;
+    m_bLocalTempDisplay = true;
+  }
   s += "}";
   return s;
 }
@@ -805,13 +813,14 @@ static const char *cSCmds[] =
   "adj",
   "fanpretime",
   "fancycletime",
+  "avgrmt",
   NULL
 };
 
 int HVAC::CmdIdx(String s, const char **pCmds )
 {
   int iCmd;
-  
+
   for(iCmd = 0; pCmds[iCmd]; iCmd++)
   {
     if( s.equalsIgnoreCase( String(pCmds[iCmd]) ) )
@@ -914,6 +923,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 22: // fancycletime
       m_EE.fanCycleTime = val;
+      break;
+    case 23: // avgrmt
+      m_bAvgRemote = val ? true:false;
       break;
   }
 }
