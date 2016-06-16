@@ -51,6 +51,6 @@ Starts the fan with a timeout.  This uses the post fan timer, so a normal cycle 
 Idle min, cycle min/max:  
 These are timers in seconds to control the thermstat operating limits.  Idle min is the shortest time between cycles.  Cycle min is the shortest time for a cycle, and max is the longest.  Be careful with these settings.  Running the compressor too short, too long or without the fan can cause damage.  For example, the fanSwitch() function should always be used instead of direct I/O control.  
 
-![remotepage](http://www.curioustech.net/images/hvacremote.png)  
+![remotepage](http://www.curioustech.net/images/esphvacweb.png)  
 
 ![dualtherms](http://www.curioustech.net/images/hvac2.jpg)  
