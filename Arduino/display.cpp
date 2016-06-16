@@ -603,7 +603,7 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
       bPic = (hvac.getState() > State_Cool) ? true:false;
       nex.itemPic(4, bPic ? 3:1); // red or blue indicator
     }
-    if(hvac.m_bRemoteConnected)
+    if(hvac.m_bRemoteStream)
       bOn = !bOn; // blink indicator if remote temp
     else bOn = true; // just on
   }
