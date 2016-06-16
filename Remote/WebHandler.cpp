@@ -117,8 +117,6 @@ bool parseArgs()
   char temp[100];
   String password;
   int val;
-  bool bRemote = false;
-  bool ipSet = false;
 
 //  Serial.println("parseArgs");
 
@@ -225,7 +223,7 @@ String dataJson()
 }
 
 // values sent at an interval of 30 seconds unless they change sooner
-const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", NULL };
+const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
 const char *jsonList2[] = { "alert", NULL };
 
 void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
