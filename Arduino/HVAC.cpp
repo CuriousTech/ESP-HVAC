@@ -462,7 +462,19 @@ void HVAC::calcTargetTemp(int8_t mode)
       m_targetTemp = constrain(m_targetTemp, m_EE.heatTemp[0], m_EE.heatTemp[1]); // just for safety
       break;
   }
+
   m_targetTemp += m_ovrTemp; // override is normally 0, unless set remotely with a timeout
+
+  switch(mode)
+  {
+    case Mode_Cool:
+      m_targetTemp = constrain(m_targetTemp, 650, 900); // more safety (after override of up to +/-9)
+      break;
+    case Mode_Heat:
+      m_targetTemp = constrain(m_targetTemp, 630, 860);
+      break;
+  }
+
 // Serial.print(" target=");
 // Serial.println(m_targetTemp);
 }
