@@ -17,7 +17,6 @@
 //-----------------
 const char *controlPassword = "password"; // device password for modifying any settings
 int serverPort = 85;            // Change to 80 for normal access
-const char pbToken[] = "pushbullet token goes here";
 
 //-----------------
 ESP8266WebServer server( serverPort );
@@ -67,15 +66,7 @@ void handleServer()
 {
   MDNS.update();
   server.handleClient();
-  hvac.m_bRemoteConnected = remoteStream.service();
-  if(hvac.m_bRemoteConnected)
-  {
-    if(remoteStream.status() == JC_NO_CONNECT || hvac.m_bRemoteDisconnect) // user or failures
-    {
-      remoteStream.end();
-      hvac.m_bRemoteDisconnect = false;
-    }
-  }
+  remoteStream.service();
   if(bNeedUpdate)   // if getUpdTime was called
     checkUdpTime();
 }
@@ -414,7 +405,7 @@ void handleRoot() // Main webpage interface
    "\n"
    "function setFanTime()\n"
    "{\n"
-   "  setVar('fantime',t2s(a.fantime.value))\n"
+   "  setVar('fancycletime',t2s(a.fantime.value))\n"
    "}\n"
    "\n"
    "function secsToTime( elap )\n"
@@ -700,8 +691,23 @@ String dataJson()
   return hvac.getPushData();
 }
 
-const char *jsonList1[] = { "state", "temp", "rh", "tempi", "rhi", NULL };
-const char *jsonList2[] = { "alert", NULL };
+const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
+const char *jsonList2[] = { "cmd",
+  "fanmode", // HVAC commands
+  "mode",
+  "heatmode",
+  "resettotal",
+  "resetfilter",
+  "fanpostdelay",
+  "cooltempl",
+  "cooltemph",
+  "heattempl",
+  "heattemph",
+  "humidmode",
+  "avgrmt",
+  NULL
+};
+const char *jsonList3[] = { "alert", NULL };
 
 void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
@@ -711,32 +717,51 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // temp
+          if(hvac.m_bRemoteStream == false) break;
           if(hvac.m_bAvgRemote)
             hvac.m_inTemp = ((int)(atof(psValue)*10) + hvac.m_localTemp) / 2; // average local and remote temperature
           else
             hvac.m_inTemp = (int)(atof(psValue)*10); // remote only
           break;
         case 1: // rh
+          if(hvac.m_bRemoteStream == false) break;
           if(hvac.m_bAvgRemote)
             hvac.m_rh = ((int)(atof(psValue)*10) + hvac.m_localRh) / 2;
           else
             hvac.m_rh = (int)(atof(psValue)*10);
           break;
         case 2: // tempi
+          if(hvac.m_bRemoteStream == false) break;
           if(hvac.m_bAvgRemote)
             hvac.m_inTemp = (iValue + hvac.m_localTemp) / 2;
           else
             hvac.m_inTemp = iValue;
           break;
         case 3: // rhi
+          if(hvac.m_bRemoteStream == false) break;
           if(hvac.m_bAvgRemote)
             hvac.m_rh = (iValue + hvac.m_localRh) / 2;
           else
             hvac.m_rh = iValue;
           break;
+        case 4: // rmt
+          if(hvac.m_bRemoteStream != (iValue ? true:false) )
+          {
+            hvac.m_bRemoteStream = (iValue ? true:false);
+            hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
+
+            if(hvac.m_bRemoteStream)
+              hvac.m_notif = Note_RemoteOn;
+            else
+              hvac.m_notif = Note_RemoteOff;
+          }
+          break;
       }
       break;
-    case 1: // alert
+    case 1: // cmd
+      hvac.setVar(jsonList2[iName+1], iValue); // 0 is "fanmode"
+      break;
+    case 2: // alert
       display.Note(psValue);
       break;
   }
@@ -751,7 +776,6 @@ void handleRemote()
   String sKey;
   int nPort = 80;
   bool bEnd = false;
-  bool bAvg = false;
 //  Serial.println("handleRemote");
 
   ipString(server.client().remoteIP()).toCharArray(ip, 64); // default host IP is client
@@ -769,8 +793,6 @@ void handleRemote()
        nPort = s.toInt();
     else if(server.argName(i) == "end")
        bEnd = true;
-    else if(server.argName(i) == "avg")
-       bAvg = true;
     else if(server.argName(i) == "key")
        sKey = s;
   }
@@ -788,18 +810,17 @@ void handleRemote()
     return;
   }
 
-  if(bEnd) // end a remote sensor
+  if(bEnd) // end remote control and sensor
   {
     remoteStream.end();
-    hvac.m_notif = Note_RemoteOff;
+    hvac.m_bRemoteStream = false;
     return;
   }
 
   remoteStream.begin(ip, path, nPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
-  hvac.m_notif = Note_RemoteOn;
-  hvac.m_bAvgRemote = bAvg;
+  remoteStream.addList(jsonList3);
 }
 
 void handleNotFound() {
@@ -819,41 +840,6 @@ void handleNotFound() {
   }
 
   server.send ( 404, "text/plain", message );
-}
-
-void pushBullet(const char *pTitle, const char *pBody)
-{
-  WiFiClientSecure client;
-  const char host[] = "api.pushbullet.com";
-  const char url[] = "/v2/pushes";
-
-  if (!client.connect(host, 443))
-  {
-    event.print("PushBullet connection failed");
-    return;
-  }
-
-  String data = "{\"type\": \"note\", \"title\": \"";
-  data += pTitle;
-  data += "\", \"body\": \"";
-  data += pBody;
-  data += "\"}";
-
-  client.print(String("POST ") + url + " HTTP/1.1\r\n" +
-              "Host: " + host + "\r\n" +
-              "Content-Type: application/json\r\n" +
-              "Access-Token: " + pbToken + "\r\n" +
-              "User-Agent: Arduino\r\n" +
-              "Content-Length: " + data.length() + "\r\n" + 
-              "Connection: close\r\n\r\n" +
-              data + "\r\n\r\n");
- 
-  int i = 0;
-  while (client.connected() && ++i < 10)
-  {
-    String line = client.readStringUntil('\n');
-    Serial.println(line);
-  }
 }
 
 void getUdpTime()
