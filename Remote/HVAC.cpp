@@ -12,7 +12,9 @@
 #include "HVAC.h"
 #include <TimeLib.h>
 #include <JsonClient.h>
+#include <Event.h>
 
+extern eventHandler event;
 extern const char *hostIp;
 extern const char *controlPassword;
 extern uint8_t serverPort;
@@ -72,7 +74,7 @@ HVAC::HVAC()
   m_furnaceFan = 0;       // fake fan timer
   m_notif = Note_None;    // Empty
   m_idleTimer = 60*3;     // start with a high idle, in case of power outage
-  m_bRemoteConnected = false;
+  m_bRemoteStream = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = true; // default to local/remote temp
   m_bAvgRemote = false;
@@ -95,6 +97,13 @@ void HVAC::disable()
 // Service: called once per second
 void HVAC::service()
 {
+  static uint8_t initRmt = 15; // delayed start
+  if(initRmt)
+  {
+    if(--initRmt == 0)
+      connectRemote();
+  }
+  
   tempCheck();
 
   static uint16_t old[4];
@@ -102,10 +111,10 @@ void HVAC::service()
   {
     if(--m_remoteTimer == 0)
     {
-      if(old[0] != m_EE.coolTemp[0])  sendCmd("cooll", old[0] = m_EE.coolTemp[0]); 
-      if(old[1] != m_EE.coolTemp[1])  sendCmd("coolh", old[1] = m_EE.coolTemp[1]);
-      if(old[2] != m_EE.heatTemp[0])  sendCmd("heatl", old[2] = m_EE.heatTemp[0]);
-      if(old[3] != m_EE.heatTemp[1])  sendCmd("heath", old[3] = m_EE.heatTemp[1]);
+      if(old[0] != m_EE.coolTemp[0])  sendCmd("cooltempl", old[0] = m_EE.coolTemp[0]); 
+      if(old[1] != m_EE.coolTemp[1])  sendCmd("cooltemph", old[1] = m_EE.coolTemp[1]);
+      if(old[2] != m_EE.heatTemp[0])  sendCmd("heattempl", old[2] = m_EE.heatTemp[0]);
+      if(old[3] != m_EE.heatTemp[1])  sendCmd("heattemph", old[3] = m_EE.heatTemp[1]);
 
       if(m_EE.heatMode != m_setHeat)  sendCmd("heatmode", m_EE.heatMode = m_setHeat);
       if(m_EE.Mode != m_setMode)      sendCmd("mode", m_EE.Mode = m_setMode);
@@ -113,48 +122,39 @@ void HVAC::service()
   }
 }
 
+void HVAC::sendCmd(const char *szName, int value)
+{
+  String s = "{\"";
+  s += szName;
+  s += "\":";
+  s += value;
+  s += "}";
+
+  event.push("cmd", s);
+}
+
 void sc_callback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
 }
 
-void HVAC::sendCmd(const char *szName, int value)
-{
-  char szPath[64];
-
-  JsonClient cl(sc_callback);
-  String path = "/s?";
-  path += "key=";
-  path += controlPassword;
-  path += "&";
-  path += szName;
-  path += "=";
-  path += value;
-  path.toCharArray(szPath, 64);
-  cl.begin(hostIp, szPath, hostPort, false);
-}
-
-void HVAC::enableRemote()
+void HVAC::connectRemote()
 {
   char szPath[64];
 
   JsonClient cl(sc_callback);
   String path = "/remote?key=";
   path += controlPassword;
-  if(m_bRemoteConnected)
-  {
-    path += "&end=1";
-    m_bRemoteConnected = false;
-    m_bLocalTempDisplay = false;
-  }
-  else
-  {         // the path needs to be URL encoded
-    path += "&path=%2Fevents%3Fi=30%26p=1&port=";
-    path += serverPort;
-    m_bRemoteConnected = true;
-    m_bLocalTempDisplay = true;
-  }
+  path += "&path=%2Fevents%3Fi=30%26p=1&port=";  // the path needs to be URL encoded
+  path += serverPort;
+  m_bLocalTempDisplay = true;
   path.toCharArray(szPath, 64);
   cl.begin(hostIp, szPath, hostPort, false);
+}
+
+void HVAC::enableRemote()
+{
+  m_bRemoteStream = !m_bRemoteStream;
+  event.push(); // send rmt state + update temp/rh
 }
 
 bool HVAC::stateChange()
@@ -222,7 +222,7 @@ uint8_t HVAC::getMode()
 void HVAC::setHeatMode(uint8_t mode)
 {
   m_setHeat = mode % 3;
-  m_remoteTimer = 3;
+  m_remoteTimer = 2;
 }
 
 uint8_t HVAC::getHeatMode()
@@ -244,7 +244,7 @@ int8_t HVAC::getSetMode()
 void HVAC::setMode(int8_t mode)
 {
   m_setMode = mode & 3;
-  m_remoteTimer = 3;
+  m_remoteTimer = 2;
 }
 
 void HVAC::enable()
@@ -300,12 +300,12 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
   }
 
   int8_t save;
-  m_remoteTimer = 5; // 5 second hold before transmit
+  m_remoteTimer = 2; // 3 second hold before transmit
 
   switch(mode)
   {
     case Mode_Cool:
-      if(Temp < 650 || Temp > 880)    // ensure sane values
+      if(Temp < 650 || Temp > 900)    // ensure sane values
         break;
       m_EE.coolTemp[hl] = Temp;
       if(hl)
@@ -356,7 +356,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   m_localTemp = Temp + m_EE.adj;
   m_localRh = rh;
 
-  if( m_bRemoteConnected )
+  if( m_bRemoteStream )
   {
     m_inTemp = Temp + m_EE.adj;
     m_rh = rh;
@@ -456,6 +456,9 @@ void HVAC::updateVar(int iName, int iValue)// host values
     case 15: // lh
       m_rh = iValue;
       break;
+    case 16: // rmt
+      m_bRemoteStream = false; // command to kill remote temp send
+      break;
   }
 }
 
@@ -526,8 +529,9 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"tempi\":";  s += m_localTemp;
-  s += ",\"rhi\":";  s += m_localRh;
+  s += "\"tempi\":"; s += m_localTemp;
+  s += ",\"rhi\":"; s += m_localRh;
+  s += ",\"rmt\":"; s += m_bRemoteStream;
   s += "}";
   return s;
 }
