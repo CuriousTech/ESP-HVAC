@@ -19,7 +19,7 @@ enum JC_Status
     JC_NO_CONNECT,
 };
 
-#define RETRIES 10
+#define RETRIES 6
 
 #define JC_BUF_SIZE 1024
 
@@ -61,4 +61,3 @@ private:
 };
 
 #endif // JSONCLIENT_H
-
