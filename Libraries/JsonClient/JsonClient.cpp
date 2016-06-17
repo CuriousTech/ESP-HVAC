@@ -74,7 +74,7 @@ bool JsonClient::service()
       return false;
     }
 
-    if((millis() - m_timeOut) < 5000) // 5 seconds between retries
+    if((millis() - m_timeOut) < 10000) // 10 seconds between retries
       return true;
 
     return connect();
@@ -137,8 +137,16 @@ void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // intege
 
 bool JsonClient::connect()
 {
-  if(m_szHost[0] == 0 || m_szPath[0] == 0 || m_retryCnt > RETRIES)
+  if(m_szHost[0] == 0 || m_szPath[0] == 0)
     return false;
+
+  if( m_retryCnt > RETRIES)
+  {
+    m_Status = JC_TIMEOUT;
+    m_szHost[0] = 0;
+    return false;
+  }
+
   if(m_client.connected())
     return true;
 
