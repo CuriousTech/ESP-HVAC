@@ -80,14 +80,14 @@ struct EEConfig
   uint16_t overrideTime; // time used for an override
   uint8_t  heatMode;    // heating mode (gas, electric)
   int8_t   tz;          // current timezone and DST
-  uint16_t rhLevel[2];  // rh low/high
-  uint8_t  humidMode;   // Humidifier modes
   int8_t   adj;         // temp offset adjust
+  uint8_t  humidMode;   // Humidifier modes
+  uint16_t rhLevel[2];  // rh low/high
   char     zipCode[8];  // Your zipcode
-  uint8_t  hostIp[4];   // IP of main or remote
-  uint8_t  hostPort;
+  int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
+  uint16_t awayTime;    // time limit for away offset (in minutes)
   uint16_t fanCycleTime; // for user fan cycles
-  char     reserved;
+  char     reserved[16];
 };
 
 class HVAC
@@ -160,19 +160,20 @@ private:
   int8_t  m_AutoMode;       // cool, heat
   int8_t  m_setMode;        // preemted mode request
   int8_t  m_setHeat;        // preemt heat mode request
-  int8_t  m_AutoHeat;     // auto heat mode choice
-  bool    m_bRunning;     // is operating
+  int8_t  m_AutoHeat;       // auto heat mode choice
+  bool    m_bRunning;       // is operating
   bool    m_bStart;         // signal to start
   bool    m_bStop;          // signal to stop
   bool    m_bRecheck;       // recalculate target now
   bool    m_bEnabled;       // enables system
+  bool    m_bAway;
   uint16_t m_runTotal;      // time HVAC has been running total since reset
   uint16_t m_fanOnTimer;    // time fan is running
   uint16_t m_cycleTimer;    // time HVAC has been running
   uint16_t m_fanPostTimer;  // timer for delay
   uint16_t m_fanPreTimer;   // timer for fan pre-run
   uint16_t m_idleTimer;     // time not running
-  int16_t  m_overrideTimer; // countdown for override in seconds
+  int      m_overrideTimer; // countdown for override in seconds
   int8_t   m_ovrTemp;       // override delta of target
   uint16_t m_remoteTimeout; // timeout for remote sensor
   uint16_t m_remoteTimer;   // in seconds
