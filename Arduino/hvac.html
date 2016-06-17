@@ -4,14 +4,29 @@
 <head>
 
 <title>ESP-HVAC</title>
-
 <style type="text/css">
+table,input{
+border-radius: 5px;
+box-shadow: 0px 0px 15px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
+background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-clip: padding-box;
+}
+</style>
+<style type="text/css">
+.style1 {border-width: 0;}
 .style2 {text-align: right;}
-.style3 {background-color: #C0C0C0;}
-.style4 {text-align: right;background-color: #C0C0C0;}
-.style5 {background-color: #00D0D0;}
-.style6 {border-width: 0;
-background-color: #C0C0C0;
+.style5 {
+border-radius: 5px;
+box-shadow: 0px 0px 15px #000000;
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
+background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 }
 </style>
 
@@ -20,7 +35,7 @@ background-color: #C0C0C0;
 <script type="text/javascript">
 <!--
 
-var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive
+var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 
@@ -37,7 +52,7 @@ function startEvents()
 		running= +Json.r
 		fan= +Json.fr
 		rh= +Json.h
-
+		away=+Json.aw
 		a.intemp.innerHTML= +Json.it/10
 		a.rh.innerHTML= +Json.rh/10
 		a.target.innerHTML= +Json.tt/10
@@ -80,6 +95,8 @@ function readSettings()
 		a.ovrtime.value= s2t(+Json.ov)
 		a.fanpre.value= s2t(+Json.fp)
 		a.fantime.value= s2t(+Json.fct)
+		a.awaytime.value= s2t(+Json.at)
+		a.awaytemp.value= +Json.ad/10
 	
 		if( +a.ovrtemp.value==0)
 			a.ovrtemp.value= -2.0
@@ -117,6 +134,13 @@ function setHumidMode(m)
 	setAtt()
 }
 
+function setAway()
+{
+	away=!away
+	setVar('away',away?1:0)
+	setAtt()
+}
+
 function setAtt()
 {
 	a.runCell.setAttribute('class',running?'style5':'style1')
@@ -141,6 +165,7 @@ function setAtt()
 	a.hmRun.setAttribute('class',humidMode==2?'style5':'')
 	a.hmAuto1.setAttribute('class',humidMode==3?'style5':'')
 	a.hmAuto2.setAttribute('class',humidMode==4?'style5':'')
+	a.away.setAttribute('class',away?'style5':'')
 }
 
 function setCoolHi()
@@ -250,6 +275,16 @@ function setFanTime()
 	setVar('fantime',t2s(a.fantime.value))
 }
 
+function setAwayTime()
+{
+	setVar('awaytime',t2s(a.awaytime.value))
+}
+
+function setAwayTemp()
+{
+	setVar('awaydelta',(+a.awaytemp.value*10).toFixed())
+}
+
 function secsToTime( elap )
 {
 	d=0
@@ -308,48 +343,26 @@ function t2s(v)
   }
   startEvents()
 }">
+<font face="Arial, Helvetica, sans-serif">
 <strong><em>CuriousTech HVAC Remote</em></strong><br>
-<table style="width: 320px">
-	<tr>
-		<td style="width: 70px">Password</td>
-		<td>
-<input id="myToken" name="access_token" type=text size=50 placeholder="5622ce6bba702ef6bd3456d5ed26aaa4a28d7c9" style="width: 265px"></td>
-	</tr>
-</table>
-<input type="button" value="Save" onClick="{
-   localStorage.setItem('myStoredText1', a.myToken.value)
-   alert(a.myToken.value+' Has been stored')
-}">
-<input type="button" value="Hide" name="hide" onClick="{
-	if(a.myToken.style.visibility == 'hidden'){
-    a.myToken.style.visibility = 'visible'
-	a.hide.value='Hide'
-	}else{
-    a.myToken.style.visibility = 'hidden'
-	a.hide.value='Show'
-    }
-}">
-<input type="button" value="Refresh" onClick="{readSettings()}">
-<br>
 <font size=4>
-<table style="width: 350px; height: 22px;" cellspacing="0">
+<p><table style="width: 350px; height: 22px;" cellspacing="0">
 	<tr>
-		<td class="style3">In</td>
-		<td class="style4"><div id="intemp" class="style2">in</div></td>
-		<td class="style3">&deg</td>
-		<td class="style3"> &gt;</td>
-		<td class="style4"><div id="target" class="style2">trg</div></td>
-		<td class="style3">&deg</td>
-		<td class="style4"><div id="rh" class="style2">rh</div></td>
-		<td class="style3">%</td>
-		<td class="style4">Out</td>
-		<td class="style4"><div id="outtemp" class="style2">out</div></td>
-		<td class="style3">&deg</td>
+		<td>In</td>
+		<td><div id="intemp" class="style2">in</div></td>
+		<td>&deg</td>
+		<td> &gt;</td>
+		<td><div id="target" class="style2">trg</div></td>
+		<td>&deg</td>
+		<td><div id="rh" class="style2">rh</div></td>
+		<td>%</td>
+		<td>Out</td>
+		<td><div id="outtemp" class="style2">out</div></td>
+		<td>&deg</td>
 	</tr>
 </table>
-</font>
-<br>
-<table style="width: 350px" class="style6" cellspacing="0" cellpadding="0">
+</font></p>
+<table style="width: 350px" cellspacing="0" cellpadding="0">
 	<tr>
 		<td>Cool Hi</td>
 		<td><input type=text size=4 id="coolh"></td>
@@ -436,7 +449,7 @@ function t2s(v)
 		<input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}"></td>
 	</tr>
 	<tr>
-		<td id="ovrCell">ovrTemp</td>
+		<td id="ovrCell">Overrid &Delta;</td>
 		<td><input type=text size=4 id="ovrtemp"></td>
 		<td><input type="button" value="Go " onClick="{
 		localStorage.setItem('myStoredText3', a.ovrtemp.value)
@@ -452,16 +465,52 @@ function t2s(v)
 		<td>
 		</td>
 	</tr>
-</table>
+	<tr>
+		<td>Away Lmt</td>
+		<td><input type=text size=4 id="awaytime"></td>
+		<td><input type="button" value="Set" onClick="{setAwayTime()}"></td>
+		<td>
+		<input type="button" value="Away" name="away" onClick="{setAway()}">
+		</td>
+	</tr>
+	<tr>
+		<td>Away &Delta;</td>
+		<td><input type=text size=4 id="awaytemp"></td>
+		<td><input type="button" value="Set" onClick="{setAwayTemp()}"></td>
+		<td>
+		</td>
+	</tr>
+</table><br/>
 <table style="width: 350px">
 	<tr>
-		<td style="width: 80px" class="style3">Cycle</td>
-		<td style="width: 126px" class="style3">
+		<td style="width: 80px">Cycle</td>
+		<td style="width: 126px">
 		<div id="cyctimer" style="width: 87px">cycle</div></td>
-		<td style="width: 81px" class="style3">Total</td>
-		<td class="style3"><div id="runtotal">total</div></td>
+		<td style="width: 81px">Total</td>
+		<td><div id="runtotal">total</div></td>
 	</tr>
 </table>
-<small>Copyright &copy 2016 CuriousTech.net</small>
+<p>
+<table style="width: 320px">
+	<tr>
+		<td style="width: 70px">Password</td>
+		<td>
+<input id="myToken" name="access_token" type=text size=50 placeholder="5622ce6bba702ef6bd3456d5ed26aaa4a28d7c9" style="width: 265px"></td>
+	</tr>
+</table></p>
+<input type="button" value="Save" onClick="{
+   localStorage.setItem('myStoredText1', a.myToken.value)
+   alert(a.myToken.value+' Has been stored')
+}">
+<input type="button" value="Hide" name="hide" onClick="{
+	if(a.myToken.style.visibility == 'hidden'){
+    a.myToken.style.visibility = 'visible'
+	a.hide.value='Hide'
+	}else{
+    a.myToken.style.visibility = 'hidden'
+	a.hide.value='Show'
+    }
+}">
+<small>Copyright &copy 2016 CuriousTech.net</small></font>
 </body>
 </html>
