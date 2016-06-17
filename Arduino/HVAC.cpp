@@ -17,7 +17,7 @@
 HVAC::HVAC()
 {
   m_EE.size = sizeof(EEConfig);
-//----------------------------
+//---------- EEPROM default values ----------
   m_EE.cycleMin = 60;         // 60 seconds minimum for a cycle
   m_EE.cycleMax = 60*15;      // 15 minutes maximun for a cycle
   m_EE.idleMin  = 60*5;       // 5 minutes minimum between cycles
@@ -40,7 +40,11 @@ HVAC::HVAC()
   m_EE.fanPreTime[0] = 0; // disable by default
   m_EE.fanPreTime[1] = 0;
   m_EE.fanCycleTime = 30*60; // 30 mins
+  m_EE.awayDelta[0] = 40; // +4.0 cool
+  m_EE.awayDelta[1] = -40; // heat
+  m_EE.awayTime = 9*60; // 9 hours
   strcpy(m_EE.zipCode, "41042");
+  memset(m_EE.reserved, 0, sizeof(m_EE.reserved));
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
   m_outTemp = 0;
@@ -73,6 +77,7 @@ HVAC::HVAC()
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = false;
   m_bAvgRemote = false;
+  m_bAway = false;
   m_fanPreElap = 60*10;
 
   pinMode(P_FAN, OUTPUT);
@@ -763,9 +768,11 @@ String HVAC::settingsJson()
   s += ",\"rhm\":";  s += m_EE.humidMode;
   s += ",\"rh0\":";  s += m_EE.rhLevel[0];
   s += ",\"rh1\":";  s += m_EE.rhLevel[1];
-  s += ",\"fp\":";  s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
+  s += ",\"fp\":";   s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
   s += ",\"fct\":";  s += m_EE.fanCycleTime;
   s += ",\"ar\":";  s += m_bAvgRemote;
+  s += ",\"at\":";  s += m_EE.awayTime;
+  s += ",\"ad\":";  s += m_EE.awayDelta[m_EE.Mode == Mode_Heat];
   s += "}";
   return s;
 }
@@ -790,6 +797,7 @@ String HVAC::getPushData()
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
   s += ",\"h\":";  s += m_bHumidRunning;
+  s += ",\"aw\":";  s += m_bAway;
   if(m_bRemoteDisconnect)
   {
     s += ",\"rmt\":0";
@@ -826,6 +834,9 @@ static const char *cSCmds[] =
   "fanpretime",
   "fancycletime",
   "avgrmt",
+  "awaytime",
+  "awaydelta",
+  "away",
   NULL
 };
 
@@ -938,6 +949,29 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 23: // avgrmt
       m_bAvgRemote = val ? true:false;
+      break;
+    case 24: // awaytime
+      m_EE.awayTime = val; // no limit
+      break;
+    case 25: // awaydelta
+      if(m_EE.Mode == Mode_Heat)
+        m_EE.awayDelta[1] = constrain(val, -150, 0); // Limit to -15 degrees (heat away) target is constrained in calcTargetTemp
+      else
+        m_EE.awayDelta[0] = constrain(val, 0, 150); // Limit +15 degrees (cool away)
+      break;
+    case 26: // away (uses the override feature)
+      if(val) // away
+      {
+        m_overrideTimer = m_EE.awayTime * 60; // convert minutes to seconds
+        m_ovrTemp = m_EE.awayDelta[m_EE.Mode == Mode_Heat];
+        m_bAway = true;
+      }
+      else // back
+      {
+        m_ovrTemp = 0;
+        m_overrideTimer = 0;
+        m_bAway = false;
+      }
       break;
   }
 }
