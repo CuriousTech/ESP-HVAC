@@ -243,7 +243,7 @@ void Display::drawForecast(bool bRef)
   m_updateFcst = ((hrs * 60) + mins);
 
   // Get min/max
-  for(i = 0; i < 18; i++)
+  for(i = 1; i < 18; i++)
   {
     int8_t t = hvac.m_fcData[i].t;
     if(min > t) min = t;
