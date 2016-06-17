@@ -1,6 +1,8 @@
 # ESP8266-HVAC
 WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
+<b>Update 3:</b> Did what I could with the PBC.  An external sensor works best though.  I'm done with the code for now as well.  
+
 <b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
 
 <b>Update:</b>  Changes have been made in the bom.txt file.  The schematic is incorrect for some resistor values.  2K2 should be used for the SHT21 pullups.
@@ -51,6 +53,10 @@ Starts the fan with a timeout.  This uses the post fan timer, so a normal cycle 
 Idle min, cycle min/max:  
 These are timers in seconds to control the thermstat operating limits.  Idle min is the shortest time between cycles.  Cycle min is the shortest time for a cycle, and max is the longest.  Be careful with these settings.  Running the compressor too short, too long or without the fan can cause damage.  For example, the fanSwitch() function should always be used instead of direct I/O control.  
 
-![remotepage](http://www.curioustech.net/images/esphvacweb.png)  
+Away time and temperature delta offset:  
+The away time is in hours:minutes unlike the rest of the timers, but uses the override timer.  It can be turned on and off with the button, but will also turn off with the timer.  There are 2 temp values.  One for heat and one for cool, like the pre/post fan.
+Like any setting, it can be automated with something like Tasker.  To turn on would be <b>http://ip:85?key=password&away=1</b>  
+
+![remotepage](http://www.curioustech.net/images/esphvacweb2.png)  
 
 ![dualtherms](http://www.curioustech.net/images/hvac2.jpg)  
