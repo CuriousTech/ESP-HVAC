@@ -933,10 +933,10 @@ void HVAC::setVar(String sCmd, int val)
       m_EE.humidMode = constrain(val, HM_Off, HM_Auto2);
       break;
     case 18: // humidl
-      m_EE.rhLevel[0] = constrain(val, 30, 90); // no idea really
+      m_EE.rhLevel[0] = constrain(val, 300, 900); // no idea really
       break;
     case 19: // humidh
-      m_EE.rhLevel[1] = constrain(val, 30, 90);
+      m_EE.rhLevel[1] = constrain(val, 300, 900);
       break;
     case 20: // adj
       m_EE.adj = constrain(val, -30, 30); // calibrate can only be +/-3.0
