@@ -1,7 +1,6 @@
 // Do all the web stuff here
 
 #include <WiFiClient.h>
-#include <WiFiClientSecure.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
@@ -82,22 +81,13 @@ void secondsServer() // called once per second
   else event.heartbeat();
 }
 
-String ipString(IPAddress ip) // Convert IP to string
-{
-  String sip = String(ip[0]);
-  sip += ".";
-  sip += ip[1];
-  sip += ".";
-  sip += ip[2];
-  sip += ".";
-  sip += ip[3];
-  return sip;
-}
-
 void parseParams()
 {
   char temp[100];
-  String password;
+  char password[64];
+
+  if(server.args() == 0)
+    return;
 
   for ( uint8_t i = 0; i < server.args(); i++ ) // password may be at end
   {
@@ -106,31 +96,13 @@ void parseParams()
 
     if(server.argName(i) == "key")
     {
-      password = s;
+      s.toCharArray(password, sizeof(password));
     }
   }
 
-  for ( uint8_t i = 0; i < server.args(); i++ )
-  {
-    server.arg(i).toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
-
-    if(nWrongPass == 0 && password == controlPassword)
-    {
-      if(server.argName(i) == "key");
-      else if(server.argName(i) == "time") // cause a clock reset
-        getUdpTime();
-      else
-      {
-        hvac.setVar(server.argName(i), s.toInt() );
-        display.screen(true); // switch to main page, undim when variables are changed
-      }
-    }
-  }
- 
   uint32_t ip = server.client().remoteIP();
 
-  if(server.args() && (password != controlPassword) )
+  if(strcmp(controlPassword, password))
   {
     if(nWrongPass == 0)
       nWrongPass = 10;
@@ -138,15 +110,34 @@ void parseParams()
       nWrongPass <<= 1;
     if(ip != lastIP)  // if different IP drop it down
        nWrongPass = 10;
-    String data = "{ip:\"";
-    data += ipString(ip);
-    data += "\",pass:\"";
-    data += password;
+    String data = "{\"ip\":\"";
+    data += server.client().remoteIP().toString();
+    data += "\",\"pass\":\"";
+    data += password; // bug - String object adds a NULL
     data += "\"}";
     event.push("hack", data); // log attempts
+    lastIP = ip;
+    return;
   }
-  
+
   lastIP = ip;
+
+  for ( uint8_t i = 0; i < server.args(); i++ )
+  {
+    server.arg(i).toCharArray(temp, 100);
+    String s = wifi.urldecode(temp);
+
+    if(server.argName(i) == "key");
+    else if(server.argName(i) == "time") // cause a clock reset
+      getUdpTime();
+    else if(server.argName(i) == "screen") // used by a PIR sensor elsewhere
+      display.screen(true);
+    else
+    {
+      hvac.setVar(server.argName(i), s.toInt() );
+      display.screen(true); // switch to main page, undim when variables are changed
+    }
+  }
 }
 
 void handleRoot() // Main webpage interface
@@ -203,8 +194,6 @@ void handleRoot() // Main webpage interface
    "  eventSource.addEventListener('open',function(e){},false)\n"
    "  eventSource.addEventListener('error',function(e){},false)\n"
    "  eventSource.addEventListener('state',function(e){\n"
-   "    console.log(e)\n"
-   "    console.log(e.data)\n"
    "    Json=JSON.parse(e.data)\n"
    "\n"
    "    running= +Json.r\n"
@@ -820,14 +809,14 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 void handleRemote()
 {
   char temp[100];
-  char ip[64];
+  String sIp;
   char path[64];
-  String sKey;
+  char password[64];
   int nPort = 80;
   bool bEnd = false;
 //  Serial.println("handleRemote");
 
-  ipString(server.client().remoteIP()).toCharArray(ip, 64); // default host IP is client
+  sIp = server.client().remoteIP().toString(); // default host IP is client
 
   for ( uint8_t i = 0; i < server.args(); i++ ) {
     server.arg(i).toCharArray(temp, 100);
@@ -835,25 +824,25 @@ void handleRemote()
 //    Serial.println( i + " " + server.argName ( i ) + ": " + s);
 
     if(server.argName(i) == "ip") // optional non-client source
-       s.toCharArray(ip, 64);
+      sIp = s;
     else if(server.argName(i) == "path")
-       s.toCharArray(path, 64);
+      s.toCharArray(path, 64);
     else if(server.argName(i) == "port")
-       nPort = s.toInt();
+      nPort = s.toInt();
     else if(server.argName(i) == "end")
-       bEnd = true;
+      bEnd = true;
     else if(server.argName(i) == "key")
-       sKey = s;
+      s.toCharArray(password, sizeof(password));
   }
 
   server.send ( 200, "text/html", "OK" );
 
-  if(sKey != controlPassword)
+  if(strcmp(controlPassword, password))
   {
-    String data = "{ip:\"";
-    data += ipString(server.client().remoteIP());
-    data += "\",pass:\"";
-    data += sKey;
+    String data = "{\"ip\":\"";
+    data += server.client().remoteIP().toString();
+    data += "\",\"pass\":\"";
+    data += password;
     data += "\"}";
     event.push("hack", data); // log attempts
     return;
@@ -866,7 +855,7 @@ void handleRemote()
     return;
   }
 
-  remoteStream.begin(ip, path, nPort, true);
+  remoteStream.begin(sIp.c_str(), path, nPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
   remoteStream.addList(jsonList3);
