@@ -1,3 +1,4 @@
+#include <ESP8266WiFi.h>
 //  HVAC Control
 //
 #ifndef HVAC_H
@@ -87,7 +88,9 @@ struct EEConfig
   int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
   uint16_t awayTime;    // time limit for away offset (in minutes)
   uint16_t fanCycleTime; // for user fan cycles
-  char     reserved[16];
+  unsigned long hostIp;
+  uint16_t  hostPort;
+  char     reserved[10];
 };
 
 class HVAC
@@ -117,7 +120,7 @@ public:
   bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
-  void    updatePeaks(int8_t min, int8_t max);
+  void    updatePeaks(int8_t tmin, int8_t tmax);
   void    resetFilter(void);    // reset the filter hour count
   bool    checkFilter(void);
   void    resetTotal(void);
@@ -141,7 +144,8 @@ public:
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
   bool      m_bAvgRemote;
-  int8_t    m_outMin[2], m_outMax[2];
+#define PEAKS_CNT 20
+  int8_t    m_outMin[PEAKS_CNT], m_outMax[PEAKS_CNT];
   uint16_t  m_fanPreElap;
 
 private:
