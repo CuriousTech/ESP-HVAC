@@ -155,12 +155,12 @@ bool JsonClient::connect()
   if( !m_client.connect(m_szHost, m_nPort) )
   {
     m_Status = JC_NO_CONNECT;
-    Serial.println("Connection failed");
-    Serial.print(m_szHost);
-    Serial.print(" ");
-    Serial.print(m_szPath);
-    Serial.print(" ");
-    Serial.println(m_nPort);
+//    Serial.println("Connection failed");
+//    Serial.print(m_szHost);
+//    Serial.print(" ");
+//    Serial.print(m_szPath);
+//    Serial.print(" ");
+ //   Serial.println(m_nPort);
     m_retryCnt++;
     return false;
   }
