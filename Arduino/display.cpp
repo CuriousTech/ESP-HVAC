@@ -211,8 +211,8 @@ void Display::displayTime()
 
 void Display::drawForecast(bool bRef)
 {
-  int8_t min = 126;
-  int8_t max = -50;
+  int8_t tmin = 126;
+  int8_t tmax = -50;
   int i;
 
   if(hvac.m_fcData[1].h == -1) // no data yet
@@ -243,16 +243,25 @@ void Display::drawForecast(bool bRef)
   m_updateFcst = ((hrs * 60) + mins);
 
   // Get min/max
-  for(i = 1; i < 18; i++)
+  for(i = 0; i < 18; i++)
   {
     int8_t t = hvac.m_fcData[i].t;
-    if(min > t) min = t;
-    if(max < t) max = t;
+    if(tmin > t) tmin = t;
+    if(tmax < t) tmax = t;
   }
 
-  if(min == max) max++;   // div by 0 check
+  if(tmin == tmax) tmax++;   // div by 0 check
 
-  hvac.updatePeaks(min, max);
+  hvac.updatePeaks(tmin, tmax);
+
+  int16_t L = hvac.m_outMin[0];
+  int16_t H = hvac.m_outMax[0];
+
+  for(int i = 1; i < PEAKS_CNT; i++)
+  {
+    if(L > hvac.m_outMin[i]) L = hvac.m_outMin[i];
+    if(H < hvac.m_outMax[i]) H = hvac.m_outMax[i];
+  }
 
   if(nex.getPage()) // on different page
     return;
@@ -268,8 +277,8 @@ void Display::drawForecast(bool bRef)
 
   int16_t y = Fc_Top+1;
   int16_t incy = (Fc_Height-4) / 3;
-  int16_t dec = (max - min)/3;
-  int16_t t = max;
+  int16_t dec = (tmax - tmin)/3;
+  int16_t t = tmax;
   int16_t x;
 
   // temp scale
@@ -310,12 +319,12 @@ void Display::drawForecast(bool bRef)
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
     nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]);
 
-  int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[0].t - min) * (Fc_Height-2) / (max-min);
+  int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[0].t - tmin) * (Fc_Height-2) / (tmax-tmin);
   int16_t x2 = Fc_Left;
 
   for(i = 1; i < 18; i++) // should be 18 data points
   {
-    int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - min) * (Fc_Height-2) / (max-min);
+    int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * Fc_Width / pts;
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
