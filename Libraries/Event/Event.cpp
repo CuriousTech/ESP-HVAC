@@ -40,7 +40,7 @@ void eventHandler::set(WiFiClient c, int interval, uint8_t nType)
   m_bOpened = true; // for reboot checking
 }
 
-void eventHandler::heartbeat()
+bool eventHandler::heartbeat()
 {
   bool bConnected = false;
 
@@ -69,6 +69,7 @@ void eventHandler::heartbeat()
       m_critical_timer = m_timeout; // still detecting a connection so reset counter
     }
   }
+  return bConnected;
 }
 
 void eventHandler::push() // push to all
@@ -81,6 +82,12 @@ void eventHandler::push(String Event, String Json)
 {
   for(int i = 0; i < CLIENTS; i++)
     ec[i].push(Event, Json);
+}
+
+void eventHandler::push(String Event, String Name, String Value)
+{
+  for(int i = 0; i < CLIENTS; i++)
+    ec[i].push(Event, Name, Value);
 }
 
 void eventHandler::pushInstant() // push only to instant type
@@ -149,6 +156,22 @@ void eventClient::push(String Event, String Json)
   m_keepAlive = 11; // anything sent resets keepalive
   m_timer = m_interval;
   m_client.print("event: " + Event + "\ndata: " + Json + "\n\n");
+}
+
+void eventClient::push(String Event, String Name, String Value)
+{
+  if(m_client.connected() == 0)
+    return;
+  m_keepAlive = 11; // anything sent resets keepalive
+  m_timer = m_interval;
+
+  String s = "{\"";
+  s += Name;
+  s += "\":\"";
+  s += Value;
+  s += "\"}";
+
+  m_client.print("event: " + Event + "\ndata: " + s + "\n\n");
 }
 
 void eventClient::pushInstant()
