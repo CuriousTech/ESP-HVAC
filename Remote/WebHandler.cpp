@@ -16,8 +16,6 @@
 //-----------------
 const char *controlPassword = "password"; // password on main unit
 uint8_t serverPort = 86;            // firewalled
-const char *hostIp = "192.168.0.100"; // Main unit address (set in router)
-uint8_t hostPort = 85; // Main unit port
 
 //-----------------
 ESP8266WebServer server( serverPort );
@@ -73,6 +71,12 @@ void handleServer()
     if(bConn)
     {
       event.alert("Remote link disconnected");
+      IPAddress ip(hvac.m_EE.hostIp);
+      String s = "Host ";
+      s += ip.toString();
+      s += ":";
+      s += hvac.m_EE.hostPort;
+      event.print(s);
       hvac.m_bLocalTempDisplay = true;
       bConn = false;
     }
@@ -112,10 +116,9 @@ void secondsServer() // called once per second
   }
 }
 
-bool parseArgs()
+void parseParams()
 {
   char temp[100];
-  String password;
   int val;
 
 //  Serial.println("parseArgs");
@@ -128,16 +131,23 @@ bool parseArgs()
  
     switch( server.argName(i).charAt(0)  )
     {
-      case 'k': // key
-          password = s;
-          break;
       case 'R': // redo clock
           getUdpTime();
           break;
       case 'F': // temp offset
           hvac.m_EE.adj = val;
           break;
-      case 'H': // host
+      case 'H': // host  (from browser type: hTtp://thisip/?H=hostip&P=85)
+          {
+            IPAddress ip;
+            ip.fromString(s);
+            hvac.m_EE.hostIp = ip;
+            startListener(); // reset the URI
+          }
+          break;
+      case 'P': // host port
+          hvac.m_EE.hostPort = s.toInt();
+          startListener();
           break;
     }
   }
@@ -146,6 +156,8 @@ bool parseArgs()
 void handleRoot() // Main webpage interface
 {
 //  Serial.println("handleRoot");
+  parseParams();
+
   String page = 
    "<!DOCTYPE html>\n"
    "<html>\n"
@@ -213,7 +225,7 @@ void handleEvents()
       "Access-Control-Allow-Origin: *\n"
       "Content-Type: text/event-stream\n\n";
   server.sendContent(content);
-  event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
+  event.set(server.client(), interval, nType);
 }
 
 // Pushed data
@@ -242,7 +254,8 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 void startListener()
 {
   static char path[] = "/events?i=30&p=1";
-  remoteStream.begin(hostIp, path, hostPort, true);
+  IPAddress ip(hvac.m_EE.hostIp);
+  remoteStream.begin(ip.toString().c_str(), path, hvac.m_EE.hostPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
 }
@@ -263,7 +276,8 @@ void setCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 void getSettings()
 {
   static char path[] = "/json";
-  remoteSet.begin(hostIp, path, hostPort, false);
+  IPAddress ip(hvac.m_EE.hostIp);
+  remoteSet.begin(ip.toString().c_str(), path, hvac.m_EE.hostPort, false);
   remoteSet.addList(jsonList3);
 }
 
