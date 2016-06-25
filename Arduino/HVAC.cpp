@@ -53,7 +53,6 @@ HVAC::HVAC()
   m_bFanRunning = false;
   m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
-  m_outMax[1] = -50;      // set as invalid
   m_bFanMode = false;     // Auto=false, On=true
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
@@ -423,7 +422,7 @@ bool HVAC::preCalcCycle(int8_t mode)
         calcTargetTemp(Mode_Heat);
         if(m_EE.heatMode == Heat_Auto)
         {
-          if(m_inTemp < m_outTemp - (m_EE.eHeatThresh * 10))  // Use gas when efficiency too low for pump  Todo: change this to outtemp threshold
+          if(m_outTemp < (m_EE.eHeatThresh * 10))  // Use gas when efficiency too low for pump
             m_AutoHeat = Heat_NG;
           else
             m_AutoHeat = Heat_HP;
@@ -444,13 +443,13 @@ void HVAC::calcTargetTemp(int8_t mode)
     else if(digitalRead(P_REV) == HIGH && (mode == Mode_Heat) )  // set heatpump to heat if heating
       digitalWrite(P_REV, LOW);
   }
-  int16_t L = m_outMin[1];
-  int16_t H = m_outMax[1];
+  int16_t L = m_outMin[0];
+  int16_t H = m_outMax[0];
 
-  if(m_outMax[0] != -50)  // Use longer range if available
+  for(int i = 1; i < PEAKS_CNT; i++)
   {
-    L = min(m_outMin[0], L);
-    H = max(m_outMax[0], H);
+    L = min(L, m_outMin[i]);
+    H = max(H, m_outMax[i]);
   }
 
   L *= 10;    // shift a decimal place
@@ -710,21 +709,27 @@ void HVAC::updateOutdoorTemp(int16_t outTemp)
   m_outTemp = outTemp;
 }
 
-// Update min/max for next 24 hrs
-void HVAC::updatePeaks(int8_t min, int8_t max)
+// Update min/max for next 48 hrs + 60 past
+void HVAC::updatePeaks(int8_t tmin, int8_t tmax)
 {
   if(m_outMax[0] != -50)      // preserve peaks longer
   {
-    m_outMax[0] = m_outMax[1];
-    m_outMin[0] = m_outMin[1];
+    for(int i = 0; i < PEAKS_CNT-1; i++) // FIFO
+    {
+      m_outMax[i+1] = m_outMax[i];
+      m_outMin[i+1] = m_outMin[i];
+    }
   }
-  else                        // initial value
+  else                        // initial fill value
   {
-    m_outMin[0] = min;
-    m_outMax[0] = max;
+    for(int i = 0; i < PEAKS_CNT; i++)
+    {
+      m_outMax[i] = tmax;
+      m_outMin[i] = tmax;
+    }
   }
-  m_outMin[1] = min;
-  m_outMax[1] = max;
+  m_outMin[0] = tmin;
+  m_outMax[0] = tmax;
 }
 
 void HVAC::resetFilter()
@@ -791,8 +796,8 @@ String HVAC::getPushData()
   s += ",\"tt\":";  s += m_targetTemp;
   s += ",\"fm\":";  s += m_EE.filterMinutes;
   s += ",\"ot\":";  s += m_outTemp;
-  s += ",\"ol\":";  s += m_outMin[1];
-  s += ",\"oh\":";  s += m_outMax[1];
+  s += ",\"ol\":";  s += m_outMin[0];
+  s += ",\"oh\":";  s += m_outMax[0];
   s += ",\"ct\":";  s += m_cycleTimer;
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
