@@ -15,19 +15,17 @@
 #include <Event.h>
 
 extern eventHandler event;
-extern const char *hostIp;
 extern const char *controlPassword;
 extern uint8_t serverPort;
-extern uint8_t hostPort;
 
 HVAC::HVAC()
 {
   m_EE.size = sizeof(EEConfig);
-//----------------------------
+//---------- EEPROM default values ----------
   m_EE.cycleMin = 60;         // 60 seconds minimum for a cycle
   m_EE.cycleMax = 60*15;      // 15 minutes maximun for a cycle
   m_EE.idleMin  = 60*5;       // 5 minutes minimum between cycles
-  m_EE.cycleThresh =  17;     // 1.7 degree cycle range
+  m_EE.cycleThresh =  17;      // 1.7 degree cycle range
   m_EE.coolTemp[1] = 820;     // 82.0 default temps
   m_EE.coolTemp[0] = 790;     // 79.0
   m_EE.heatTemp[1] = 740;     // 74.0
@@ -45,7 +43,14 @@ HVAC::HVAC()
   m_EE.adj = 0;
   m_EE.fanPreTime[0] = 0; // disable by default
   m_EE.fanPreTime[1] = 0;
+  m_EE.fanCycleTime = 30*60; // 30 mins
+  m_EE.awayDelta[0] = 40; // +4.0 cool
+  m_EE.awayDelta[1] = -40; // heat
+  m_EE.awayTime = 9*60; // 9 hours
+  m_EE.hostIp = 192 | (168<<8) | (105<<24); // 192.168.0.105
+  m_EE.hostPort = 85;
   strcpy(m_EE.zipCode, "41042");
+  memset(m_EE.reserved, 0, sizeof(m_EE.reserved));
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
   m_outTemp = 0;
@@ -79,6 +84,7 @@ HVAC::HVAC()
   m_bLocalTempDisplay = true; // default to local/remote temp
   m_bAvgRemote = false;
   m_localTemp = 0;
+  m_bAway = false;
   m_fanPreElap = 60*10;
 }
 
@@ -98,10 +104,17 @@ void HVAC::disable()
 void HVAC::service()
 {
   static uint8_t initRmt = 15; // delayed start
+  static unsigned long hostIp = m_EE.hostIp + m_EE.hostPort;
+
   if(initRmt)
   {
     if(--initRmt == 0)
       connectRemote();
+  }
+  else if( hostIp != m_EE.hostIp + m_EE.hostPort) // host IP was reconfigured
+  {
+    hostIp == m_EE.hostIp;
+    initRmt = 1; // cause a restart
   }
   
   tempCheck();
@@ -137,18 +150,17 @@ void sc_callback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
 }
 
-void HVAC::connectRemote()
+void HVAC::connectRemote() // request an event listener from main
 {
-  char szPath[64];
-
   JsonClient cl(sc_callback);
   String path = "/remote?key=";
   path += controlPassword;
   path += "&path=%2Fevents%3Fi=30%26p=1&port=";  // the path needs to be URL encoded
   path += serverPort;
   m_bLocalTempDisplay = true;
-  path.toCharArray(szPath, 64);
-  cl.begin(hostIp, szPath, hostPort, false);
+  IPAddress ip(m_EE.hostIp);
+  if(!cl.begin(ip.toString().c_str(), path.c_str(), m_EE.hostPort, false))
+    event.print("Can't send event request");
 }
 
 void HVAC::enableRemote()
@@ -285,12 +297,12 @@ int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
   return 0;
 }
 
-template <class T> const T& max (const T& a, const T& b) {
-  return (a<b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
-}
-template <class T> const T& min (const T& a, const T& b) {
-  return (a>b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
-}
+//template <class T> const T& max (const T& a, const T& b) {
+//  return (a<b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
+//}
+//template <class T> const T& min (const T& a, const T& b) {
+//  return (a>b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
+//}
 // User:Set new control temp
 void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 {
