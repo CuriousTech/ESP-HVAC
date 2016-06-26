@@ -59,7 +59,6 @@ HVAC::HVAC()
   m_bFanRunning = false;
   m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
-  m_outMax[1] = -50;      // set as invalid
   m_bFanMode = false;     // Auto=false, On=true
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
@@ -381,21 +380,41 @@ void HVAC::updateOutdoorTemp(int16_t outTemp)
   m_outTemp = outTemp;
 }
 
-// Update min/max for next 24 hrs
-void HVAC::updatePeaks(int8_t mn, int8_t mx)
+// Update min/max for next 48 hrs + 60 past
+void HVAC::updatePeaks()
 {
+  int8_t tmin = m_fcData[0].t;
+  int8_t tmax = m_fcData[0].t;
+
+  // Get min/max of current forecast
+  for(int i = 1; i < 18; i++)
+  {
+    int8_t t = m_fcData[i].t;
+    if(tmin > t) tmin = t;
+    if(tmax < t) tmax = t;
+  }
+
+  if(tmin == tmax) tmax++;   // div by 0 check
+
+  // add it to the history
   if(m_outMax[0] != -50)      // preserve peaks longer
   {
-    m_outMax[0] = m_outMax[1];
-    m_outMin[0] = m_outMin[1];
+    for(int i = 0; i < PEAKS_CNT-1; i++) // FIFO
+    {
+      m_outMax[i+1] = m_outMax[i];
+      m_outMin[i+1] = m_outMin[i];
+    }
   }
-  else                        // initial value
+  else                        // initial fill value
   {
-    m_outMin[0] = mn;
-    m_outMax[0] = mx;
+    for(int i = 0; i < PEAKS_CNT; i++)
+    {
+      m_outMax[i] = tmax;
+      m_outMin[i] = tmax;
+    }
   }
-  m_outMin[1] = mn;
-  m_outMax[1] = mx;
+  m_outMin[0] = tmin;
+  m_outMax[0] = tmax;
 }
 
 void HVAC::resetFilter()
