@@ -120,7 +120,7 @@ public:
   bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
-  void    updatePeaks(int8_t tmin, int8_t tmax);
+  void    updatePeaks(void);
   void    resetFilter(void);    // reset the filter hour count
   bool    checkFilter(void);
   void    resetTotal(void);
