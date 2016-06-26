@@ -232,6 +232,7 @@ void loop()
         {
           case XML_DONE:
             hvac.enable();
+            hvac.updatePeaks();
             event.alert("Forecast success");
             display.drawForecast(true);
             break;
