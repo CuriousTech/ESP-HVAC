@@ -211,8 +211,6 @@ void Display::displayTime()
 
 void Display::drawForecast(bool bRef)
 {
-  int8_t tmin = 126;
-  int8_t tmax = -50;
   int i;
 
   if(hvac.m_fcData[1].h == -1) // no data yet
@@ -242,27 +240,6 @@ void Display::drawForecast(bool bRef)
 
   m_updateFcst = ((hrs * 60) + mins);
 
-  // Get min/max
-  for(i = 0; i < 18; i++)
-  {
-    int8_t t = hvac.m_fcData[i].t;
-    if(tmin > t) tmin = t;
-    if(tmax < t) tmax = t;
-  }
-
-  if(tmin == tmax) tmax++;   // div by 0 check
-
-  hvac.updatePeaks(tmin, tmax);
-
-  int16_t L = hvac.m_outMin[0];
-  int16_t H = hvac.m_outMax[0];
-
-  for(int i = 1; i < PEAKS_CNT; i++)
-  {
-    if(L > hvac.m_outMin[i]) L = hvac.m_outMin[i];
-    if(H < hvac.m_outMax[i]) H = hvac.m_outMax[i];
-  }
-
   if(nex.getPage()) // on different page
     return;
 
@@ -275,6 +252,8 @@ void Display::drawForecast(bool bRef)
     delay(5); // 5 works
   }
 
+  int8_t tmin = hvac.m_outMin[0];
+  int8_t tmax = hvac.m_outMax[0];
   int16_t y = Fc_Top+1;
   int16_t incy = (Fc_Height-4) / 3;
   int16_t dec = (tmax - tmin)/3;
