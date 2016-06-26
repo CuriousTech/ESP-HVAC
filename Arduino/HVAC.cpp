@@ -710,8 +710,22 @@ void HVAC::updateOutdoorTemp(int16_t outTemp)
 }
 
 // Update min/max for next 48 hrs + 60 past
-void HVAC::updatePeaks(int8_t tmin, int8_t tmax)
+void HVAC::updatePeaks()
 {
+  int8_t tmin = m_fcData[0].t;
+  int8_t tmax = m_fcData[0].t;
+
+  // Get min/max of current forecast
+  for(int i = 1; i < 18; i++)
+  {
+    int8_t t = m_fcData[i].t;
+    if(tmin > t) tmin = t;
+    if(tmax < t) tmax = t;
+  }
+
+  if(tmin == tmax) tmax++;   // div by 0 check
+
+  // add it to the history
   if(m_outMax[0] != -50)      // preserve peaks longer
   {
     for(int i = 0; i < PEAKS_CNT-1; i++) // FIFO
