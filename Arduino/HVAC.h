@@ -156,7 +156,6 @@ private:
   void  calcTargetTemp(int8_t mode);
   int   CmdIdx(String s, const char **pCmds);
   void  sendCmd(const char *szName, int value);
-  void  connectRemote(void); // connect remote to main
 
   bool    m_bFanMode;       // Auto=false, On=true
   bool    m_bFanRunning;    // when fan is running
