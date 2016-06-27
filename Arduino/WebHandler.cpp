@@ -30,7 +30,7 @@ WiFiUDP Udp;
 bool bNeedUpdate;
 bool checkUdpTime(void);
 
-void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
+void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
 
 int nWrongPass;
@@ -680,6 +680,24 @@ void handleJson()
   server.send ( 200, "text/json", s + "\n");
 }
 
+const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
+const char *jsonList2[] = { "cmd",
+  "fanmode", // HVAC commands
+  "mode",
+  "heatmode",
+  "resettotal",
+  "resetfilter",
+  "fanpostdelay",
+  "cooltempl",
+  "cooltemph",
+  "heattempl",
+  "heattemph",
+  "humidmode",
+  "avgrmt",
+  NULL
+};
+const char *jsonList3[] = { "alert", NULL };
+
 // event streamer (assume keep-alive)
 void handleEvents()
 {
@@ -688,6 +706,8 @@ void handleEvents()
   uint16_t interval = 60; // default interval
   uint8_t nType = 0;
   String key;
+  uint16_t nPort = 80;
+  char path[64] = "";
 
   for ( uint8_t i = 0; i < server.args(); i++ ) {
     server.arg(i).toCharArray(temp, 100);
@@ -709,6 +729,12 @@ void handleEvents()
       case 'k': // key
         key = s;
         break;
+      case 's': // stream
+        s.toCharArray(path, 64);
+        break;
+      case 'r': // port
+        nPort = val;
+        break;
     }
   }
 
@@ -721,6 +747,16 @@ void handleEvents()
       "Content-Type: text/event-stream\n\n";
   server.sendContent(content);
   event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
+
+  if(key != controlPassword || path[0] == 0)
+    return;
+
+  String sIp = server.client().remoteIP().toString();
+
+  remoteStream.begin(sIp.c_str(), path, nPort, true);
+  remoteStream.addList(jsonList1);
+  remoteStream.addList(jsonList2);
+  remoteStream.addList(jsonList3);
 }
 
 // Pushed data
@@ -729,28 +765,14 @@ String dataJson()
   return hvac.getPushData();
 }
 
-const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
-const char *jsonList2[] = { "cmd",
-  "fanmode", // HVAC commands
-  "mode",
-  "heatmode",
-  "resettotal",
-  "resetfilter",
-  "fanpostdelay",
-  "cooltempl",
-  "cooltemph",
-  "heattempl",
-  "heattemph",
-  "humidmode",
-  "avgrmt",
-  NULL
-};
-const char *jsonList3[] = { "alert", NULL };
-
-void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
+void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
   {
+    case -1: // connection status
+//      if(iName == JC_CONNECTED) event.print("Remote connected");
+//      else event.print("Remote disconnected " + iName);
+      break;
     case 0: // state
       switch(iName)
       {
@@ -862,7 +884,7 @@ void handleRemote()
 }
 
 void handleNotFound() {
-//  Serial.println("handleNotFound\n");
+//  Serial.println("handleNotFound");
 
   String message = "File Not Found\n\n";
   message += "URI: ";
