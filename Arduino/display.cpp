@@ -73,32 +73,29 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 9: // heat lo
               m_adjustMode = btn-6;
               break;
-            case 21: // cool hi
-            case 22: // cool lo
-            case 23: // heat hi
-            case 24: // heat lo
-              m_adjustMode = btn-23;
+            case 15: // cool hi
+            case 16: // cool lo
+            case 17: // heat hi
+            case 18: // heat lo
+              m_adjustMode = btn-15;
               break;
 
-            case 10: // fan
-            case 18: // Fan
+            case 22: // fan
               hvac.setFan( !hvac.getFan() );
               updateModes(); // faster feedback
               break;
-            case 11: // Mode
-            case 19: // Mode
+            case 23: // Mode
               hvac.setMode( (hvac.getSetMode() + 1) & 3 );
               updateModes(); // faster feedback
               break;
-            case 12: // Heat
-            case 20: // Heat
+            case 24: // Heat
               hvac.setHeatMode( (hvac.getHeatMode() + 1) % 3 );
               updateModes(); // faster feedback
               break;
-            case 13: // notification clear
+            case 10: // notification clear
               hvac.m_notif = Note_None;
               break;
-            case 14: // forecast
+            case 11: // forecast
               nex.setPage("graph");
               fillGraph();
               break;
@@ -107,12 +104,12 @@ void Display::checkNextion() // all the Nextion recieved commands
               delay(10); // 20 works
               updateClock();
               break;
-            case 15: // DOW
+            case 12: // DOW
               nex.setPage("keyboard"); // go to keyboard
               nex.itemText(1, "Enter Zipcode");
               break;
             case 5:  // target temp
-            case 25:
+            case 19:
               hvac.enableRemote();
               break;
             case 1: // out
@@ -122,7 +119,7 @@ void Display::checkNextion() // all the Nextion recieved commands
               hvac.m_bLocalTempDisplay = !hvac.m_bLocalTempDisplay; // toggle remote temp display
               updateTemps();
               break;
-            case 28: // humidifier indicator
+            case 21: // humidifier indicator
               break;
           }
           break;
@@ -304,8 +301,9 @@ void Display::drawForecast(bool bRef)
   for(i = 1; i < 18; i++) // should be 18 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * Fc_Width / pts;
+    int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * (Fc_Width-1) / pts;
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
+    if(x1 < Fc_Left) x1 = x2;  // todo: fix this
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
     x2 = x1;
     y2 = y1;
@@ -497,14 +495,30 @@ void Display::updateModes() // update any displayed settings
     return;
   }
 
-  if(bFan != hvac.getFan())
-    nex.itemText(9, sFan[bFan = hvac.getFan()]);
+  if(bFan != hvac.getFan() && nex.getPage() == Page_Thermostat)
+  {
+    int idx = 10; // not running
+    if( bFan = hvac.getFanRunning() )
+    {
+      idx = 11; // running
+      if(hvac.getFan())
+        idx = 12; // on and running
+    }
+    17, 
+    nex.itemPic(5, idx);
+  }
 
   if(nMode != hvac.getSetMode())
-    nex.itemText(10, sModes[nMode = hvac.getSetMode()]);
+  {
+    nMode = hvac.getSetMode();
+    nex.itemPic(7, nMode + 13);
+  }
 
   if(heatMode != hvac.getHeatMode())
-    nex.itemText(11, sHeatModes[heatMode = hvac.getHeatMode()]);
+  {
+    heatMode = hvac.getHeatMode();
+    nex.itemPic(8, heatMode + 17);
+  }
 }
 
 void Display::updateAdjMode(bool bRef)  // current adjust indicator of the 4 temp settings
@@ -550,13 +564,13 @@ void Display::updateRSSI()
   nex.itemText(22, String(rssiT = rssiAvg) + "dB");
 
   int sigStrength = 127 + rssiT;
-  int wh = 38; // width and height
-  int x = 160;
-  int y = 158;
+  int wh = 24; // width and height
+  int x = 178;
+  int y = 172;
   int sect = 127 / 5; //
   int dist = wh  / 5; // distance between blocks
 
-  y += wh - 10;
+  y += wh;
 
   for (int i = 1; i < 6; i++)
   {
@@ -566,7 +580,6 @@ void Display::updateRSSI()
 
 void Display::updateRunIndicator(bool bForce) // run and fan running
 {
-  static bool bFanRun = false;
   static bool bOn = false; // blinker
   static bool bCurrent = false; // run indicator
   static bool bPic = false; // red/blue
@@ -574,15 +587,11 @@ void Display::updateRunIndicator(bool bForce) // run and fan running
 
   if(bForce)
   {
-    bFanRun = false;
     bOn = false;
     bCurrent = false;
     bPic = false;
     bHumid = false;
   }
-
-  if(bFanRun != hvac.getFanRunning() && nex.getPage() == Page_Thermostat)
-    nex.visible("p5", ( bFanRun = hvac.getFanRunning() ) ? 1:0); // fan on indicator
 
   if(hvac.getState()) // running
   {
