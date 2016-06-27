@@ -102,20 +102,6 @@ void HVAC::disable()
 // Service: called once per second
 void HVAC::service()
 {
-  static uint8_t initRmt = 15; // delayed start
-  static unsigned long hostIp = m_EE.hostIp + m_EE.hostPort;
-
-  if(initRmt)
-  {
-    if(--initRmt == 0)
-      connectRemote();
-  }
-  else if( hostIp != m_EE.hostIp + m_EE.hostPort) // host IP was reconfigured
-  {
-    hostIp == m_EE.hostIp;
-    initRmt = 1; // cause a restart
-  }
-  
   tempCheck();
 
   static uint16_t old[4];
@@ -144,9 +130,20 @@ void HVAC::sendCmd(const char *szName, int value)
 
   event.push("cmd", s);
 }
-
-void sc_callback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
+/*
+void sc_callback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
+  switch(iEvent)
+  {
+    case -1:
+      if(iName == JC_CONNECTED)
+        break;
+      Serial.print(String("sc error ") + iName + " " + psValue + ":" + iValue);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      Serial.write(0xFF);
+      break;
+  }
 }
 
 void HVAC::connectRemote() // request an event listener from main
@@ -161,7 +158,7 @@ void HVAC::connectRemote() // request an event listener from main
   if(!cl.begin(ip.toString().c_str(), path.c_str(), m_EE.hostPort, false))
     event.print("Can't send event request");
 }
-
+*/
 void HVAC::enableRemote()
 {
   m_bRemoteStream = !m_bRemoteStream;
@@ -238,7 +235,7 @@ void HVAC::setHeatMode(uint8_t mode)
 
 uint8_t HVAC::getHeatMode()
 {
-  return m_EE.heatMode;
+  return m_setHeat; // for faster visual update
 }
 
 int8_t HVAC::getAutoMode()
@@ -385,6 +382,9 @@ void HVAC::updatePeaks()
 {
   int8_t tmin = m_fcData[0].t;
   int8_t tmax = m_fcData[0].t;
+
+  if(tmin == -1) // initial value
+    tmin = m_fcData[1].t;
 
   // Get min/max of current forecast
   for(int i = 1; i < 18; i++)
