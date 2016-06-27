@@ -26,7 +26,7 @@ enum JC_Status
 class JsonClient
 {
 public:
-  JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue));
+  JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue));
   bool  addList(const char **pList);
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
   bool  service(void);
@@ -38,7 +38,7 @@ private:
   void  processLine(void);
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue);
   void  sendHeader(const char *pHeaderName, int nHeaderValue);
-  void  (*m_callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
+  void  (*m_callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
   char *skipwhite(char *p);
 
   WiFiClient m_client;
