@@ -12,7 +12,7 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
-JsonClient::JsonClient(void (*callback)(uint16_t iEvent, uint16_t iName, int iValue, char *psValue) )
+JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue) )
 {
   m_callback = callback;
   m_Status = JC_IDLE;
@@ -37,6 +37,8 @@ bool JsonClient::addList(const char **pList)
 // begin with host, /path?param=x&param=x, port, streaming
 bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData)
 {
+  if(m_client.connected())
+    m_client.stop();
   m_jsonCnt = 0;
   m_event = 0;
   m_bufcnt = 0;
@@ -155,12 +157,7 @@ bool JsonClient::connect()
   if( !m_client.connect(m_szHost, m_nPort) )
   {
     m_Status = JC_NO_CONNECT;
-//    Serial.println("Connection failed");
-//    Serial.print(m_szHost);
-//    Serial.print(" ");
-//    Serial.print(m_szPath);
-//    Serial.print(" ");
- //   Serial.println(m_nPort);
+    m_callback(-1, m_Status, m_nPort, m_szHost);
     m_retryCnt++;
     return false;
   }
@@ -190,6 +187,7 @@ bool JsonClient::connect()
 
   m_Status = JC_CONNECTED;
   m_brace = 0;
+  m_callback(-1, m_Status, m_nPort, m_szHost);
   return true;
 }
 
