@@ -33,9 +33,9 @@ void startListener(void);
 void getSettings(void);
 bool checkUdpTime(void);
 
-void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
+void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
-void setCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue);
+void setCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteSet(setCallback);
 
 void startServer()
@@ -238,10 +238,13 @@ String dataJson()
 const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
 const char *jsonList2[] = { "alert", NULL };
 
-void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
+void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
   {
+    case -1:
+      event.print(String("remote error ") + iName + " " + psValue + ":" + iValue);
+      break;
     case 0: // state
       hvac.updateVar(iName, iValue);
       break;
@@ -253,9 +256,15 @@ void remoteCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
 
 void startListener()
 {
-  static char path[] = "/events?i=30&p=1";
+//  static char path[] = "/events?i=30&p=1";
+
+  String path = "/events?key=";
+  path += controlPassword;
+  path += "&i=30&p=1&s=%2Fevents%3Fi=30%26p=1&r=";  // the path needs to be URL encoded
+  path += serverPort;
+
   IPAddress ip(hvac.m_EE.hostIp);
-  remoteStream.begin(ip.toString().c_str(), path, hvac.m_EE.hostPort, true);
+  remoteStream.begin(ip.toString().c_str(), path.c_str(), hvac.m_EE.hostPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
 }
@@ -263,10 +272,13 @@ void startListener()
 // settings read about every minute
 const char *jsonList3[] = { "", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", NULL };
 
-void setCallback(uint16_t iEvent, uint16_t iName, int iValue, char *psValue)
+void setCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
   {
+    case -1:
+      event.print(String("set error ") + iName + " " + psValue + ":" + iValue);
+      break;
     case 0: // settings
       hvac.setSettings(iName, iValue);
       break;
