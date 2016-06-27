@@ -715,6 +715,9 @@ void HVAC::updatePeaks()
   int8_t tmin = m_fcData[0].t;
   int8_t tmax = m_fcData[0].t;
 
+  if(tmin == -1) // initial value
+    tmin = m_fcData[1].t;
+
   // Get min/max of current forecast
   for(int i = 1; i < 18; i++)
   {
