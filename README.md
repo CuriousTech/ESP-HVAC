@@ -1,7 +1,7 @@
 # ESP8266-HVAC
 WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
-<b>Update 3:</b> Did what I could with the PBC.  An external sensor works best though.  I'm done with the code for now as well.  
+<b>Update 3:</b> Did what I could with the PCB.  An external sensor works best though.  I'm done with the code for now as well.  
 
 <b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
 
@@ -21,7 +21,7 @@ The watchdog chip (PIC10F) is unnecessary, but can be used to monitor activity a
 
 Some screens including a keyboard and SSID chooser, but this is using the auto connect with SoftAP server (which attempts to find the stored SSID while waiting on input) so it should never be needed.  The dimmed screensaver will change to a clock, and a few other odd displays over time.  
 
-![Some display screenshots](http://www.curioustech.net/images/hvacscreens2.png)
+![Some display screenshots](http://www.curioustech.net/images/hvacscreens.png)
 
 ![The thing](http://www.curioustech.net/images/esphvac2.jpg)
 
@@ -59,4 +59,4 @@ Like any setting, it can be automated with something like Tasker.  To turn on wo
 
 ![remotepage](http://www.curioustech.net/images/esphvacweb2.png)  
 
-![dualtherms](http://www.curioustech.net/images/hvac2.jpg)  
+![dualstats](http://www.curioustech.net/images/hvac.jpg)  
