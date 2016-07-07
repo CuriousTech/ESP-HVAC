@@ -187,6 +187,13 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
         if(!pAttr)              	    // no attribute required
         {
           bFound = true;
+          tagEnd();
+          IncPtr();
+          char *p = m_pPtr; // start of data in tag
+          tagStart(); // end of data
+          *m_pPtr++ = 0;
+          m_xml_callback(m_tagIdx, m_valIdx, p);
+          tagEnd(); // skip end tag
         }
         else while(*m_pPtr != '>' && m_pPtr < m_pEnd && !bFound) // find the correct attribute
         {
