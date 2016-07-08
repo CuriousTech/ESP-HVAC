@@ -62,6 +62,7 @@ DHT dht;
 
 XML_tag_t Xtags[] =
 {
+  {"creation-date", NULL, NULL, 1},
   {"time-layout", "time-coordinate", "local", 19},
   {"temperature", "type", "hourly", 19},
   {NULL}
@@ -77,20 +78,31 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   int8_t d;
   static int8_t hO;
   static int8_t lastd;
+  static tmElements_t t;
 
   switch(item)
   {
-    case 0:            // valid time
+    case 0:
+      if(atoi(p) == 0) // todo: fix
+        break;
+      t.Year = CalendarYrToTm(atoi(p));
+      t.Month = atoi(p+5);
+      t.Day = atoi(p+8);
+      t.Hour = atoi(p+11);
+      t.Minute = atoi(p+14);
+      t.Second = atoi(p+17);
+      break;
+    case 1:            // valid time
       if(idx == 0)     // first item isn't really data
       {
         hO = 0;        // reset hour offset
-        lastd = day();
-        hvac.m_fcData[0].t = hvac.m_fcData[1].t; // keep a copy of first hour data
+        hvac.m_fcData[0].t = hvac.m_fcData[1].t; // keep a copy of first 3hour data
         hvac.m_fcData[0].h = hvac.m_fcData[1].h;
         break;
       }
       d = atoi(p + 8);  // 2014-mm-ddThh:00:00-tz:00
       h = atoi(p + 11);
+
       if(idx != 1 && d != lastd)
         hO += 24; // change to hours offset
       lastd = d;
@@ -100,13 +112,15 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       if(p[19] == '-') // its negative
         newtz = -newtz;
 
-      if(idx == 1 && newtz != hvac.m_EE.tz) // DST change occurs this hour
+      if(idx == 1)
       {
+        time_t epoc = makeTime(t);
         hvac.m_EE.tz = newtz;
-        getUdpTime(); // correct for new DST
+        epoc += hvac.m_EE.tz * 3600;
+        setTime(epoc);
       }
       break;
-    case 1:                  // temperature
+    case 2:                  // temperature
       if(idx)               // 1st value is not temp
         hvac.m_fcData[idx].t = atoi(p);
       break;
@@ -136,6 +150,8 @@ Encoder rot(ENC_B, ENC_A);
 
 bool EncoderCheck()
 {
+  if(hvac.m_EE.bLock) return false;
+
   int r = rot.poll();
 
   if(r == 0)  // no change
@@ -163,7 +179,6 @@ void setup()
   eeRead(); // don't access EE before WiFi init
   hvac.init();
   display.init();
-  getUdpTime(); // start the SNTP get
 #ifdef SHT21_H
   sht.init();
 #endif
@@ -214,8 +229,6 @@ void loop()
       if (hour_save != hour()) // update our IP and time daily (at 2AM for DST)
       {
         eeWrite(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
-        if( (hour_save = hour()) == 2)
-          getUdpTime();
       }
 
       if(--display.m_updateFcst <= 0 )  // usually every hour / 3 hours
