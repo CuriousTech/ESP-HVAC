@@ -14,6 +14,7 @@ void Display::init()
   nex.FFF(); // Just to end any debug strings in the Nextion
   screen( true ); // brighten the screen if it just reset
   refreshAll();
+  nex.itemPic(9, hvac.m_EE.bLock ? 20:21);
 }
 
 // called each second
@@ -49,6 +50,7 @@ void Display::checkNextion() // all the Nextion recieved commands
   int len = nex.service(cBuf); // returns just the button value or 0 if no data
   uint8_t btn;
   String s;
+  static uint8_t textIdx = 0;
 
   Lines(); // draw lines at full speed
 
@@ -81,18 +83,22 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
 
             case 22: // fan
+              if(hvac.m_EE.bLock) break;
               hvac.setFan( !hvac.getFan() );
               updateModes(); // faster feedback
               break;
             case 23: // Mode
+              if(hvac.m_EE.bLock) break;
               hvac.setMode( (hvac.getSetMode() + 1) & 3 );
               updateModes(); // faster feedback
               break;
             case 24: // Heat
+              if(hvac.m_EE.bLock) break;
               hvac.setHeatMode( (hvac.getHeatMode() + 1) % 3 );
               updateModes(); // faster feedback
               break;
             case 10: // notification clear
+              if(hvac.m_EE.bLock) break;
               hvac.m_notif = Note_None;
               break;
             case 11: // forecast
@@ -105,11 +111,20 @@ void Display::checkNextion() // all the Nextion recieved commands
               updateClock();
               break;
             case 12: // DOW
+              if(hvac.m_EE.bLock) break;
+              textIdx = 0;
               nex.setPage("keyboard"); // go to keyboard
               nex.itemText(1, "Enter Zipcode");
               break;
+            case 13: // temp scale
+              if(hvac.m_EE.bLock) break;
+              textIdx = 1;
+              nex.setPage("keyboard"); // go to keyboard
+              nex.itemText(1, "Enter Password");
+              break;
             case 5:  // target temp
             case 19:
+              if(hvac.m_EE.bLock) break;
               hvac.enableRemote();
               break;
             case 1: // out
@@ -121,6 +136,23 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
             case 21: // humidifier indicator
               break;
+            case 25: // lock
+//#define PWLOCK  // uncomment for password entry unlock
+#ifdef PWLOCK
+              if(hvac.m_EE.bLock)
+              {
+                textIdx = 2;
+                nex.itemText(0, ""); // clear last text
+                nex.setPage("keyboard"); // go to keyboard
+                nex.itemText(1, "Enter Password");
+              }
+              else
+                hvac.m_EE.bLock = true;
+#else
+              hvac.m_EE.bLock = !hvac.m_EE.bLock;
+#endif
+              nex.itemPic(9, hvac.m_EE.bLock ? 20:21);
+              break;
           }
           break;
         default: // all pages go back
@@ -129,11 +161,26 @@ void Display::checkNextion() // all the Nextion recieved commands
       }
       break;
     case 0x70:// string return from keyboard
-      if(strlen(cBuf + 1) > 6)
+      switch(textIdx)
       {
-        strcpy(hvac.m_EE.zipCode, cBuf + 1);
+        case 0: // zipcode edit
+          if(strlen(cBuf + 1) < 5)
+            break;
+          strncpy(hvac.m_EE.zipCode, cBuf + 1, sizeof(hvac.m_EE.zipCode));
+          break;
+        case 1: // password edit
+          if(strlen(cBuf + 1) < 5)
+            return;
+          strncpy(hvac.m_EE.password, cBuf + 1, sizeof(hvac.m_EE.password) );
+          break;
+        case 2: // password unlock
+          if(!strcmp(hvac.m_EE.password, cBuf + 1) )
+            hvac.m_EE.bLock = false;
+          nex.itemText(0, ""); // clear password
+          nex.itemPic(9, hvac.m_EE.bLock ? 20:21);
+          break;
       }
-      screen(true);
+      screen(true); // back to main page
       break;
   }
 }
@@ -213,29 +260,22 @@ void Display::drawForecast(bool bRef)
   if(hvac.m_fcData[1].h == -1) // no data yet
     return;
 
-  if(hvac.m_fcData[0].h == 23 && hour() == 0) // from 0:00 to 1:59 hrs, the 23:00 forecast is 24 hrs off
+  if(bRef)
   {
-    hvac.m_fcData[0].h = 0; //Change it to midnight, tween this 0:00 temp from 23:00 ~ 2:00
-    hvac.m_fcData[0].t = ( tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, 60, 3) / 10);
-    for(i = 1; i < 18; i++) // and adjust the times
-      hvac.m_fcData[i].h -= 24;
-  }  // internet problems maybe || first time || same data read
-  else if(hour() < 21 && hvac.m_fcData[0].h < hour() - 3 || hvac.m_fcData[0].h == -1 || hvac.m_fcData[0].h == hvac.m_fcData[1].h)
-  {
-    for(i = 0; i < 17; i++) // shift over
+    if(hvac.m_fcData[0].h == -1) // first time only
     {
-      hvac.m_fcData[i].h = hvac.m_fcData[i+1].h;
-      hvac.m_fcData[i].t = hvac.m_fcData[i+1].t;
+      hvac.m_fcData[0].h = hvac.m_fcData[1].h;
+      hvac.m_fcData[0].t = hvac.m_fcData[1].t;
     }
+
+    int8_t hrs = ( (hvac.m_fcData[1].h - hour() + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..20,23
+    int8_t mins = (60 - minute() + 53) % 60;   // mins to :52, retry will be :57
+  
+    if(hrs < 0 || hrs > 3) // something's wrong (could be local time)
+      hrs = 0;
+  
+    m_updateFcst = ((hrs * 60) + mins);
   }
-
-  int8_t hrs = ( ((hvac.m_fcData[0].h - hour()) + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..20,23
-  int8_t mins = (60 - minute() + 52) % 60;   // mins to :52, retry will be :57
-
-  if(hrs < 0 || hrs > 3) // something's wrong (could be local time)
-    hrs = 0;
-
-  m_updateFcst = ((hrs * 60) + mins);
 
   if(nex.getPage()) // on different page
     return;
@@ -246,7 +286,7 @@ void Display::drawForecast(bool bRef)
     nex.refreshItem("t19");
     nex.refreshItem("t20");
     nex.refreshItem("s0");
-    delay(5); // 5 works
+    delay(5);
   }
 
   int8_t tmin = hvac.m_outMin[0];
@@ -267,7 +307,7 @@ void Display::drawForecast(bool bRef)
 
   int8_t day = weekday()-1;              // current day
   int8_t h0 = hour();                    // zeroeth hour
-  int8_t pts = hvac.m_fcData[17].h - h0; // normally 52 hours
+  int8_t pts = hvac.m_fcData[18].h - h0; // normally 52 hours
   int8_t h;
   int16_t day_x = 0;
 
@@ -295,10 +335,10 @@ void Display::drawForecast(bool bRef)
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
     nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]);
 
-  int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[0].t - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].t - tmin) * (Fc_Height-2) / (tmax-tmin);
   int16_t x2 = Fc_Left;
 
-  for(i = 1; i < 18; i++) // should be 18 data points
+  for(i = 1; i <= 18; i++) // should be 18 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * (Fc_Width-1) / pts;
@@ -321,26 +361,30 @@ int Display::tween(int8_t t1, int8_t t2, int m, int8_t h)
 
 void Display::displayOutTemp()
 {
-  if(hvac.m_fcData[0].h == -1) // no read yet
+  if(hvac.m_fcData[1].h == -1) // no read yet
     return;
-  int8_t hd = hour() - hvac.m_fcData[0].h;      // hours past 1st value
-  int16_t outTemp;
+  
+  int8_t hd = hour() - hvac.m_fcData[1].h;      // hours past 1st value
+  int16_t outTempDelayed;
+  int16_t outTempReal;
 
   if(hd < 0)                                    // 1st value is top of next hour
   {
-     outTemp = hvac.m_fcData[0].t * 10;         // just use it
+     outTempReal = hvac.m_fcData[1].t * 10;         // just use it
+     outTempDelayed = hvac.m_fcData[0].t * 10;
   }
   else
   {
      int m = minute();              // offset = hours past + minutes of hour
 
      if(hd) m += (hd * 60);              // add hours ahead (up to 2)
-     outTemp = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, m, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
+     outTempReal = tween(hvac.m_fcData[1].t, hvac.m_fcData[2].t, m, hvac.m_fcData[2].h - hvac.m_fcData[1].h);
+     outTempDelayed = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, m, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
   }
-
-  hvac.updateOutdoorTemp(outTemp);
   if(nex.getPage() == Page_Thermostat)
-    nex.itemFp(1, outTemp);
+    nex.itemFp(1, outTempReal);
+
+  hvac.updateOutdoorTemp(outTempDelayed);
 }
 
 void Display::Note(char *cNote)
@@ -453,27 +497,27 @@ void Display::updateClock()
   const float x = 159; // center
   const float y = 120;
 
-  float size = 60;
+  float size = 80;
   float angle = minute() * 6;
   float ang =  M_PI * (180-angle) / 180;
   float x2 = x + size * sin(ang);
   float y2 = y + size * cos(ang);
   nex.line(x, y, x2, y2, rgb16(0, 0, 31) ); // (blue) minute
 
-  size = 48;
-  angle = hour() * 30;
+  size = 64;
+  angle = (hour() + (minute() * 0.00833) ) * 30;
   ang =  M_PI * (180-angle) / 180;
   x2 = x + size * sin(ang);
   y2 = y + size * cos(ang);
   nex.line(x, y, x2, y2, rgb16(0, 63, 31) ); // (cyan) hour
 
-  size = 70;
+  size = 91;
   angle = second() * 6;
   ang =  M_PI * (180-angle) / 180;
   x2 = x + size * sin(ang);
   y2 = y + size * cos(ang);
   ang =  M_PI * (0-angle) / 180;
-  size = 18;
+  size = 24;
   float x3 = x + size * sin(ang);
   float y3 = y + size * cos(ang);
 
