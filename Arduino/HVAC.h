@@ -38,7 +38,6 @@ enum Notif
   Note_Init,
 };
 
-
 enum HeatMode
 {
   Heat_HP,
@@ -62,6 +61,11 @@ enum HumidifierMode
   HM_Auto1,
   HM_Auto2,
 };
+
+#define RF_ML (1 << 0)
+#define RF_MH (1 << 1)
+#define RF_RL (1 << 2)
+#define RF_RH (1 << 3)
 
 struct EEConfig
 {
@@ -90,7 +94,10 @@ struct EEConfig
   uint16_t fanCycleTime; // for user fan cycles
   unsigned long hostIp;
   uint16_t  hostPort;
-  char     reserved[10];
+  char     password[32];
+  bool     bLock;
+  bool     bRes;
+  char     reserved[32];
 };
 
 class HVAC
@@ -143,7 +150,7 @@ public:
   bool      m_bRemoteStream; // remote is streaming temp/rh
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
-  bool      m_bAvgRemote;
+  uint8_t   m_RemoteFlags;
 #define PEAKS_CNT 20
   int8_t    m_outMin[PEAKS_CNT], m_outMax[PEAKS_CNT];
   uint16_t  m_fanPreElap;
