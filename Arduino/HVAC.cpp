@@ -43,7 +43,9 @@ HVAC::HVAC()
   m_EE.awayDelta[0] = 40; // +4.0 cool
   m_EE.awayDelta[1] = -40; // heat
   m_EE.awayTime = 9*60; // 9 hours
+  m_EE.bLock = false;
   strcpy(m_EE.zipCode, "41042");
+  strcpy(m_EE.password, "password");
   memset(m_EE.reserved, 0, sizeof(m_EE.reserved));
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -75,7 +77,7 @@ HVAC::HVAC()
   m_bRemoteStream = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = false;
-  m_bAvgRemote = false;
+  m_RemoteFlags = 0;
   m_bAway = false;
   m_fanPreElap = 60*10;
 
@@ -317,6 +319,21 @@ void HVAC::tempCheck()
 
   int8_t mode = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode;
 
+  int16_t tempL = m_inTemp;
+  int16_t tempH = m_inTemp;
+
+  if(m_bRemoteStream && m_RemoteFlags)
+  {
+    if(m_RemoteFlags & RF_ML)
+      tempL = m_localTemp; // main low
+    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
+      tempL = (m_inTemp + m_localTemp) / 2; // use both for low
+    if(m_RemoteFlags & RF_MH)
+      tempH = m_localTemp; // main high
+    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
+      tempH = (m_inTemp + m_localTemp) / 2; // use both for high
+  }
+
   if(m_bRunning)
   {
     if(m_cycleTimer < m_EE.cycleMin)
@@ -331,11 +348,11 @@ void HVAC::tempCheck()
     switch(mode)
     {
       case Mode_Cool:
-        if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
+        if( tempL <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
           m_bStop = true;
         break;
       case Mode_Heat:
-        if(m_inTemp > m_targetTemp + m_EE.cycleThresh) // has heated above desired temp + threshold
+        if(tempH > m_targetTemp + m_EE.cycleThresh) // has heated above desired temp + threshold
           m_bStop = true;
         break;
     }
@@ -348,11 +365,11 @@ void HVAC::tempCheck()
       switch(mode)
       {
         case Mode_Cool:
-          if( m_inTemp <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
+          if( tempL <= m_targetTemp - m_EE.cycleThresh ) // has cooled to desired temp - threshold
             bHit = true;
           break;
         case Mode_Heat:
-          if(m_inTemp >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
+          if(tempH >= m_targetTemp + m_EE.cycleThresh) // has heated to desired temp + threshold
             bHit = true;
           break;
       }
@@ -396,26 +413,41 @@ void HVAC::tempCheck()
 bool HVAC::preCalcCycle(int8_t mode)
 {
   bool bRet = false;
-  
+
+  int16_t tempL = m_inTemp;
+  int16_t tempH = m_inTemp;
+
+  if(m_bRemoteStream && m_RemoteFlags)
+  {
+    if(m_RemoteFlags & RF_ML)
+      tempL = m_localTemp; // main low
+    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
+      tempL = (m_inTemp + m_localTemp) / 2; // use both for low
+    if(m_RemoteFlags & RF_MH)
+      tempH = m_localTemp; // main high
+    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
+      tempH = (m_inTemp + m_localTemp) / 2; // use both for low
+  }
+
   // Standard triggers for now
   switch(mode)
   {
     case Mode_Cool:
       calcTargetTemp(Mode_Cool);
-      bRet = (m_inTemp >= m_targetTemp);    // has reached threshold above desired temp
+      bRet = (tempH >= m_targetTemp);    // has reached threshold above desired tempu
       break;
     case Mode_Heat:
       calcTargetTemp(Mode_Heat);
-      bRet = (m_inTemp <= m_targetTemp);
+      bRet = (tempL <= m_targetTemp);
       break;
     case Mode_Auto:
-      if(m_inTemp >= m_EE.coolTemp[0])
+      if(tempH >= m_EE.coolTemp[0])
       {
         calcTargetTemp(Mode_Cool);
         m_AutoMode = Mode_Cool;
-        bRet = (m_inTemp >= m_targetTemp);    // has reached threshold above desired temp
+        bRet = (tempH >= m_targetTemp);    // has reached threshold above desired temp
       }
-      else if(m_inTemp <= m_EE.heatTemp[1])
+      else if(tempL <= m_EE.heatTemp[1])
       {
 //      Serial.println("Auto heat");
         m_AutoMode = Mode_Heat;
@@ -427,7 +459,7 @@ bool HVAC::preCalcCycle(int8_t mode)
           else
             m_AutoHeat = Heat_HP;
         }
-        bRet = (m_inTemp <= m_targetTemp);
+        bRet = (tempL <= m_targetTemp);
       }
       break;
   }
@@ -719,7 +751,7 @@ void HVAC::updatePeaks()
     tmin = m_fcData[1].t;
 
   // Get min/max of current forecast
-  for(int i = 1; i < 18; i++)
+  for(int i = 1; i <= 18; i++)
   {
     int8_t t = m_fcData[i].t;
     if(tmin > t) tmin = t;
@@ -792,7 +824,7 @@ String HVAC::settingsJson()
   s += ",\"rh1\":";  s += m_EE.rhLevel[1];
   s += ",\"fp\":";   s += m_EE.fanPreTime[m_EE.Mode == Mode_Heat];
   s += ",\"fct\":";  s += m_EE.fanCycleTime;
-  s += ",\"ar\":";  s += m_bAvgRemote;
+  s += ",\"ar\":";  s += m_RemoteFlags;
   s += ",\"at\":";  s += m_EE.awayTime;
   s += ",\"ad\":";  s += m_EE.awayDelta[m_EE.Mode == Mode_Heat];
   s += "}";
@@ -855,7 +887,7 @@ static const char *cSCmds[] =
   "adj",
   "fanpretime",
   "fancycletime",
-  "avgrmt",
+  "rmtflgs",
   "awaytime",
   "awaydelta",
   "away",
@@ -877,6 +909,8 @@ int HVAC::CmdIdx(String s, const char **pCmds )
 // POST set params as "fanmode=1"
 void HVAC::setVar(String sCmd, int val)
 {
+  if(m_EE.bLock) return;
+
   switch( CmdIdx( sCmd, cSCmds ) )
   {
     case 0:     // fanmode
@@ -969,8 +1003,8 @@ void HVAC::setVar(String sCmd, int val)
     case 22: // fancycletime
       m_EE.fanCycleTime = val;
       break;
-    case 23: // avgrmt
-      m_bAvgRemote = val ? true:false;
+    case 23: // rmtflgs  0xC=(RF_RL|RF_RH) = use remote, 0x3=(RFML|RF_MH)= use main, 0xF = use both averaged
+      m_RemoteFlags = val;
       break;
     case 24: // awaytime
       m_EE.awayTime = val; // no limit
