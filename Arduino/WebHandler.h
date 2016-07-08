@@ -19,7 +19,5 @@ void handleEvents(void);
 void handleRemote(void);
 void handleNotFound(void);
 String dataJson(void);
-void pushBullet(const char *pTitle, const char *pBody);
-void getUdpTime(void);
 
 #endif // WEBHANDLER_H
