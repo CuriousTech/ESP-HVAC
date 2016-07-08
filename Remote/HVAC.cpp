@@ -49,7 +49,9 @@ HVAC::HVAC()
   m_EE.awayTime = 9*60; // 9 hours
   m_EE.hostIp = 192 | (168<<8) | (105<<24); // 192.168.0.105
   m_EE.hostPort = 85;
+  m_EE.bLock = false;
   strcpy(m_EE.zipCode, "41042");
+  strcpy(m_EE.password, "password");
   memset(m_EE.reserved, 0, sizeof(m_EE.reserved));
 //----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
@@ -81,7 +83,7 @@ HVAC::HVAC()
   m_bRemoteStream = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = true; // default to local/remote temp
-  m_bAvgRemote = false;
+  m_RemoteFlags = 0;
   m_localTemp = 0;
   m_bAway = false;
   m_fanPreElap = 60*10;
@@ -130,35 +132,7 @@ void HVAC::sendCmd(const char *szName, int value)
 
   event.push("cmd", s);
 }
-/*
-void sc_callback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
-{
-  switch(iEvent)
-  {
-    case -1:
-      if(iName == JC_CONNECTED)
-        break;
-      Serial.print(String("sc error ") + iName + " " + psValue + ":" + iValue);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      Serial.write(0xFF);
-      break;
-  }
-}
 
-void HVAC::connectRemote() // request an event listener from main
-{
-  JsonClient cl(sc_callback);
-  String path = "/remote?key=";
-  path += controlPassword;
-  path += "&path=%2Fevents%3Fi=30%26p=1&port=";  // the path needs to be URL encoded
-  path += serverPort;
-  m_bLocalTempDisplay = true;
-  IPAddress ip(m_EE.hostIp);
-  if(!cl.begin(ip.toString().c_str(), path.c_str(), m_EE.hostPort, false))
-    event.print("Can't send event request");
-}
-*/
 void HVAC::enableRemote()
 {
   m_bRemoteStream = !m_bRemoteStream;
@@ -293,12 +267,6 @@ int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
   return 0;
 }
 
-//template <class T> const T& max (const T& a, const T& b) {
-//  return (a<b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
-//}
-//template <class T> const T& min (const T& a, const T& b) {
-//  return (a>b)?b:a;     // or: return comp(a,b)?b:a; for version (2)
-//}
 // User:Set new control temp
 void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
 {
@@ -387,7 +355,7 @@ void HVAC::updatePeaks()
     tmin = m_fcData[1].t;
 
   // Get min/max of current forecast
-  for(int i = 1; i < 18; i++)
+  for(int i = 1; i <= 18; i++)
   {
     int8_t t = m_fcData[i].t;
     if(tmin > t) tmin = t;
