@@ -26,6 +26,13 @@ enum Mode
   Mode_Auto
 };
 
+enum FanMode
+{
+  FM_Auto,
+  FM_On,
+  FM_Cycle,
+};
+
 enum Notif
 {
   Note_None,
@@ -115,9 +122,9 @@ public:
   int8_t  getSetMode(void);       // get last requested mode
   void    setMode(int8_t mode);   // request new mode; see enum Mode
   void    setHeatMode(uint8_t mode); // heat mode
-  bool    getFan(void);           // fan mode
+  int8_t  getFan(void);           // fan mode
   bool    getHumidifierRunning(void);
-  void    setFan(bool on);        // auto/on mode
+  void    setFan(int8_t m);        // auto/on/s mode
   void    filterInc(void);
   bool    stateChange(void);      // change since last call = true
   int16_t getSetTemp(int8_t mode, int8_t hl); // get temp set for a mode (cool/heat, hi/lo)
@@ -164,7 +171,7 @@ private:
   int   CmdIdx(String s, const char **pCmds);
   void  sendCmd(const char *szName, int value);
 
-  bool    m_bFanMode;       // Auto=false, On=true
+  int8_t  m_FanMode;        // Auto=0, On=1, s=2
   bool    m_bFanRunning;    // when fan is running
   bool    m_bHumidRunning;
   int8_t  m_AutoMode;       // cool, heat
