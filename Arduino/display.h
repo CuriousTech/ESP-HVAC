@@ -28,6 +28,7 @@ public:
   void init(void);
   void oneSec(void);
   bool screen(bool bOn);
+  void reset(void);
   void checkNextion(void); // all the Nextion recieved commands
   void updateTemps(void);
   void drawForecast(bool bRef);
@@ -54,7 +55,7 @@ private:
   uint16_t m_pointsAdded;
   uint8_t m_points[300][6];
 public:
-  uint16_t m_updateFcst = 1;
+  int16_t m_updateFcst = 1;
   uint16_t m_temp_counter;
   uint8_t m_adjustMode;
 };
