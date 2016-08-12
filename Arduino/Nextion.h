@@ -45,6 +45,7 @@ public:
   void cls(uint16_t color);
   void add(uint8_t comp, uint8_t ch, uint16_t val);
   void refresh(bool bOn);
+  void reset(void);
   void FFF(void);
 private:
   void dimmer(void);
