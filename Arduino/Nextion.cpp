@@ -137,6 +137,12 @@ void Nextion::add(uint8_t comp, uint8_t ch, uint16_t val)
 void Nextion::refresh(bool bOn)
 {
   Serial.print(String( bOn ? "ref_star":"ref_stop"));
+  FFF();
+}
+
+void Nextion::reset()
+{
+  Serial.print("rest");
   FFF();  
 }
 
