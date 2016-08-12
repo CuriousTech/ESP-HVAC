@@ -55,7 +55,7 @@ HVAC::HVAC()
   m_bFanRunning = false;
   m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
-  m_bFanMode = false;     // Auto=false, On=true
+  m_FanMode = FM_Auto;    // Auto=0, On=1, S=2
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
   m_setHeat = 0;          // new heat mode request
@@ -168,7 +168,7 @@ void HVAC::service()
   if(m_fanPostTimer)                // Fan continuation delay
   {
     if(--m_fanPostTimer == 0)
-      if(!m_bRunning && m_bFanMode == false) // Ensure system isn't running and fanMode is auto
+      if(!m_bRunning && m_FanMode != FM_On) // Ensure system isn't running and fanMode is auto
         fanSwitch(false);
   }
 
@@ -201,7 +201,7 @@ void HVAC::service()
   {
     if(m_bRunning)                     // cycleTimer is already > 20s here
       m_bStop = true;
-    if(m_idleTimer >= 5)
+    else if(m_idleTimer >= 5)
     {
       m_EE.heatMode = m_setHeat;
       m_EE.Mode = m_setMode;           // User may be cycling through modes (give 5s)
@@ -215,7 +215,7 @@ void HVAC::service()
   if(m_bStart && !m_bRunning)             // Start signal occurred
   {
     m_bStart = false;
-    
+
     switch(mode)
     {
       case Mode_Cool:
@@ -259,7 +259,7 @@ void HVAC::service()
     if(m_EE.humidMode == HM_Run)      // shut off after heat/cool phase
       humidSwitch(false);
 
-    if(m_bFanRunning && m_bFanMode == false) // Note: furnace manages fan
+    if(m_bFanRunning && m_FanMode != FM_On ) // Note: furnace manages fan
     {
       if(m_EE.fanPostDelay[digitalRead(P_REV)])         // leave fan running to circulate air longer
         m_fanPostTimer = m_EE.fanPostDelay[digitalRead(P_REV)]; // P_REV == true if heating
@@ -375,14 +375,15 @@ void HVAC::tempCheck()
       }
       if(bHit) // fan hit threshold
       {
-        if(m_bFanMode == false)
+        if(m_FanMode != FM_On)
           fanSwitch(false);
         m_fanPreElap = 0;
         m_fanPreTimer = 0;
       }
       else if(--m_fanPreTimer == 0) // timed out, didn't hit threshold
       {
-        m_bStart = true;  // start the cycle
+        if(m_FanMode != FM_Cycle)
+          m_bStart = true;  // start the cycle
         return;
       }
     }
@@ -406,6 +407,10 @@ void HVAC::tempCheck()
           m_bStart = false;
         }
       }
+    }
+    if( (m_FanMode == FM_Cycle) && m_bStart) // fan only cycle mode
+    {
+      m_bStart = false;
     }
   }
 }
@@ -499,15 +504,15 @@ void HVAC::calcTargetTemp(int8_t mode)
       break;
   }
 
-  m_targetTemp += m_ovrTemp; // override is normally 0, unless set remotely with a timeout
+  m_targetTemp += m_ovrTemp; // override/away is normally 0, unless set remotely with a timeout
 
   switch(mode)
   {
     case Mode_Cool:
-      m_targetTemp = constrain(m_targetTemp, 650, 900); // more safety (after override of up to +/-9)
+      m_targetTemp = constrain(m_targetTemp, 650, 990); // more safety (after override/away of up to +/-15)
       break;
     case Mode_Heat:
-      m_targetTemp = constrain(m_targetTemp, 630, 860);
+      m_targetTemp = constrain(m_targetTemp, 590, 860);
       break;
   }
 
@@ -582,20 +587,20 @@ void HVAC::enable()
   m_bRecheck = true;
 }
 
-bool HVAC::getFan()
+int8_t HVAC::getFan()
 {
-  return m_bFanMode;
+  return m_FanMode;
 }
 
 // User:Set fan mode
-void HVAC::setFan(bool bon)
+void HVAC::setFan(int8_t m)
 {
-  if(bon == m_bFanMode)     // requested fan operating mode change
+  if(m == m_FanMode)     // requested fan operating mode change
     return;
 
-  m_bFanMode = bon;
+  m_FanMode = m;
   if(!m_bRunning)
-    fanSwitch(bon);              // manual fan on/off if not running
+    fanSwitch(m == 1 ? true:false); // manual fan on/off if not running
 }
 
 int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
@@ -707,7 +712,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
       if(m_rh >= m_EE.rhLevel[1]) // reached high
       {
         humidSwitch(false);
-        if(m_bRunning == false && m_bFanMode == false)  // if not cooling/heating we can turn the fan off
+        if(m_bRunning == false && m_FanMode != FM_On)  // if not cooling/heating we can turn the fan off
         {
           fanSwitch(false);
           if(m_idleTimer > m_EE.idleMin)
@@ -806,7 +811,7 @@ String HVAC::settingsJson()
   s += "\"m\":";   s += m_EE.Mode;
   s += ",\"am\":";  s += m_AutoMode;
   s += ",\"hm\":";  s += m_EE.heatMode;
-  s += ",\"fm\":";  s += m_bFanMode;
+  s += ",\"fm\":";  s += m_FanMode;
   s += ",\"ot\":";  s += m_ovrTemp;
   s += ",\"ht\":";  s += m_EE.eHeatThresh;
   s += ",\"c0\":";  s += m_EE.coolTemp[0];
@@ -914,14 +919,14 @@ void HVAC::setVar(String sCmd, int val)
   switch( CmdIdx( sCmd, cSCmds ) )
   {
     case 0:     // fanmode
-      if(val == 2) // "freshen"
+      if(val == 3) // "freshen"
       {
-        if(m_bRunning || m_furnaceFan || m_bFanMode) // don't run if system or fan is running
+        if(m_bRunning || m_furnaceFan || m_bFanRunning) // don't run if system or fan is running
           break;
         m_fanPostTimer = m_EE.fanCycleTime; // use the post fan timer to shut off
         fanSwitch(true);
       }
-      else setFan( (val) ? true:false);
+      else setFan( val );
       break;
     case 1:     // mode
       setMode( val );
@@ -1003,7 +1008,7 @@ void HVAC::setVar(String sCmd, int val)
     case 22: // fancycletime
       m_EE.fanCycleTime = val;
       break;
-    case 23: // rmtflgs  0xC=(RF_RL|RF_RH) = use remote, 0x3=(RFML|RF_MH)= use main, 0xF = use both averaged
+    case 23: // rmtflgs  0xC=(RF_RL|RF_RH) = use remote, 0x3=(RF_ML|RF_MH)= use main, 0xF = use both averaged
       m_RemoteFlags = val;
       break;
     case 24: // awaytime
