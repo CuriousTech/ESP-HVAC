@@ -79,6 +79,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   static int8_t hO;
   static int8_t lastd;
   static tmElements_t t;
+  String s;
 
   switch(item)
   {
@@ -121,8 +122,8 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       }
       break;
     case 2:                  // temperature
-      if(idx)               // 1st value is not temp
-        hvac.m_fcData[idx].t = atoi(p);
+      if(idx == 0) break;               // 1st value is not temp
+      hvac.m_fcData[idx].t = atoi(p);
       break;
   }
 }
