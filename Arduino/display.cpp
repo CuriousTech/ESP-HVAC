@@ -12,6 +12,7 @@ extern eventHandler event;
 void Display::init()
 {
   nex.FFF(); // Just to end any debug strings in the Nextion
+  nex.reset();
   screen( true ); // brighten the screen if it just reset
   refreshAll();
   nex.itemPic(9, hvac.m_EE.bLock ? 20:21);
@@ -84,7 +85,7 @@ void Display::checkNextion() // all the Nextion recieved commands
 
             case 22: // fan
               if(hvac.m_EE.bLock) break;
-              hvac.setFan( !hvac.getFan() );
+              hvac.setFan( (hvac.getFan() == FM_On) ? FM_Auto : FM_On ); // Todo: Add 3rd icon
               updateModes(); // faster feedback
               break;
             case 23: // Mode
@@ -268,21 +269,22 @@ void Display::drawForecast(bool bRef)
       hvac.m_fcData[0].t = hvac.m_fcData[1].t;
     }
 
-    int8_t hrs = ( (hvac.m_fcData[1].h - hour() + 1) % 3 ) + 1;   // Set interval to 2, 5, 8, 11..20,23
+    int8_t hrs = ( (hvac.m_fcData[1].h - hour() + 1) % 3 ) + 1 & 3;   // Set interval to 2, 5, 8, 11..20,23
     int8_t mins = (60 - minute() + 53) % 60;   // mins to :52, retry will be :57
-  
-    if(hrs < 0 || hrs > 3) // something's wrong (could be local time)
-      hrs = 0;
-  
+
     m_updateFcst = ((hrs * 60) + mins);
+
+    m_temp_counter = 2; // Todo: just for first point
   }
+
+  if(m_updateFcst < 0) // An uncaught request timeout
+    m_updateFcst = 5;
 
   if(nex.getPage()) // on different page
     return;
 
-  if(bRef) // new forecast
+  if(bRef) // new forecast (erase old floating text)
   {
-    m_temp_counter = 2; // Todo: just for first point
     nex.refreshItem("t19");
     nex.refreshItem("t20");
     nex.refreshItem("s0");
@@ -306,14 +308,13 @@ void Display::drawForecast(bool bRef)
   }
 
   int8_t day = weekday()-1;              // current day
-  int8_t h0 = hour();                    // zeroeth hour
-  int8_t pts = hvac.m_fcData[18].h - h0; // normally 52 hours
+  int8_t pts = hvac.m_fcData[18].h - hvac.m_fcData[1].h; // normally 52 hours
   int8_t h;
   int16_t day_x = 0;
 
   if(pts <= 0) return;                     // error
 
-  for(i = 0, h = h0; i < pts; i++, h++)    // v-lines
+  for(i = 0, h = hvac.m_fcData[1].h; i < pts; i++, h++)    // v-lines
   {
     x = Fc_Left + Fc_Width * i / pts;
     if( (h % 24) == 0) // midnight
@@ -341,7 +342,8 @@ void Display::drawForecast(bool bRef)
   for(i = 1; i <= 18; i++) // should be 18 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int x1 = Fc_Left + (hvac.m_fcData[i].h - h0) * (Fc_Width-1) / pts;
+    int x1 = Fc_Left + (hvac.m_fcData[i].h - hvac.m_fcData[1].h) * (Fc_Width-1) / pts;
+
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
     if(x1 < Fc_Left) x1 = x2;  // todo: fix this
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
@@ -530,6 +532,7 @@ void Display::updateModes() // update any displayed settings
   const char *sModes[] = {"Off", "Cool", "Heat", "Auto"};
   const char *sHeatModes[] = {"HP", "NG", "Auto"};
   static bool bFan = true; // set these to something other than default to trigger them all
+  static int8_t FanMode = 4;
   static uint8_t nMode = 10;
   static uint8_t heatMode = 10;
 
@@ -539,16 +542,16 @@ void Display::updateModes() // update any displayed settings
     return;
   }
 
-  if(bFan != hvac.getFan() && nex.getPage() == Page_Thermostat)
+  if( (FanMode != hvac.getFan() || bFan != hvac.getFanRunning()) && nex.getPage() == Page_Thermostat)
   {
     int idx = 10; // not running
+    FanMode = hvac.getFan();
     if( bFan = hvac.getFanRunning() )
     {
       idx = 11; // running
-      if(hvac.getFan())
+      if(FanMode == FM_On)
         idx = 12; // on and running
     }
-    17, 
     nex.itemPic(5, idx);
   }
 
