@@ -57,6 +57,6 @@ Away time and temperature delta offset:
 The away time is in hours:minutes unlike the rest of the timers, but uses the override timer.  It can be turned on and off with the button, but will also turn off with the timer.  There are 2 temp values.  One for heat and one for cool, like the pre/post fan.
 Like any setting, it can be automated with something like Tasker.  To turn on would be <b>http://ip:85?key=password&away=1</b>  
 
-![remotepage](http://www.curioustech.net/images/esphvacweb2.png)  
+![remotepage](http://www.curioustech.net/images/esphvacweb.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
