@@ -382,7 +382,9 @@ void HVAC::tempCheck()
       }
       else if(--m_fanPreTimer == 0) // timed out, didn't hit threshold
       {
-        if(m_FanMode != FM_Cycle)
+        if(m_FanMode == FM_Cycle)
+          fanSwitch(false);
+        else
           m_bStart = true;  // start the cycle
         return;
       }
