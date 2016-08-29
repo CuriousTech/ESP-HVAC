@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.6.9 and esp8266 SDK 2.2.0
+// Build with Arduino IDE 1.6.11 and esp8266 SDK 2.3.0
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
@@ -247,7 +247,7 @@ void loop()
           case XML_DONE:
             hvac.enable();
             hvac.updatePeaks();
-            event.alert("Forecast success");
+            event.print("Forecast success");
             display.drawForecast(true);
             break;
           default:
