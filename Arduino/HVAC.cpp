@@ -77,7 +77,7 @@ HVAC::HVAC()
   m_bRemoteStream = false;
   m_bRemoteDisconnect = false;
   m_bLocalTempDisplay = false;
-  m_RemoteFlags = 0;
+  m_RemoteFlags = RF_RL|RF_RH;
   m_bAway = false;
   m_fanPreElap = 60*10;
 
@@ -576,10 +576,12 @@ void HVAC::setMode(int8_t mode)
   m_setMode = mode & 3;
   if(!m_bRunning)
   {
-     if(m_idleTimer < m_EE.idleMin - 60)
-       m_idleTimer = m_EE.idleMin - 60;        // shorten the idle time
-     if(m_idleTimer >= m_EE.idleMin)
-       m_idleTimer = m_EE.idleMin - 10;        // but at least 10 seconds so mode can be chosen
+    if(m_setMode == 0 && m_FanMode != FM_On)
+      fanSwitch(0); // fan may be on
+    if(m_idleTimer < m_EE.idleMin - 60)
+      m_idleTimer = m_EE.idleMin - 60;        // shorten the idle time
+    if(m_idleTimer >= m_EE.idleMin)
+      m_idleTimer = m_EE.idleMin - 10;        // but at least 10 seconds so mode can be chosen
   }
 }
 
@@ -602,7 +604,7 @@ void HVAC::setFan(int8_t m)
 
   m_FanMode = m;
   if(!m_bRunning)
-    fanSwitch(m == 1 ? true:false); // manual fan on/off if not running
+    fanSwitch(m == FM_On ? true:false); // manual fan on/off if not running
 }
 
 int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
@@ -1011,6 +1013,8 @@ void HVAC::setVar(String sCmd, int val)
       m_EE.fanCycleTime = val;
       break;
     case 23: // rmtflgs  0xC=(RF_RL|RF_RH) = use remote, 0x3=(RF_ML|RF_MH)= use main, 0xF = use both averaged
+      if(val & (RF_RL|RF_ML) == 0) val |= RF_RL;
+      if(val & (RF_RH|RF_MH) == 0) val |= RF_RH;
       m_RemoteFlags = val;
       break;
     case 24: // awaytime
