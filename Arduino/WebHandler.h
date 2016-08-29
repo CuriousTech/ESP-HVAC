@@ -11,6 +11,7 @@ void secondsServer(void);
 String ipString(IPAddress ip);
 void parseParams(void);
 void handleRoot(void);
+void handleSettings(void);
 String sDec(int t); // just 123 to 12.3 string
 String timeFmt(void);
 void handleS(void);
