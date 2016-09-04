@@ -68,7 +68,7 @@ $.getJSON("json", function(Json){
 	a.fandelay.value= s2t(+Json.fd)
 	a.fanpre.value= s2t(+Json.fp)
 	a.awaytime.value= s2t(+Json.at)
-	a.heatthr.value= +Json.ht/10
+	a.heatthr.value= +Json.ht
 	rmtMode=+Json.ar
 });
 }
@@ -97,7 +97,7 @@ a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
 
 function setHT()
 {
-setVar('eheatthresh',(+a.heatthr.value*10).toFixed())
+setVar('eheatthresh',+a.heatthr.value)
 }
 
 function setHumidHi()
