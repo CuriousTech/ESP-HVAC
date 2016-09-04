@@ -837,3 +837,9 @@ uint16_t Display::stateColor(uint8_t v) // return a color based on run state
   }
   return color;
 }
+
+void Display::getGrapthPoints(uint8_t *pts, int n)
+{
+  memcpy(pts, m_points[n], 6);
+}
+
