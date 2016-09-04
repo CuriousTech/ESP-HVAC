@@ -146,7 +146,7 @@ a.fOn.setAttribute('class',fanMode==1?'style5':'')
 a.fS.setAttribute('class',fanMode==2?'style5':'')
 a.fan.innerHTML = "Fan "+((fanMode==1)?"On":(fan?"On":"Off"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
-a.ovrCell.setAttribute('class',ovrActive?'style5':'style1')
+a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
 
 a.mOff.setAttribute('class',mode==0?'style5':'')
 a.mCool.setAttribute('class',mode==1?'style5':'')
@@ -203,25 +203,6 @@ setVar('heattemph',(+a.heath.value*10).toFixed())
 setVar('heattempl',(+a.heatl.value*10).toFixed())
 }
 
-function setHumidHi()
-{
-setVar('humidh',(+a.humidh.value*10).toFixed())
-}
-
-function setHumidLo()
-{
-setVar('humidl',(+a.humidl.value*10).toFixed())
-}
-
-function incHumid(n)
-{
-a.humidh.value= +a.humidh.value+n
-a.humidl.value= +a.humidl.value+n
-
-setVar('humidh',(+a.humidh.value*10).toFixed())
-setVar('humidl',(+a.humidl.value*10).toFixed())
-}
-
 function setOvrTime()
 {
 	setVar('overridetime',t2s(a.ovrtime.value))
@@ -240,11 +221,6 @@ function cancelOvr()
 function setFanTime()
 {
 	setVar('fantime',t2s(a.fantime.value))
-}
-
-function setAwayTime()
-{
-	setVar('awaytime',t2s(a.awaytime.value))
 }
 
 function setAwayTemp()
@@ -332,8 +308,9 @@ function t2s(v)
 <td id="runCell"><div id="run">Cooling</div></td>
 <td align="right"><input type="button" value=" Off " name="mOff" onClick="{setMode(0)}"></td>
 <td><input type="button" value="Cool" name="mCool" onClick="{setMode(1)}"><input type="button" value="Heat" name="mHeat" onClick="{setMode(2)}"></td>
-<td>
-<input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}"></td>
+<td><input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}">
+&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<input type="submit" value="Chart" onClick="window.location='/chart.html';">
+</td>
 </tr>
 <tr>
 <td>&nbsp</td>
