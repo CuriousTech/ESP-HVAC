@@ -33,6 +33,7 @@ public:
   void updateTemps(void);
   void drawForecast(bool bRef);
   void Note(char *cNote);
+  void getGrapthPoints(uint8_t *pts, int n);
 private:
   void refreshAll(void);
   void updateClock(void);
@@ -52,9 +53,9 @@ private:
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
   uint16_t m_backlightTimer;
-  uint16_t m_pointsAdded;
-  uint8_t m_points[300][6];
+  uint8_t m_points[300][6]; // Todo: add tamestamp already!
 public:
+  uint16_t m_pointsAdded;
   int16_t m_updateFcst = 1;
   uint16_t m_temp_counter;
   uint8_t m_adjustMode;
