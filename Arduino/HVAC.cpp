@@ -178,6 +178,7 @@ void HVAC::service()
     {
       m_ovrTemp = 0;
       calcTargetTemp(m_EE.Mode);  // recalc normal set temp
+      m_bAway = false;
     }
   }
 
