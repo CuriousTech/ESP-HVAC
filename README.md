@@ -59,4 +59,7 @@ Like any setting, it can be automated with something like Tasker.  To turn on wo
 
 ![remotepage](http://www.curioustech.net/images/hvacweb3.png)  
 
+The web chart.  Dark gray is off, cyna is fan running, blue is compressor, rh is green, the target/threshold is at 2.4, and there was an away and override there.  I don't know why the wierd character is there.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit.  
+![chartpage](http://www.curioustech.net/images/hvacchart.png)  
+
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
