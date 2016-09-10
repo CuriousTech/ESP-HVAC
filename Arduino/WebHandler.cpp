@@ -66,22 +66,27 @@ void graphData()
   server.sendContent(chart1);
 
   char szTemp[100];
-  uint8_t pts[6];
+  gPoint gpt;
   String out = "";
 
   for(int x = 0; x < display.m_pointsAdded; x++)
   {
-    display.getGrapthPoints(pts, x);
-    out += "{temp:\"";
-    out += (float)(pts[0] * 110 / 101 + 660)/10;
+    display.getGrapthPoints(&gpt, x);
+    if(gpt.time == 0) continue; // some glitch?
+    out += "{time:";
+    out += gpt.time;
+    out += ",temp:\"";
+    out += String((float)(gpt.temp * 110 / 101 + 660)/10, 1);
     out += "\",rh:\"";
-    out += (float)(pts[1] * 250 / 55) / 10;
+    out += String((float)(gpt.rh * 250 / 55) / 10, 1);
     out += "\",h:\"";
-    out += (float)(pts[2] * 110 / 101 + 660)/10;
+    out += String((float)(gpt.h * 110 / 101 + 660)/10, 1);
     out += "\",l:\"";
-    out += (float)(pts[3] * 110 / 101 + 660)/10;
+    out += String((float)(gpt.l * 110 / 101 + 660)/10, 1);
     out += "\",s:";
-    out += pts[4];
+    out += gpt.state;
+    out += ",f:";
+    out += gpt.fan;
     out += "},\n";
   }
 
