@@ -36,11 +36,13 @@ void Display::oneSec()
   }
 
   static uint8_t lastState;
-  if(--m_temp_counter <= 0 || hvac.getState() != lastState)
+  static bool lastFan;
+  if(--m_temp_counter <= 0 || hvac.getState() != lastState || hvac.getFanRunning() != lastFan)
   {
     displayOutTemp();
     addGraphPoints();
     lastState = hvac.getState();
+    lastFan = hvac.getFanRunning();
     m_temp_counter = 5*60;         // update every 5 minutes
   }
 }
@@ -732,23 +734,28 @@ void Display::addGraphPoints()
   }
   if( hvac.m_inTemp == 0)
     return;
-  if(m_pointsAdded == 299)
-    memcpy(&m_points, &m_points[1], sizeof(m_points) - 6);
+  if(m_pointsAdded == GPTS-1)
+    memcpy(&m_points, &m_points[1], sizeof(m_points) - sizeof(gPoint));
+
+  m_points[m_pointsAdded].time = now() - (hvac.m_EE.tz*3600);
 
   const int base = 660; // 66.0 base   Todo: scale all this
-  m_points[m_pointsAdded][0] = (hvac.m_inTemp - base) * 101 / 110; // 66~90 scale to 0~220
-  m_points[m_pointsAdded][1] = hvac.m_rh * 55 / 250;
-  m_points[m_pointsAdded][2] = (hvac.m_targetTemp - base) * 101 / 110;
+  int t = constrain(hvac.m_inTemp, 660, 900);
+  m_points[m_pointsAdded].temp = (t - base) * 101 / 110; // 66~90 scale to 0~220
+  m_points[m_pointsAdded].rh = hvac.m_rh * 55 / 250;
+  t = constrain(hvac.m_targetTemp, 660, 900);
+  m_points[m_pointsAdded].h = (t - base) * 101 / 110;
 
-  int8_t tt = hvac.m_EE.cycleThresh;
+  int8_t ct = hvac.m_EE.cycleThresh;
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
-    tt = -tt;
+    ct = -ct;
+  t = constrain(hvac.m_targetTemp + ct, 660, 900);
+  m_points[m_pointsAdded].l = (t - base) * 101 / 110;
+  m_points[m_pointsAdded].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
+  m_points[m_pointsAdded].state = hvac.getState();
+  m_points[m_pointsAdded].fan = hvac.getFanRunning();
 
-  m_points[m_pointsAdded][3] = (hvac.m_targetTemp + tt - base) * 101 / 110;
-  m_points[m_pointsAdded][4] = hvac.getState();
-  m_points[m_pointsAdded][5] = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
-
-  if(m_pointsAdded < 299) // 300x220
+  if(m_pointsAdded < GPTS-1) // 300x220
     m_pointsAdded++;
 }
 
@@ -777,44 +784,45 @@ void Display::fillGraph()
     if( h <= 0) h += 12;
   }
 
-  drawPoints(2, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
-  drawPoints(3, rgb16( 22, 40, 10) ); // target threshold
-  drawPoints(1, rgb16(  0, 53,  0) ); // rh green
+  drawPoints(&m_points[0].h, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
+  drawPoints(&m_points[0].l, rgb16( 22, 40, 10) ); // target threshold
+  drawPoints(&m_points[0].rh, rgb16(  0, 53,  0) ); // rh green
   if(hvac.isRemote())
-    drawPoints(5, rgb16( 31, 0,  15) ); // remote temp
+    drawPoints(&m_points[0].ltemp, rgb16( 31, 0,  15) ); // remote temp
   drawPointsTemp(); // off/cool/heat colors
-//  drawPoints(0, rgb16(31,  0,  0) ); // plain inTemp red
 }
 
-void Display::drawPoints(uint8_t arr, uint16_t color)
+void Display::drawPoints(uint8_t *arr, uint16_t color)
 {
-  uint8_t y = m_points[0][arr];
+  uint8_t *p = (uint8_t *)arr;
+  uint8_t y = *p;
   const int yOff = 240-10;
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    if(y != m_points[i+1][arr])
+    p += sizeof(gPoint);
+    if(y != p[sizeof(gPoint)])
     {
-      nex.line(x, yOff - y, i+10, yOff - m_points[i][arr], color);
+      nex.line(x, yOff - y, i+10, yOff - *p, color);
       x = i + 10;
     }
-    y = m_points[i][arr];
+    y = *p;
   }
 }
 
 // Not implemented yet (colors might be weird or something)
 void Display::drawPointsTemp()
 {
-  uint8_t y = m_points[0][0];
+  uint8_t y = m_points[0].temp;
   const int yOff = 240-10;
   uint16_t color = rgb16(31, 0, 0);
 
   for(int i = 1, x = 10; i < m_pointsAdded; i++)
   {
-    color = stateColor(m_points[i][4]);
-    nex.line(x, yOff - y, i+10, yOff - m_points[i][0], color);
+    color = stateColor(m_points[i].state);
+    nex.line(x, yOff - y, i+10, yOff - m_points[i].temp, color);
     x = i + 10;
-    y = m_points[i][0];
+    y = m_points[i].temp;
   }
 }
 
@@ -838,8 +846,8 @@ uint16_t Display::stateColor(uint8_t v) // return a color based on run state
   return color;
 }
 
-void Display::getGrapthPoints(uint8_t *pts, int n)
+void Display::getGrapthPoints(gPoint *pts, int n)
 {
-  memcpy(pts, m_points[n], 6);
+  memcpy(pts, &m_points[n], sizeof(gPoint));
 }
 
