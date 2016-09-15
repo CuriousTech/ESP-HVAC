@@ -21,6 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef Event_h_
+
+#define Event_h_
+
+
 #include <WiFiClient.h>
 
 #define CLIENTS 5
@@ -82,3 +87,4 @@ private:
   uint16_t m_timeout;
   bool     m_bOpened;
 };
+#endif // Event_h_
