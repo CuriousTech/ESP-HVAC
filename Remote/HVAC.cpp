@@ -61,7 +61,7 @@ HVAC::HVAC()
   m_bFanRunning = false;
   m_bHumidRunning = false;
   m_outMax[0] = -50;      // set as invalid
-  m_bFanMode = false;     // Auto=false, On=true
+  m_FanMode = FM_Auto;    // Auto, On, Cycle
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
   m_setHeat = 0;          // new heat mode request
@@ -233,19 +233,19 @@ void HVAC::enable()
 {
 }
 
-bool HVAC::getFan()
+int8_t HVAC::getFan()
 {
-  return m_bFanMode;
+  return m_FanMode;
 }
 
 // User:Set fan mode
-void HVAC::setFan(bool bon)
+void HVAC::setFan(int8_t m)
 {
-  if(bon == m_bFanMode)     // requested fan operating mode change
+  if(m == m_FanMode)     // requested fan operating mode change
     return;
 
-  sendCmd("fanmode", bon);
-  m_bFanMode = bon;
+  sendCmd("fanmode", m);
+  m_FanMode = m;
 }
 
 // Accumulate fan running times
@@ -475,7 +475,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       m_setHeat = m_EE.heatMode = iValue;
       break;
     case 3:
-      m_bFanMode = iValue;
+      m_FanMode = iValue;
       break;
     case 4:
       m_ovrTemp = iValue;
