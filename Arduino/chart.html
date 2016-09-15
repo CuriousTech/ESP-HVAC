@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,9 +11,11 @@ xPadding = 30
 yPadding = 100
 var yRange
 data = { values:[
-{time:1473312484,temp:"87.7",rh:"49.5",h:"88.9",l:"86.5",s:0,f:0},
-{time:1473312784,temp:"87.7",rh:"49.5",h:"88.9",l:"86.5",s:0,f:0},
-{time:1473313084,temp:"87.8",rh:"49.5",h:"88.9",l:"86.5",s:0,f:0},
+{time:1473795254,temp:"85.6",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
+{time:1473795554,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
+{time:1473795854,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
+{time:1473796154,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
+{time:1473796454,temp:"85.4",rh:"46.8",h:"87.5",l:"85.1",s:0,f:0},
 ]};
 
 $(document).ready(function() {
@@ -73,6 +76,22 @@ $(document).ready(function() {
     c.fillText(i*10, graph.width() - 14, pos )
   }
 
+  //threshold
+  c.fillStyle = 'rgba(200, 200, 200, 0.25)'
+  c.beginPath()
+  c.moveTo(getXPixel(0), getYPixel(data.values[0].h))
+
+  for(i = 1; i < data.values.length-1; i ++){
+    if( data.values[i].h != 'nan')
+      c.lineTo(getXPixel(i), getYPixel(data.values[i].h))
+  }
+  for(i = data.values.length - 2; i >= 0; i--){
+    if( data.values[i].l != 'nan')
+      c.lineTo(getXPixel(i), getYPixel(data.values[i].l))
+  }
+  c.closePath()
+  c.fill()
+
   // temp lines
   for(i = 0; i < data.values.length-1; i ++) {
     if( data.values[i].temp != 'nan')
@@ -95,26 +114,7 @@ $(document).ready(function() {
       c.lineTo(getXPixel(i), getRHPixel(data.values[i].rh))
   }
   c.stroke()
-
-  c.strokeStyle = '#cc6'
-  c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(data.values[0].h))
-
-  for(i = 1; i < data.values.length; i ++) {
-    if( data.values[i].h != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data.values[i].h))
-  }
-  c.stroke()
-
-  c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(data.values[0].l))
-
-  for(i = 1; i < data.values.length; i ++) {
-    if( data.values[i].l != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data.values[i].l))
-  }
-  c.stroke()
-
+ 
   var dots = []
     for(i = 0; i < data.values.length; i ++) {
         date = new Date(data.values[i].time * 1000)
@@ -162,7 +162,7 @@ $(document).ready(function() {
       tipCtx.lineTo(0,0)
       tipCtx.stroke()
 
-      tipCtx.fillText( dot.tip + '°F', 4, 15)
+      tipCtx.fillText( dot.tip + 'Â°F', 4, 15)
       tipCtx.fillText( dot.tip2 + '%', 4, 29)
       tipCtx.fillText( dot.tip3, 4, 44)
       hit = true
