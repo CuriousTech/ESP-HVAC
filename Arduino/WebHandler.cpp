@@ -1,10 +1,17 @@
 // Do all the web stuff here
 
+//uncomment to enable Arduino IDE Over The Air update code
+//#define OTA_ENABLE
+
 #include <WiFiClient.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESP8266WebServer.h>
+#ifdef OTA_ENABLE
+#include <FS.h>
+#include <ArduinoOTA.h>
+#endif
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
 #include <Event.h>
@@ -55,6 +62,10 @@ void startServer()
   server.begin();
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
+
+#ifdef OTA_ENABLE
+  ArduinoOTA.begin();
+#endif
 }
 
 void graphData()
@@ -99,6 +110,11 @@ void handleServer()
   MDNS.update();
   server.handleClient();
   remoteStream.service();
+#ifdef OTA_ENABLE
+// Handle OTA server.
+  ArduinoOTA.handle();
+  yield();
+#endif
 }
 
 void secondsServer() // called once per second
