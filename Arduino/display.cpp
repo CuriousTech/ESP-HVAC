@@ -729,34 +729,32 @@ void Display::addGraphPoints()
   static bool bInit = false;
   if(bInit == false)
   {
-    memset(m_points, 0, sizeof(m_points));
+    memset(m_points, 255, sizeof(m_points));
     bInit = true;
   }
   if( hvac.m_inTemp == 0)
     return;
-  if(m_pointsAdded == GPTS-1)
-    memcpy(&m_points, &m_points[1], sizeof(m_points) - sizeof(gPoint));
 
-  m_points[m_pointsAdded].time = now() - (hvac.m_EE.tz*3600);
+  m_points[m_pointsIdx].time = now() - (hvac.m_EE.tz*3600);
 
   const int base = 660; // 66.0 base   Todo: scale all this
   int t = constrain(hvac.m_inTemp, 660, 900);
-  m_points[m_pointsAdded].temp = (t - base) * 101 / 110; // 66~90 scale to 0~220
-  m_points[m_pointsAdded].rh = hvac.m_rh * 55 / 250;
+  m_points[m_pointsIdx].temp = (t - base) * 101 / 110; // 66~90 scale to 0~220
+  m_points[m_pointsIdx].rh = hvac.m_rh * 55 / 250;
   t = constrain(hvac.m_targetTemp, 660, 900);
-  m_points[m_pointsAdded].h = (t - base) * 101 / 110;
+  m_points[m_pointsIdx].h = (t - base) * 101 / 110;
 
   int8_t ct = hvac.m_EE.cycleThresh;
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
     ct = -ct;
   t = constrain(hvac.m_targetTemp + ct, 660, 900);
-  m_points[m_pointsAdded].l = (t - base) * 101 / 110;
-  m_points[m_pointsAdded].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
-  m_points[m_pointsAdded].state = hvac.getState();
-  m_points[m_pointsAdded].fan = hvac.getFanRunning();
+  m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+  m_points[m_pointsIdx].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
+  m_points[m_pointsIdx].state = hvac.getState();
+  m_points[m_pointsIdx].fan = hvac.getFanRunning();
 
-  if(m_pointsAdded < GPTS-1) // 300x220
-    m_pointsAdded++;
+  if(++m_pointsIdx >= GPTS-1)
+    m_pointsIdx = 0;
 }
 
 // Draw the last 25 hours (todo: add run times)
@@ -772,7 +770,7 @@ void Display::fillGraph()
   nex.text(292, 58, 2, textcolor, String(84));
   nex.text(292,  8, 2, textcolor, String(90));
 
-  int16_t x = m_pointsAdded - 1 - (minute() / 5); // center over even hour
+  int16_t x = 310 - (minute() / 5); // center over even hour, 5 mins per pixel
   int8_t h = hourFormat12();
 
   while(x > 10)
@@ -794,35 +792,61 @@ void Display::fillGraph()
 
 void Display::drawPoints(uint8_t *arr, uint16_t color)
 {
-  uint8_t *p = (uint8_t *)arr;
-  uint8_t y = *p;
-  const int yOff = 240-10;
+  Serial.print("drawPoints ");
+  Serial.print(m_pointsIdx);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
 
-  for(int i = 1, x = 10; i < m_pointsAdded; i++)
+  int i = m_pointsIdx - 1;
+  if(i < 0) i = GPTS-1;
+  uint8_t *p = (uint8_t *)arr + ( i * sizeof(gPoint) );
+  const int yOff = 240-10;
+  int y, y2 = *p;
+  if(y2 == 255) return; // not enough data
+
+  for(int x = 309, x2 = 310; x >= 10; x--)
   {
-    p += sizeof(gPoint);
-    if(y != p[sizeof(gPoint)])
+    if(--i < 0)
     {
-      nex.line(x, yOff - y, i+10, yOff - *p, color);
-      x = i + 10;
+      i = GPTS-1;
+      p = (uint8_t *)arr + (i * sizeof(gPoint) );
     }
+
     y = *p;
+    if(y == 255) return;
+
+    if(y != y2)
+    {
+      nex.line(x, yOff - y, x2, yOff - y2, color);
+      y2 = y;
+      x2 = x;
+    }
+    p -= sizeof(gPoint);
   }
 }
 
-// Not implemented yet (colors might be weird or something)
 void Display::drawPointsTemp()
 {
-  uint8_t y = m_points[0].temp;
   const int yOff = 240-10;
-  uint16_t color = rgb16(31, 0, 0);
+  int i = m_pointsIdx-1;
+  if(i < 0) i = GPTS-1;
+  uint8_t y, y2 = m_points[i].temp;
+  if(y2 == 255) return;
+  int x2 = 310;
 
-  for(int i = 1, x = 10; i < m_pointsAdded; i++)
+  for(int x = 309; x >= 10; x--)
   {
-    color = stateColor(m_points[i].state);
-    nex.line(x, yOff - y, i+10, yOff - m_points[i].temp, color);
-    x = i + 10;
+    if(--i < 0)
+      i = GPTS-1;
     y = m_points[i].temp;
+    if(y == 255) break; // invalid data
+    if(y != y2)
+    {
+      nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].state) );
+      y2 = y;
+      x2 = x;
+    }
   }
 }
 
@@ -846,8 +870,13 @@ uint16_t Display::stateColor(uint8_t v) // return a color based on run state
   return color;
 }
 
-void Display::getGrapthPoints(gPoint *pts, int n)
+bool Display::getGrapthPoints(gPoint *pts, int n)
 {
-  memcpy(pts, &m_points[n], sizeof(gPoint));
+  if(n < 0 || n > GPTS-1) // convert 0-299 to reverse index circular buffer
+    return false;
+  int idx = m_pointsIdx - 1 - n; // 0 = last entry
+  if(idx < 0) idx += GPTS;
+  if(m_points[idx].temp == 255) // invalid data
+    return false;
+  memcpy(pts, &m_points[idx], sizeof(gPoint));
 }
-
