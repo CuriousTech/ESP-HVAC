@@ -10,12 +10,50 @@ var graph;
 xPadding = 30
 yPadding = 100
 var yRange
+tb=1474138053
 data = { values:[
-{time:1473795254,temp:"85.6",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
-{time:1473795554,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
-{time:1473795854,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
-{time:1473796154,temp:"85.4",rh:"46.8",h:"87.4",l:"85.0",s:0,f:0},
-{time:1473796454,temp:"85.4",rh:"46.8",h:"87.5",l:"85.1",s:0,f:0},
+{t:93600,temp:"87.3",rh:"50.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:93300,temp:"85.4",rh:"52.2",h:"88.4",l:"86.0",s:0,f:0},
+{t:93180,temp:"85.8",rh:"51.8",h:"88.4",l:"86.0",s:0,f:1},
+{t:93179,temp:"85.8",rh:"51.8",h:"88.4",l:"86.0",s:1,f:1},
+{t:92879,temp:"86.6",rh:"51.8",h:"88.4",l:"86.0",s:1,f:1},
+{t:92728,temp:"88.4",rh:"49.0",h:"88.4",l:"86.0",s:0,f:1},
+{t:92641,temp:"88.3",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:92341,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:92041,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:91741,temp:"88.1",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:91441,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:91141,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:90841,temp:"88.3",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:90541,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:90241,temp:"88.1",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:89941,temp:"88.0",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:89641,temp:"88.0",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:89341,temp:"87.8",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:89041,temp:"87.8",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:88741,temp:"87.6",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
+{t:88441,temp:"87.1",rh:"49.5",h:"88.4",l:"86.0",s:0,f:0},
+{t:88141,temp:"85.1",rh:"51.8",h:"88.4",l:"86.0",s:0,f:0},
+{t:88021,temp:"85.1",rh:"51.3",h:"88.4",l:"86.0",s:0,f:1},
+{t:87839,temp:"85.2",rh:"51.8",h:"87.4",l:"85.0",s:1,f:1},
+{t:87539,temp:"85.6",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
+{t:87239,temp:"86.1",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
+{t:87088,temp:"87.4",rh:"49.5",h:"87.4",l:"85.0",s:0,f:1},
+{t:86999,temp:"87.3",rh:"50.0",h:"87.4",l:"85.0",s:0,f:0},
+{t:86699,temp:"85.3",rh:"51.3",h:"87.4",l:"85.0",s:0,f:0},
+{t:86579,temp:"85.3",rh:"51.3",h:"87.4",l:"85.0",s:0,f:1},
+{t:86279,temp:"85.4",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
+{t:85979,temp:"85.6",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
+{t:85679,temp:"85.9",rh:"51.8",h:"87.4",l:"85.0",s:1,f:1},
+{t:85379,temp:"86.4",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
+{t:85228,temp:"87.5",rh:"49.5",h:"87.4",l:"85.0",s:0,f:1},
+{t:84934,temp:"85.8",rh:"51.3",h:"87.4",l:"85.0",s:0,f:0},
+{t:84814,temp:"85.7",rh:"51.3",h:"87.4",l:"85.0",s:0,f:1},
+{t:84514,temp:"85.9",rh:"52.2",h:"84.4",l:"82.0",s:1,f:1},
+{t:84214,temp:"86.1",rh:"52.7",h:"84.4",l:"82.0",s:1,f:1},
+{t:83914,temp:"86.3",rh:"53.1",h:"84.4",l:"82.0",s:1,f:1},
+{t:83614,temp:"86.5",rh:"53.6",h:"84.4",l:"82.0",s:1,f:1},
+{t:83463,temp:"86.6",rh:"53.6",h:"84.4",l:"82.0",s:0,f:1},
 ]};
 
 $(document).ready(function() {
@@ -45,14 +83,14 @@ $(document).ready(function() {
   // dates
   step = Math.floor(data.values.length / 15)
   if(step == 0) step = 1
-  for(var i = 0; i < data.values.length; i += step) {
+  for(var i=0; i<data.values.length; i+=step) {
     if( data.values[i].temp != 'nan')
     {
       c.save()
       c.translate(getXPixel(i), graph.height() - yPadding + 5)
       c.rotate(0.9)
-      date = new Date(data.values[i].time * 1000)
-      c.fillText(date.toLocaleTimeString(), 0, 0)
+      date = new Date((data.values[i].t+tb)*1000)
+      c.fillText(date.toLocaleTimeString(),0,0)
       c.restore()
     }
   }
@@ -117,7 +155,7 @@ $(document).ready(function() {
  
   var dots = []
     for(i = 0; i < data.values.length; i ++) {
-        date = new Date(data.values[i].time * 1000)
+        date = new Date((data.values[i].t+tb)*1000)
         dots.push({
             x: getXPixel(i),
             y: getYPixel(data.values[i].temp),
@@ -162,7 +200,7 @@ $(document).ready(function() {
       tipCtx.lineTo(0,0)
       tipCtx.stroke()
 
-      tipCtx.fillText( dot.tip + 'Â°F', 4, 15)
+      tipCtx.fillText( dot.tip + '°F', 4, 15)
       tipCtx.fillText( dot.tip2 + '%', 4, 29)
       tipCtx.fillText( dot.tip3, 4, 44)
       hit = true
@@ -202,7 +240,7 @@ function getMinY() {
 }
  
 function getXPixel(val) {
-  return ((graph.width()-26-xPadding) / data.values.length) * val + xPadding
+  return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.values.length) * val
 }
 
 function getYPixel(val) {
