@@ -32,7 +32,7 @@ extern Display display;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
-void graphData(void);
+void handleChart(void);
 
 int nWrongPass;
 uint32_t lastIP;
@@ -57,7 +57,7 @@ void startServer()
   server.on ( "/json", handleJson );
   server.on ( "/events", handleEvents );
   server.on ( "/remote", handleRemote );
-  server.on ( "/chart.html", graphData );
+  server.on ( "/chart.html", handleChart );
   server.onNotFound ( handleNotFound );
   server.begin();
   // Add service to MDNS-SD
@@ -68,24 +68,31 @@ void startServer()
 #endif
 }
 
-void graphData()
+void handleChart()
 {
-  String content = "HTTP/1.1 200 OK\n"
+  String out = "HTTP/1.1 200 OK\n"
       "Connection: close\n"
       "Content-Type: text/html\n\n";
-  server.sendContent(content);
-  server.sendContent(chart1);
+  out += String(chart1); // gets a crash here if no String()
 
-  char szTemp[100];
   gPoint gpt;
-  String out = "";
 
-  for(int x = 0; x < display.m_pointsAdded; x++)
+  int32_t tb = 0;
+
+  for(int x = 0; x < GPTS; x++)
   {
-    display.getGrapthPoints(&gpt, x);
-    if(gpt.time == 0) continue; // some glitch?
-    out += "{time:";
-    out += gpt.time;
+    if( display.getGrapthPoints(&gpt, x) == false)
+      break;
+    if(gpt.time == 0)
+      continue; // some glitch?
+    if(tb == 0) // first entry found
+    {
+      tb = gpt.time - (60*60*26);
+      out += tb;
+      out += "\ndata = { values:[\n";
+    }
+    out += "{t:";
+    out += gpt.time - tb;
     out += ",temp:\"";
     out += String((float)(gpt.temp * 110 / 101 + 660)/10, 1);
     out += "\",rh:\"";
