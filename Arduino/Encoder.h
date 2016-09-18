@@ -6,7 +6,6 @@ class Encoder
 {
 public:
   	Encoder(int8_t aPin, int8_t bPin, void (*callbackr)());
-    Encoder(int8_t aPin, int8_t bPin);
     int poll(void);
     int read(void);
     void isr(void);
