@@ -36,6 +36,9 @@ SOFTWARE.
 #include "display.h"
 #include <Wire.h>
 
+//uncomment to swap Serial's pins to 15(TX) and 13(RX) that don't interfere with booting
+//#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
+
 // Uncomment only one of these
 #include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
@@ -176,6 +179,10 @@ bool EncoderCheck()
 void setup()
 {
   Serial.begin(115200);  // Nextion must be set with bauds=115200
+#ifdef SER_SWAP
+  Serial.swap(); //swap to gpio 15/13
+#endif
+
   startServer();
   eeRead(); // don't access EE before WiFi init
   hvac.init();
