@@ -12,6 +12,17 @@ Encoder::Encoder(int8_t aPin, int8_t bPin, void (*callback)())
   attachInterrupt(aPin, callback, FALLING);
 }
 
+Encoder::Encoder(int8_t aPin, int8_t bPin)
+{
+  pinMode(aPin, INPUT_PULLUP);
+  pinMode(bPin, INPUT_PULLUP);
+
+  m_aPin = aPin;
+  m_bPin = bPin;
+
+  m_lastA = digitalRead(aPin);
+}
+
 int Encoder::poll()
 {
   int8_t A = digitalRead(m_aPin);
