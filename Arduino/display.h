@@ -31,7 +31,7 @@ class Display
 {
 public:
   Display():
-    m_pointsAdded(0),
+    m_pointsIdx(0),
     m_adjustMode(0),
     m_backlightTimer(NEX_TIMEOUT),
     m_temp_counter(10*60)
@@ -45,7 +45,7 @@ public:
   void updateTemps(void);
   void drawForecast(bool bRef);
   void Note(char *cNote);
-  void getGrapthPoints(gPoint *pt, int n);
+  bool getGrapthPoints(gPoint *pt, int n);
 private:
   void refreshAll(void);
   void updateClock(void);
@@ -68,7 +68,7 @@ private:
 #define GPTS 300 // 320 px width + 10 padding
   gPoint m_points[GPTS];
 public:
-  uint16_t m_pointsAdded;
+  uint16_t m_pointsIdx;
   int16_t m_updateFcst = 1;
   uint16_t m_temp_counter;
   uint8_t m_adjustMode;
