@@ -42,6 +42,7 @@ SOFTWARE.
 // Uncomment only one of these
 #include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
+//#include <DallasTemperature.h> //DallasTemperature from library mamanger
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
@@ -61,6 +62,18 @@ SHT21 sht(SDA, SCL, 5);
 #endif
 #ifdef dht_h
 DHT dht;
+#endif
+#ifdef DallasTemperature_h
+#include "RunningMedian.h"
+const int ds18Resolution = 12;
+DeviceAddress ds18addr = { 0x28, 0xC1, 0x02, 0x64, 0x04, 0x00, 0x00, 0x35 };
+unsigned int ds18delay;
+unsigned long ds18lastreq = 1; //zero is special
+const unsigned int ds18reqdelay = 5000; //request every 5 seconds
+unsigned long ds18reqlastreq;
+OneWire oneWire(2); //pin 2
+DallasTemperature ds18(&oneWire);
+RunningMedian<float,20> tempMedian; //median over 20 samples at 5s intervals
 #endif
 
 XML_tag_t Xtags[] =
@@ -193,6 +206,13 @@ void setup()
 #ifdef dht_h
   dht.setup(SDA, DHT::DHT22);
 #endif
+#ifdef DallasTemperature_h
+  ds18.setResolution(ds18addr, ds18Resolution);
+  ds18.setWaitForConversion(false); //this enables asyncronous calls
+  ds18.requestTemperatures(); //fire off the first request
+  ds18lastreq = millis();
+  ds18delay = 750 / (1 << (12 - ds18Resolution)); //delay based on resolution
+#endif
 }
 
 void loop()
@@ -208,6 +228,22 @@ void loop()
   if(sht.service())
   {
     hvac.updateIndoorTemp( sht.getTemperatureF() * 10, sht.getRh() * 10 );
+  }
+#endif
+#ifdef DallasTemperature_h
+  if(ds18lastreq > 0 && millis() - ds18lastreq >= ds18delay) { //new temp is ready
+    tempMedian.add(ds18.getTempF(ds18addr));
+    ds18lastreq = 0; //prevents this block from firing repeatedly
+    float temp;
+    if (tempMedian.getMedian(temp) == tempMedian.OK) {
+      hvac.updateIndoorTemp( temp * 10, 500); //fake 50%
+    }
+  }
+
+  if(millis() - ds18reqlastreq >= ds18reqdelay) {
+    ds18.requestTemperatures(); 
+    ds18lastreq = millis();
+    ds18reqlastreq = ds18lastreq;
   }
 #endif
   if(sec_save != second()) // only do stuff once per second
