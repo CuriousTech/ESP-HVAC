@@ -8,7 +8,7 @@
 #define JSONCLIENT_H
 
 #include <Arduino.h>
-#include "WiFiClient.h"
+#include <ESPAsyncTCP.h>
 
 enum JC_Status
 {
@@ -17,6 +17,8 @@ enum JC_Status
     JC_DONE,
     JC_TIMEOUT,
     JC_NO_CONNECT,
+    JC_RETRY_FAIL,
+    JC_ERROR,
 };
 
 #define RETRIES 6
@@ -41,10 +43,18 @@ private:
   void  (*m_callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
   char *skipwhite(char *p);
 
-  WiFiClient m_client;
+  AsyncClient m_ac;
+  void _onConnect(AsyncClient* client);
+  void _onDisconnect(AsyncClient* client);
+  static void _onError(AsyncClient* client, int8_t error);
+  void _onTimeout(AsyncClient* client, uint32_t time);
+//  static void _onAck(AsyncClient* client, size_t len, uint32_t time);
+  void _onData(AsyncClient* client, char* data, size_t len);
+//  void _onPoll(AsyncClient* client);
   char m_szHost[64];
   char m_szPath[64];
   char m_szData[256];
+#define LIST_CNT
   const char **m_jsonList[8];
   const char **m_pHeaders;
   uint16_t m_bufcnt;
