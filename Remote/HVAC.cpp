@@ -10,13 +10,13 @@
 
 #include <math.h>
 #include "HVAC.h"
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
 #include <JsonClient.h>
-#include <Event.h>
 
-extern eventHandler event;
 extern const char *controlPassword;
 extern uint8_t serverPort;
+extern AsyncEventSource events;
 
 HVAC::HVAC()
 {
@@ -130,13 +130,13 @@ void HVAC::sendCmd(const char *szName, int value)
   s += value;
   s += "}";
 
-  event.push("cmd", s);
+  events.send(s.c_str(), "cmd");  // Todo: WebSocket
 }
 
 void HVAC::enableRemote()
 {
-  m_bRemoteStream = !m_bRemoteStream;
-  event.push(); // send rmt state + update temp/rh
+  m_bRemoteStream = !m_bRemoteStream; // Todo: WebSocket
+  events.send(getPushData().c_str(), "state"); // send rmt state + update temp/rh
 }
 
 bool HVAC::stateChange()
@@ -383,6 +383,29 @@ void HVAC::updatePeaks()
   }
   m_outMin[0] = tmin;
   m_outMax[0] = tmax;
+  Serial.print("Peaks ");
+  Serial.print(m_outMin[0]);
+  Serial.print(" ");
+  Serial.print(m_outMax[0]);
+
+  int16_t L = m_outMin[0];
+  int16_t H = m_outMax[0];
+
+  for(int i = 1; i < PEAKS_CNT; i++)
+  {
+    L = min(L, m_outMin[i]);
+    H = max(H, m_outMax[i]);
+  }
+
+  Serial.print(" LH ");
+
+  Serial.print(L);
+  Serial.print(" ");
+  Serial.print(H);
+  
+  Serial.write(0xFF);
+  Serial.write(0xFF);
+  Serial.write(0xFF);
 }
 
 void HVAC::resetFilter()
@@ -522,6 +545,15 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       m_EE.rhLevel[1] = iValue;
       break;
   }
+}
+
+// Current control settings
+String HVAC::settingsJson()
+{
+  String s = "{";
+  s += "\"rmt\":"; s += m_bRemoteStream;
+  s += "}";
+  return s;
 }
 
 // Remote sensor values
