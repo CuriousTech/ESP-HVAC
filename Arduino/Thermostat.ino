@@ -26,10 +26,9 @@ SOFTWARE.
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
-#include <ESP8266WebServer.h>
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "HVAC.h"
-#include <Event.h>
 #include <XMLReader.h>
 #include "Encoder.h"
 #include "WebHandler.h"
@@ -52,8 +51,10 @@ SOFTWARE.
 #define ENC_A    5  // Encoder is on GPIO4 and 5
 #define ENC_B    4
 //------------------------
+
+extern AsyncEventSource events; // event source (Server-Sent events)
+
 Display display;
-eventHandler event(dataJson);
 
 HVAC hvac;
 
@@ -95,7 +96,6 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   static int8_t hO;
   static int8_t lastd;
   static tmElements_t t;
-  String s;
 
   switch(item)
   {
@@ -158,7 +158,7 @@ void GetForecast()
 
   bGettingForecast = xml.begin("graphical.weather.gov", p_cstr_array);
   if(!bGettingForecast)
-    event.alert("Forecast failed");
+    events.send("Forecast failed", "alert");
 }
 
 //-----
@@ -217,7 +217,7 @@ void setup()
 
 void loop()
 {
-  static uint8_t hour_save, min_save, sec_save;
+  static uint8_t hour_save, min_save = 255, sec_save;
   static int8_t lastSec;
   static int8_t lastHour;
 
@@ -290,7 +290,7 @@ void loop()
           case XML_DONE:
             hvac.enable();
             hvac.updatePeaks();
-            event.print("Forecast success");
+            events.send("Forecast success", "print");
             display.drawForecast(true);
             break;
           default:
