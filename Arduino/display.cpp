@@ -1,13 +1,13 @@
 #include "display.h"
 #include "Nextion.h"
 #include "HVAC.h"
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
-#include <Event.h>
 
 Nextion nex;
 extern HVAC hvac;
-extern eventHandler event;
+extern AsyncEventSource events;
 
 void Display::init()
 {
@@ -395,7 +395,7 @@ void Display::Note(char *cNote)
 {
   screen(true);
   nex.itemText(12, cNote);
-  event.alert(cNote);
+  events.send(cNote, "alert");
 }
 
 // update the notification text box
@@ -432,7 +432,7 @@ void Display::updateNotification(bool bRef)
   }
   nex.itemText(12, s);
   if(s != "" && bRef == false) // refresh shouldn't be resent
-    event.alert(s);
+    events.send(s.c_str(), "alert");
 }
 
 // true: set screen backlight to bright plus switch to thermostat
@@ -753,7 +753,7 @@ void Display::addGraphPoints()
   m_points[m_pointsIdx].state = hvac.getState();
   m_points[m_pointsIdx].fan = hvac.getFanRunning();
 
-  if(++m_pointsIdx >= GPTS-1)
+  if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
 }
 
@@ -815,6 +815,16 @@ void Display::drawPoints(uint8_t *arr, uint16_t color)
 
     y = *p;
     if(y == 255) return;
+
+    Serial.print("i=");
+    Serial.print(i);
+    Serial.print(" y=");
+    Serial.print(y);
+    Serial.print(" y2=");
+    Serial.print(y2);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
+    Serial.write(0xFF);
 
     if(y != y2)
     {
