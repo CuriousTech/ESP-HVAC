@@ -792,12 +792,6 @@ void Display::fillGraph()
 
 void Display::drawPoints(uint8_t *arr, uint16_t color)
 {
-  Serial.print("drawPoints ");
-  Serial.print(m_pointsIdx);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-
   int i = m_pointsIdx - 1;
   if(i < 0) i = GPTS-1;
   uint8_t *p = (uint8_t *)arr + ( i * sizeof(gPoint) );
@@ -815,16 +809,6 @@ void Display::drawPoints(uint8_t *arr, uint16_t color)
 
     y = *p;
     if(y == 255) return;
-
-    Serial.print("i=");
-    Serial.print(i);
-    Serial.print(" y=");
-    Serial.print(y);
-    Serial.print(" y2=");
-    Serial.print(y2);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
-    Serial.write(0xFF);
 
     if(y != y2)
     {
