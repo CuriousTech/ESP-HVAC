@@ -3,18 +3,16 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-#include <WiFiClient.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
-#include <ESP8266WebServer.h>
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
 #include <FS.h>
 #include <ArduinoOTA.h>
 #endif
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
-#include <Event.h>
 #include "HVAC.h"
 #include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
 #include "display.h" // for display.Note()
@@ -24,18 +22,36 @@
 int serverPort = 85;            // Change to 80 for normal access
 
 //-----------------
-ESP8266WebServer server( serverPort );
+AsyncWebServer server( serverPort );
+AsyncEventSource events("/events"); // event source (Server-Sent events)
 WiFiManager wifi(0);  // AP page:  192.168.4.1
-extern eventHandler event;
 extern HVAC hvac;
 extern Display display;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
-void handleChart(void);
 
 int nWrongPass;
 uint32_t lastIP;
+
+void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+  //Handle body
+}
+
+void onUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  //Handle upload
+}
+
+void onRequest(AsyncWebServerRequest *request){
+  //Handle Unknown Request
+  request->send(404);
+}
+
+void onEvents(AsyncEventSourceClient *client)
+{
+//  client->send(":ok", NULL, millis(), 1000);
+  events.send(dataJson().c_str(), "state");
+}
 
 void startServer()
 {
@@ -51,15 +67,23 @@ void startServer()
     Serial.println ( "MDNS responder failed" );
   }
 
-  server.on ( "/", handleRoot );
-  server.on ( "/settings", handleSettings );
-  server.on ( "/s", handleS );
-  server.on ( "/json", handleJson );
-  server.on ( "/events", handleEvents );
-  server.on ( "/remote", handleRemote );
-  server.on ( "/chart.html", handleChart );
-  server.onNotFound ( handleNotFound );
+  // attach AsyncEventSource
+  events.onConnect(onEvents);
+  server.addHandler(&events);
+
+  server.on ( "/", HTTP_GET | HTTP_POST, handleRoot );
+  server.on ( "/s", HTTP_GET | HTTP_POST, handleS );
+  server.on ( "/json", HTTP_GET | HTTP_POST, handleJson );
+  server.on ( "/settings", HTTP_GET | HTTP_POST, handleSettings );
+//  server.on ( "/remote", HTTP_GET | HTTP_POST, handleRemote );
+  server.on ( "/chart.html", HTTP_GET, handleChart );
+
+  server.onNotFound(onRequest);
+  server.onFileUpload(onUpload);
+  server.onRequestBody(onBody);
+
   server.begin();
+
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 
@@ -68,12 +92,11 @@ void startServer()
 #endif
 }
 
-void handleChart()
+void handleChart(AsyncWebServerRequest *request)
 {
-  String out = "HTTP/1.1 200 OK\n"
-      "Connection: close\n"
-      "Content-Type: text/html\n\n";
-  out += String(chart1); // gets a crash here if no String()
+  AsyncResponseStream *response = request->beginResponseStream("text/html");
+
+  String out = String(chart1); // Todo: Get from PROGMEM correctly
 
   gPoint gpt;
 
@@ -107,16 +130,15 @@ void handleChart()
     out += gpt.fan;
     out += "},\n";
   }
+  response->print(out);
+  response->print(String(chart2));
 
-  server.sendContent(out);
-  server.sendContent(chart2);
+  request->send ( response );
 }
 
 void handleServer()
 {
   MDNS.update();
-  server.handleClient();
-  remoteStream.service();
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
@@ -126,108 +148,15 @@ void handleServer()
 
 void secondsServer() // called once per second
 {
+  static int n = 10;
+
   if(nWrongPass)
     nWrongPass--;
-  if(hvac.stateChange())
-    event.push();
-  else if(hvac.tempChange())
-    event.pushInstant();
-  else event.heartbeat();
-}
-
-void parseParams()
-{
-  char temp[100];
-  char password[64];
-
-  if(server.args() == 0)
-    return;
-
-  for ( uint8_t i = 0; i < server.args(); i++ ) // password may be at end
+  if(hvac.stateChange() || hvac.tempChange() || --n == 0)
   {
-    server.arg(i).toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
-
-    if(server.argName(i) == "key")
-    {
-      s.toCharArray(password, sizeof(password));
-    }
+    events.send(dataJson().c_str(), "state" );
+    n = 10;
   }
-
-  uint32_t ip = server.client().remoteIP();
-
-  if(strcmp(hvac.m_EE.password, password))
-  {
-    if(nWrongPass == 0)
-      nWrongPass = 10;
-    else if((nWrongPass & 0xFFFFF000) == 0 ) // time doubles for every high speed wrong password attempt.  Max 1 hour
-      nWrongPass <<= 1;
-    if(ip != lastIP)  // if different IP drop it down
-       nWrongPass = 10;
-    String data = "{\"ip\":\"";
-    data += server.client().remoteIP().toString();
-    data += "\",\"pass\":\"";
-    data += password; // bug - String object adds a NULL
-    data += "\"}";
-    event.push("hack", data); // log attempts
-    lastIP = ip;
-    return;
-  }
-
-  lastIP = ip;
-
-  for ( uint8_t i = 0; i < server.args(); i++ )
-  {
-    server.arg(i).toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
-
-    if(server.argName(i) == "key");
-    else if(server.argName(i) == "screen") // used by a PIR sensor elsewhere
-      display.screen(true);
-    else if(server.argName(i) == "rest")
-      display.init();
-    else if(server.argName(i) == "reset")
-      ESP.reset();
-    else
-    {
-      hvac.setVar(server.argName(i), s.toInt() );
-      display.screen(true); // switch to main page, undim when variables are changed
-    }
-  }
-}
-
-void handleS() { // standard params, but no page
-//  Serial.println("handleS\n");
-  parseParams();
-
-  server.send ( 200, "text/html", "OK" );
-}
-
-
-void handleRoot() // Main webpage interface
-{
-//  Serial.println("handleRoot");
-
-  parseParams();
-
-  server.send ( 200, "text/html", page1 );
-}
-
-void handleSettings() // Settings webpage interface
-{
-//  Serial.println("handleSettings");
-
-  parseParams();
-
-  server.send ( 200, "text/html", page2 );
-}
-
-// Return lots of vars as JSON
-void handleJson()
-{
-//  Serial.println("handleJson\n");
-  String s = hvac.settingsJson();
-  server.send ( 200, "text/json", s + "\n");
 }
 
 const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
@@ -248,65 +177,101 @@ const char *jsonList2[] = { "cmd",
 };
 const char *jsonList3[] = { "alert", NULL };
 
-// event streamer (assume keep-alive)
-void handleEvents()
+void parseParams(AsyncWebServerRequest *request)
 {
   char temp[100];
-//  Serial.println("handleEvents");
-  uint16_t interval = 60; // default interval
-  uint8_t nType = 0;
-  String key;
-  uint16_t nPort = 80;
-  char path[64] = "";
+  char password[64];
 
-  for ( uint8_t i = 0; i < server.args(); i++ ) {
-    server.arg(i).toCharArray(temp, 100);
+  if(request->params() == 0)
+    return;
+
+  for ( uint8_t i = 0; i < request->params(); i++ ) // password may be at end
+  {
+    AsyncWebParameter* p = request->getParam(i);
+    p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + server.argName ( i ) + ": " + s);
-    int val = s.toInt();
- 
-    switch( server.argName(i).charAt(0)  )
+
+    if(p->name() == "key")
     {
-      case 'i': // interval
-        interval = val;
-        break;
-      case 'p': // push
-        nType = 1;
-        break;
-      case 'c': // critical
-        nType = 2;
-        break;
-      case 'k': // key
-        key = s;
-        break;
-      case 's': // stream
-        s.toCharArray(path, 64);
-        break;
-      case 'r': // port
-        nPort = val;
-        break;
+      s.toCharArray(password, sizeof(password));
     }
   }
 
-  if(nType == 2 && key != hvac.m_EE.password) // demote to plain if no/incorrect password
-    nType = 0;
+  uint32_t ip = request->client()->remoteIP();
 
-  String content = "HTTP/1.1 200 OK\n"
-      "Connection: keep-alive\n"
-      "Access-Control-Allow-Origin: *\n"
-      "Content-Type: text/event-stream\n\n";
-  server.sendContent(content);
-  event.set(server.client(), interval, nType); // copying the client before the send makes it work with SDK 2.2.0
-
-  if(key != hvac.m_EE.password || path[0] == 0)
+  if(strcmp(hvac.m_EE.password, password))
+  {
+    if(nWrongPass == 0)
+      nWrongPass = 10;
+    else if((nWrongPass & 0xFFFFF000) == 0 ) // time doubles for every high speed wrong password attempt.  Max 1 hour
+      nWrongPass <<= 1;
+    if(ip != lastIP)  // if different IP drop it down
+       nWrongPass = 10;
+    String data = "{\"ip\":\"";
+    data += request->client()->remoteIP().toString();
+    data += "\",\"pass\":\"";
+    data += password; // bug - String object adds a NULL
+    data += "\"}";
+    events.send(data.c_str(), "hack"); // log attempts
+    lastIP = ip;
     return;
+  }
 
-  String sIp = server.client().remoteIP().toString();
+  lastIP = ip;
 
-  remoteStream.begin(sIp.c_str(), path, nPort, true);
-  remoteStream.addList(jsonList1);
-  remoteStream.addList(jsonList2);
-  remoteStream.addList(jsonList3);
+  for ( uint8_t i = 0; i < request->params(); i++ )
+  {
+    AsyncWebParameter* p = request->getParam(i);
+    p->value().toCharArray(temp, 100);
+    String s = wifi.urldecode(temp);
+
+    if(p->name() == "key");
+    else if(p->name() == "screen") // used by a PIR sensor elsewhere
+      display.screen(true);
+    else if(p->name() == "rest")
+      display.init();
+    else
+    {
+      hvac.setVar(p->name(), s.toInt() );
+      display.screen(true); // switch to main page, undim when variables are changed
+    }
+  }
+}
+
+void handleS(AsyncWebServerRequest *request) { // standard params, but no page
+//  Serial.println("handleS\n");
+  parseParams(request);
+
+  request->send ( 200, "text/html", "OK" );
+}
+
+
+void handleRoot(AsyncWebServerRequest *request) // Main webpage interface
+{
+//  Serial.println("handleRoot");
+
+  parseParams(request);
+
+  request->send_P ( 200, "text/html", page1 );
+}
+
+void handleSettings(AsyncWebServerRequest *request) // Settings webpage interface
+{
+//  Serial.println("handleSettings");
+
+  parseParams(request);
+
+  request->send_P ( 200, "text/html", page2 );
+}
+
+// Return lots of vars as JSON
+void handleJson(AsyncWebServerRequest *request)
+{
+//  Serial.println("handleJson\n");
+  String s = hvac.settingsJson();
+  s += "\n";
+  request->send ( 200, "text/json", s);
+  handleRemote(request);
 }
 
 // Pushed data
@@ -366,7 +331,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 }
 
 // remote streamer url/ip
-void handleRemote()
+void handleRemote(AsyncWebServerRequest *request) // Todo: WebSocket
 {
   char temp[100];
   String sIp;
@@ -376,35 +341,37 @@ void handleRemote()
   bool bEnd = false;
 //  Serial.println("handleRemote");
 
-  sIp = server.client().remoteIP().toString(); // default host IP is client
+  if(request->params() == 0)
+    return;
 
-  for ( uint8_t i = 0; i < server.args(); i++ ) {
-    server.arg(i).toCharArray(temp, 100);
+  sIp = request->client()->localIP().toString(); // default host IP is client
+
+  for ( uint8_t i = 0; i < request->params(); i++ ) {
+    AsyncWebParameter* p = request->getParam(i);
+    p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
 //    Serial.println( i + " " + server.argName ( i ) + ": " + s);
 
-    if(server.argName(i) == "ip") // optional non-client source
+    if(p->name() == "ip") // optional non-client source
       sIp = s;
-    else if(server.argName(i) == "path")
+    else if(p->name() == "path")
       s.toCharArray(path, 64);
-    else if(server.argName(i) == "port")
+    else if(p->name() == "port")
       nPort = s.toInt();
-    else if(server.argName(i) == "end")
+    else if(p->name() == "end")
       bEnd = true;
-    else if(server.argName(i) == "key")
+    else if(p->name() == "key")
       s.toCharArray(password, sizeof(password));
   }
-
-  server.send ( 200, "text/html", "OK" );
 
   if(strcmp(hvac.m_EE.password, password))
   {
     String data = "{\"ip\":\"";
-    data += server.client().remoteIP().toString();
+    data += request->client()->localIP().toString();
     data += "\",\"pass\":\"";
     data += password;
     data += "\"}";
-    event.push("hack", data); // log attempts
+    events.send(data.c_str(), "hack"); // log attempts
     return;
   }
 
@@ -419,23 +386,4 @@ void handleRemote()
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
   remoteStream.addList(jsonList3);
-}
-
-void handleNotFound() {
-//  Serial.println("handleNotFound");
-
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += ( server.method() == HTTP_GET ) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-
-  for ( uint8_t i = 0; i < server.args(); i++ ) {
-    message += " " + server.argName ( i ) + ": " + server.arg ( i ) + "\n";
-  }
-
-  server.send ( 404, "text/plain", message );
 }
