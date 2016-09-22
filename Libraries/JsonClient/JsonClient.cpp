@@ -22,7 +22,17 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
   m_bKeepAlive = false;
   m_szHost[0] = 0;
   m_szPath[0] = 0;
+  m_ac.onConnect([](void* obj, AsyncClient* c) { (static_cast<JsonClient*>(obj))->_onConnect(c); }, this);
+  m_ac.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<JsonClient*>(obj))->_onDisconnect(c); }, this);
+//  m_ac.onError([](void* obj, AsyncClient* c, int8_t error) { (static_cast<JsonClient*>(obj))->_onError(c, error); }, this);
+  m_ac.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<JsonClient*>(obj))->_onTimeout(c, time); }, this);
+//  m_ac.onAck([](void* obj, AsyncClient* c, size_t len, uint32_t time) { (static_cast<JsonClient*>(obj))->_onAck(c, len, time); }, this);
+  m_ac.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<JsonClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
+//  m_ac.onPoll([](void* obj, AsyncClient* c) { (static_cast<JsonClient*>(obj))->_onPoll(c); }, this);
+
+  m_ac.setRxTimeout(TIMEOUT);
 }
+
 // add a json list {"event name", "valname1", "valname2", "valname3", NULL}
 // If first string is "" or NULL, the data is expected as JSON without an event name
 // If second string is "" or NULL, the event name is expected, but the "data:" string is assumed non-JSON
@@ -37,11 +47,12 @@ bool JsonClient::addList(const char **pList)
 // begin with host, /path?param=x&param=x, port, streaming
 bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData)
 {
-  if(m_client.connected())
-    m_client.stop();
+  if(m_ac.connected())
+    m_ac.stop();
   m_jsonCnt = 0;
   m_event = 0;
   m_bufcnt = 0;
+
   strncpy(m_szHost, pHost, sizeof(m_szHost) );
   strncpy(m_szPath, pPath, sizeof(m_szPath) );
   m_szData[0] = 0;
@@ -58,62 +69,18 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   return connect();
 }
 
-// Call this from loop()
+// Call this from loop() ->remove
 bool JsonClient::service()
 {
-  if(m_Status == JC_DONE)
+  if(m_Status == JC_DONE || m_Status == JC_RETRY_FAIL)
     return false;
-  if(!m_client.connected())
-  {
-    if(m_bKeepAlive == false)
-    {
-      m_Status = JC_DONE;
-      if(m_bufcnt) // no LF at end?
-      {
-          m_buffer[m_bufcnt] = '\0';
-          processLine();
-      }
-      return false;
-    }
-
-    if((millis() - m_timeOut) < 10000) // 10 seconds between retries
-      return true;
-
-    return connect();
-  }
-
-  while(m_bufcnt < JC_BUF_SIZE && m_client.available())
-  {
-    char c = m_client.read();
-    if(c != '\r')
-      m_buffer[m_bufcnt++] = c;
-    m_timeOut = millis();
-    if(c == '\n')
-    {
-      if(m_bufcnt > 1) // ignore keepalive
-      {
-        m_buffer[m_bufcnt-1] = '\0';
-//		Serial.println(m_buffer);
-        processLine();
-      }
-      m_bufcnt = 0;
-    }
-  }
-
-  if ( (millis() - m_timeOut) > TIMEOUT)
-  {
-    m_Status = JC_TIMEOUT;
-    m_client.stop();
-    return false;
-  }
-
   return true;
 }
 
 // not used normally
 void JsonClient::end()
 {
-  m_client.stop();
+  m_ac.stop();
   m_szHost[0] = 0;
   m_Status = JC_IDLE;
 }
@@ -125,16 +92,19 @@ int JsonClient::status()
 
 void JsonClient::sendHeader(const char *pHeaderName, const char *pHeaderValue) // string
 {
-  m_client.print(pHeaderName);
-  m_client.print(": ");
-  m_client.println(pHeaderValue);
+  m_ac.add(pHeaderName, strlen(pHeaderName));
+  m_ac.add(": ", 2);
+  m_ac.add(pHeaderValue, strlen(pHeaderValue) );
+  m_ac.add("\n", 1);
 }
 
 void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // integer
 {
-  m_client.print(pHeaderName);
-  m_client.print(": ");
-  m_client.println(nHeaderValue);
+  m_ac.add(pHeaderName, strlen(pHeaderName) );
+  m_ac.add(": ", 2);
+  String s = String(nHeaderValue);
+  m_ac.add(s.c_str(), s.length());
+  m_ac.add("\n", 1);
 }
 
 bool JsonClient::connect()
@@ -144,27 +114,62 @@ bool JsonClient::connect()
 
   if( m_retryCnt > RETRIES)
   {
-    m_Status = JC_TIMEOUT;
+    m_Status = JC_RETRY_FAIL;
     m_szHost[0] = 0;
+    m_callback(-1, m_Status, m_nPort, m_szHost);
     return false;
   }
 
-  if(m_client.connected())
+  if(m_ac.connected())
     return true;
 
-  m_timeOut = millis();
-
-  if( !m_client.connect(m_szHost, m_nPort) )
+  if( !m_ac.connect(m_szHost, m_nPort) )
   {
     m_Status = JC_NO_CONNECT;
     m_callback(-1, m_Status, m_nPort, m_szHost);
     m_retryCnt++;
     return false;
   }
+  return true;
+}
 
-  m_client.print(m_bPost ? "POST ":"GET ");
-  m_client.print(m_szPath);
-  m_client.println(" HTTP/1.1");
+void JsonClient::_onDisconnect(AsyncClient* client)
+{
+  (void)client;
+
+  if(m_bKeepAlive == false)
+  {
+    m_Status = JC_DONE;
+    if(m_bufcnt) // no LF at end?
+    {
+        m_buffer[m_bufcnt] = '\0';
+        processLine();
+    }
+    return;
+  }
+  connect();
+}
+
+void JsonClient::_onTimeout(AsyncClient* client, uint32_t time)
+{
+  (void)client;
+
+  m_Status = JC_TIMEOUT;
+  m_ac.stop();
+  m_callback(-1, m_Status, m_nPort, m_szHost);
+}
+
+void JsonClient::_onConnect(AsyncClient* client)
+{
+  (void)client;
+
+  if(m_bPost)
+    m_ac.add("POST ", 5);
+  else
+    m_ac.add("GET ", 4);
+
+  m_ac.add(m_szPath, strlen(m_szPath));
+  m_ac.add(" HTTP/1.1\n", 10);
 
   sendHeader("Host", m_szHost);
   sendHeader("User-Agent", "Arduino");
@@ -180,15 +185,38 @@ bool JsonClient::connect()
   if(m_szData[0])
     sendHeader("Content-Length", strlen(m_szData));
 
-  m_client.println();
+  m_ac.add("\n", 1);
   if(m_szData[0])
-    m_client.println(m_szData);
-  m_client.flush();
+  {
+    m_ac.add(m_szData, strlen(m_szData));
+	m_ac.add("\n", 1);
+  }
 
   m_Status = JC_CONNECTED;
   m_brace = 0;
   m_callback(-1, m_Status, m_nPort, m_szHost);
-  return true;
+}
+
+void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
+{
+  (void)client;
+
+  for(int i = 0; i < len; i++)
+  {
+    char c = data[i];
+    if(c != '\r')
+      m_buffer[m_bufcnt++] = c;
+    if(c == '\n')
+    {
+      if(m_bufcnt > 1) // ignore keepalive
+      {
+        m_buffer[m_bufcnt-1] = '\0';
+        processLine();
+      }
+      m_bufcnt = 0;
+    }
+  }
+  m_timeOut = millis();
 }
 
 void JsonClient::processLine()
