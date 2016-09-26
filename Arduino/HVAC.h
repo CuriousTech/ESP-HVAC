@@ -14,7 +14,7 @@
 
 struct Forecast
 {
-  int8_t h;   // hours ahead up to 72
+  uint8_t h;   // hours ahead up to 255
   int8_t t;   // integer temperature value
 };
 
@@ -74,39 +74,6 @@ enum HumidifierMode
 #define RF_RL (1 << 2)
 #define RF_RH (1 << 3)
 
-struct EEConfig
-{
-  uint16_t size;
-  uint16_t sum;
-  uint16_t coolTemp[2]; // cool to temp *10 low/high
-  uint16_t heatTemp[2]; // heat to temp *10 low/high
-  int16_t  cycleThresh; // temp range for cycle *10
-  uint8_t  Mode;        // Off, Cool, Heat, Auto
-  uint8_t  eHeatThresh; // degree threshold to switch to gas
-  uint16_t cycleMin;    // min time to run
-  uint16_t cycleMax;    // max time to run
-  uint16_t idleMin;     // min time to not run
-  uint16_t filterMinutes; // resettable minutes run timer (200 hours is standard change interval)
-  uint16_t fanPostDelay[2]; // delay to run auto fan after [hp/cool] stops
-  uint16_t fanPreTime[2]; // fan pre-run before [cool/heat]
-  uint16_t overrideTime; // time used for an override
-  uint8_t  heatMode;    // heating mode (gas, electric)
-  int8_t   tz;          // current timezone and DST
-  int8_t   adj;         // temp offset adjust
-  uint8_t  humidMode;   // Humidifier modes
-  uint16_t rhLevel[2];  // rh low/high
-  char     zipCode[8];  // Your zipcode
-  int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
-  uint16_t awayTime;    // time limit for away offset (in minutes)
-  uint16_t fanCycleTime; // for user fan cycles
-  unsigned long hostIp;
-  uint16_t  hostPort;
-  char     password[32];
-  bool     bLock;
-  bool     bRes;
-  char     reserved[32];
-};
-
 class HVAC
 {
 public:
@@ -145,8 +112,8 @@ public:
   void    enable(void);
   String  settingsJson(void); // get all settings in json format
   String  getPushData(void);  // get states/temps/data in json
-  EEConfig  m_EE;
-  Forecast  m_fcData[20];
+#define FC_CNT 41
+  Forecast  m_fcData[FC_CNT];
   int16_t   m_outTemp;       // adjusted current temp *10
   int16_t   m_inTemp;        // current indoor temperature *10
   int16_t   m_rh;
@@ -158,8 +125,7 @@ public:
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
   uint8_t   m_RemoteFlags;
-#define PEAKS_CNT 20
-  int8_t    m_outMin[PEAKS_CNT], m_outMax[PEAKS_CNT];
+  int8_t    m_outMin, m_outMax;
   uint16_t  m_fanPreElap;
 
 private:
