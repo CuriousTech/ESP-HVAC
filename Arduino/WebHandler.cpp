@@ -226,14 +226,12 @@ void parseParams(AsyncWebServerRequest *request)
     String s = wifi.urldecode(temp);
 
     if(p->name() == "key");
-    else if(p->name() == "screen") // used by a PIR sensor elsewhere
-      display.screen(true);
     else if(p->name() == "rest")
       display.init();
     else
     {
       hvac.setVar(p->name(), s.toInt() );
-      display.screen(true); // switch to main page, undim when variables are changed
+//      display.screen(true); // switch to main page, undim when variables are changed
     }
   }
 }
@@ -350,7 +348,7 @@ void handleRemote(AsyncWebServerRequest *request) // Todo: WebSocket
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + server.argName ( i ) + ": " + s);
+//    Serial.println( i + " " + p->name() + ": " + s);
 
     if(p->name() == "ip") // optional non-client source
       sIp = s;
