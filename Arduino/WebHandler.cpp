@@ -3,7 +3,6 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-#include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -17,6 +16,7 @@
 #include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
 #include "display.h" // for display.Note()
 #include "pages.h"
+#include "eeMem.h"
 
 //-----------------
 int serverPort = 85;            // Change to 80 for normal access
@@ -24,7 +24,7 @@ int serverPort = 85;            // Change to 80 for normal access
 //-----------------
 AsyncWebServer server( serverPort );
 AsyncEventSource events("/events"); // event source (Server-Sent events)
-WiFiManager wifi(0);  // AP page:  192.168.4.1
+WiFiManager wifi;  // AP page:  192.168.4.1
 extern HVAC hvac;
 extern Display display;
 
@@ -199,7 +199,7 @@ void parseParams(AsyncWebServerRequest *request)
 
   uint32_t ip = request->client()->remoteIP();
 
-  if(strcmp(hvac.m_EE.password, password))
+  if(strcmp(ee.password, password))
   {
     if(nWrongPass == 0)
       nWrongPass = 10;
@@ -364,7 +364,7 @@ void handleRemote(AsyncWebServerRequest *request) // Todo: WebSocket
       s.toCharArray(password, sizeof(password));
   }
 
-  if(strcmp(hvac.m_EE.password, password))
+  if(strcmp(ee.password, password))
   {
     String data = "{\"ip\":\"";
     data += request->client()->localIP().toString();
