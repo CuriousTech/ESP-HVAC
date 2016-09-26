@@ -34,6 +34,7 @@ SOFTWARE.
 #include "display.h"
 #include <Wire.h>
 #include "eeMem.h"
+#include "RunningMedian.h"
 
 //uncomment to swap Serial's pins to 15(TX) and 13(RX) that don't interfere with booting
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
@@ -61,12 +62,13 @@ HVAC hvac;
 
 #ifdef SHT21_H
 SHT21 sht(SDA, SCL, 5);
+RunningMedian<int16_t,20> tempMedian; //median over 20 samples at 5s intervals
 #endif
 #ifdef dht_h
 DHT dht;
+RunningMedian<int16_t,20> tempMedian; //median over 20 samples at 5s intervals
 #endif
 #ifdef DallasTemperature_h
-#include "RunningMedian.h"
 const int ds18Resolution = 12;
 DeviceAddress ds18addr = { 0x28, 0xC1, 0x02, 0x64, 0x04, 0x00, 0x00, 0x35 };
 unsigned int ds18delay;
@@ -75,7 +77,6 @@ const unsigned int ds18reqdelay = 5000; //request every 5 seconds
 unsigned long ds18reqlastreq;
 OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
-RunningMedian<float,20> tempMedian; //median over 20 samples at 5s intervals
 #endif
 
 XML_tag_t Xtags[] =
@@ -237,7 +238,11 @@ void loop()
 #ifdef SHT21_H
   if(sht.service())
   {
-    hvac.updateIndoorTemp( sht.getTemperatureF() * 10, sht.getRh() * 10 );
+    tempMedian.add(sht.getTemperatureF() * 10);
+    int16_t temp;
+    if (tempMedian.getMedian(temp) == tempMedian.OK) {
+      hvac.updateIndoorTemp( temp, sht.getRh() * 10 );
+    }
   }
 #endif
 #ifdef DallasTemperature_h
@@ -267,11 +272,14 @@ void loop()
     static uint8_t read_delay = 2;
     if(--read_delay == 0)
     {
-      float temp = dht.toFahrenheit(dht.getTemperature());
+      int16_t temp = (dht.toFahrenheit(dht.getTemperature()) * 10);
 
       if(dht.getStatus() == DHT::ERROR_NONE)
       {
-        hvac.updateIndoorTemp( temp * 10, dht.getHumidity() * 10);
+        tempMedian.add(temp);
+        if (tempMedian.getMedian(temp) == tempMedian.OK) {
+          hvac.updateIndoorTemp( temp, dht.getHumidity() * 10);
+        }
       }
       read_delay = 5; // update every 5 seconds
     }
