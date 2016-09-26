@@ -222,7 +222,7 @@ const char page1[] PROGMEM =
    "\n"
    "function setFanTime()\n"
    "{\n"
-   "  setVar('fantime',t2s(a.fantime.value))\n"
+   "  setVar('fancycletime',t2s(a.fantime.value))\n"
    "}\n"
    "\n"
    "function setAwayTemp()\n"
