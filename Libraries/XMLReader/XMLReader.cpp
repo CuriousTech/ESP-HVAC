@@ -9,159 +9,128 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize with a buffer, it's length, and a callback to iterate values in a list tag (item = tag#, idx = index in list, p = next value string)
-XMLReader::XMLReader(char *pBuffer, int16_t bufSize, void (*xml_callback)(int8_t item, int8_t idx, char *p) )
+XMLReader::XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), XML_tag_t *pTags )
 {
-	m_pBuffer = pBuffer;
-	m_pEnd = pBuffer + bufSize - 1;
-	m_pPtr = pBuffer;
-	m_pIn = pBuffer;
-	m_xml_callback = xml_callback;
-	m_Status = XML_IDLE;
+  m_xml_callback = xml_callback;
+  m_pTags = pTags;
+
+  m_client.onConnect([](void* obj, AsyncClient* c) { (static_cast<XMLReader*>(obj))->_onConnect(c); }, this);
+  m_client.onDisconnect([](void* obj, AsyncClient* c) { (static_cast<XMLReader*>(obj))->_onDisconnect(c); }, this);
+  m_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { (static_cast<XMLReader*>(obj))->_onTimeout(c, time); }, this);
+  m_client.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<XMLReader*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
+
+  m_client.setRxTimeout(TIMEOUT);
+}
+
+// begin with host and /path
+bool XMLReader::begin(const char *pHost, String path)
+{
+  if(m_client.connected())
+  {
+    m_client.stop();
+  }
+ 
+  if( !m_client.connect(pHost, 80) )
+  {
+    return false;
+  }
+
+  m_pHost = pHost;
+  m_path = path;
+  m_tagIdx = 0;
+  m_tagState = 0;
+  m_binValues = false;
+  m_pPtr = m_buffer;
+  m_pIn = m_pPtr;
+  m_pEnd = m_buffer + sizeof(m_buffer) - 2;
+  return true;
+}
+
+void XMLReader::_onConnect(AsyncClient* client)
+{
+  (void)client;
+
+  m_client.add("GET ", 4);
+  m_client.add(m_path.c_str(), m_path.length());
+  m_client.add(" HTTP/1.1", 9);
+  m_client.add("\n", 1);
+
+  sendHeader("Host", m_pHost);
+  sendHeader("Connection", "close");
+  sendHeader("Accept", "*/*");
+  m_client.add("\n", 1);
 }
 
 void XMLReader::sendHeader(const char *pHeaderName, const char *pHeaderValue) // string
 {
-	m_client.print(pHeaderName);
-	m_client.print(": ");
-	m_client.println(pHeaderValue);
+  m_client.add(pHeaderName, strlen(pHeaderName));
+  m_client.add(": ", 2);
+  m_client.add(pHeaderValue, strlen(pHeaderValue) );
+  m_client.add("\n", 1);
 }
 
 void XMLReader::sendHeader(const char *pHeaderName, int nHeaderValue) // integer
 {
-	m_client.print(pHeaderName);
-	m_client.print(": ");
-	m_client.println(nHeaderValue);
+  m_client.add(pHeaderName, strlen(pHeaderName) );
+  m_client.add(": ", 2);
+  String s = String(nHeaderValue);
+  m_client.add(s.c_str(), s.length());
+  m_client.add("\n", 1);
 }
 
-// begin with host and /path
-bool XMLReader::begin(const char *pHost, char *pPath[])
+// Note: Chunks are up to about 1460 bytes
+void XMLReader::_onData(AsyncClient* client, char* data, size_t len)
 {
-  m_pPtr = m_pBuffer;
-  m_pIn  = m_pBuffer;
-    
-  if(m_client.connected())
-  {
-    m_client.stop(); 
-  }
-    
-  if( !m_client.connect(pHost, 80) )
-  {
-    m_Status = XML_NO_CONNECT;
-    return false;
-  }
+  (void)client;
+  char *dataEnd = data + len;
 
-	m_client.print("GET ");
-  for(int8_t i = 0; pPath[i]; i++)
-    m_client.print(pPath[i]);
-	m_client.println(" HTTP/1.1");
+  bool bDone = false;
 
-	sendHeader("Host", pHost);
-	sendHeader("Connection", "close");
-	sendHeader("Accept", "*/*");
-
-	m_client.println();
-	m_client.flush();
-
-	m_tagIdx = 0;
-	m_tagState = 0;
-	m_binValues = false;
-  m_timeOut = millis();
-  m_Status = XML_CONNECTED;
-	return true;
-}
-
-// Serialized reader tags = list of XML_tag_t
-bool XMLReader::service(XML_tag_t *tags)
-{
-  if(!tags[m_tagIdx].pszTag)  // competed, return false
-  {
-    m_Status = XML_DONE;
-    m_client.stop();
-    return false;
-  }
-
-  do
-  {
-    if(!fillBuffer())       // fill buffer with new bytes if ready
-      return false;
-
-    if(m_pIn == m_pEnd) // buffer full
+  do{
+    while(m_pIn < m_pEnd && data < dataEnd)
     {
-      if(m_binValues) // if not in values, increment to next tag
-      {
-        nextValue(tags);
-      }
-      else if(!tags[m_tagIdx].pszTag) // again, check for end
-      {
-        m_Status = XML_DONE;
-        m_client.stop();
-        return false;  // all done
-      }
-      else if( combTag(tags[m_tagIdx].pszTag, tags[m_tagIdx].pszAttr, tags[m_tagIdx].pszValue))   // scan for next tag
-     	{
-        m_binValues = true;
-        m_valIdx = 0;
-      }
-
-      emptyBuffer();  // flush any data scanned
+      *m_pIn++ = *data++;
     }
-  } while(m_client.available());  // continue while data is available
 
-  if ( (millis() - m_timeOut) > TIMEOUT)
-  {
-    m_Status = XML_TIMEOUT;
-    m_client.stop();
-    return false;
-	}
+    *m_pIn = 0; // null terminate to make things easy
 
-  return true;
-}
+    if(!m_pTags[m_tagIdx].pszTag)  // completed
+    {
+      m_xml_callback(-1, XML_COMPLETED, NULL);
+      return;
+    }
 
-// not used normally
-void XMLReader::end()
-{
-  m_client.stop();
-}
+    if(m_binValues) // if not in values, increment to next tag
+    {
+      nextValue(m_pTags);
+    }
+    else if( combTag(m_pTags[m_tagIdx].pszTag, m_pTags[m_tagIdx].pszAttr, m_pTags[m_tagIdx].pszValue))   // scan for next tag
+    {
+      m_binValues = true;
+      m_valIdx = 0;
+    }
+    emptyBuffer();
 
-int8_t XMLReader::getStatus()
-{
-  return m_Status;
-}
-
-bool XMLReader::fillBuffer()
-{
-  if(!m_client.connected())       // latest code disconnects at end
-  {
-    m_pEnd = m_pIn; // truncate
-    return (m_pPtr >= m_pEnd) ? false:true;     // return false when no more to read
-  }
-
-  char c = 0;
-  int16_t cnt = 0;
-  while(m_pIn < m_pEnd && m_client.available()) // max avail = 128
-  {
-    c = m_client.read();
-    *m_pIn++ = c;
-    m_timeOut = millis();
-    cnt++;
-  }
-  *m_pIn = 0; // null terminate to make things easy
-  return true;
+    if(data >= dataEnd && tagCnt() < 4 )  // this is just bad
+    {
+      bDone = true;
+    }
+  }while(!bDone);
 }
 
 void XMLReader::emptyBuffer()
 {
   if(m_pPtr >= m_pEnd)	// all bytes are used.  Just reset
   {
-    m_pPtr = m_pBuffer;
-    m_pIn = m_pBuffer;
+    m_pPtr = m_buffer;
+    m_pIn = m_buffer;
   }
-  else if(m_pPtr > m_pBuffer)	// remove all used bytes
+  else if(m_pPtr > m_buffer)	// remove all used bytes
   {
-    memcpy(m_pBuffer, m_pPtr, m_pEnd - m_pPtr); // shift remaining
+    memcpy(m_buffer, m_pPtr, m_pEnd - m_pPtr); // shift remaining
 
-    m_pIn -= (m_pPtr - m_pBuffer);	// shift in-ptr back same as remaining data
-    m_pPtr = m_pBuffer;
+    m_pIn -= (m_pPtr - m_buffer);	// shift in-ptr back same as remaining data
+    m_pPtr = m_buffer;
   }
 }
 
@@ -173,11 +142,11 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
     case 0:                   // not in tag
       if(!tagStart() )
         return false;         // find start of a tag
+      if(*m_pPtr != '<')
+        return false;
       m_tagState = 1;
-			if(*m_pPtr != '<')
-				return false;
-			m_pPtr++;
-			return false;
+      m_pPtr++;
+      return false;
     case 1:		                            // found a tag
       if(tagCompare(m_pPtr, pTagName))
       {
@@ -201,7 +170,7 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
           {
             m_pPtr += strlen(pAttr) + 1;
             if(pValue)
-	          {
+	        {
               bFound = tagCompare(m_pPtr, pValue);
             }
             else                    // no value required
@@ -230,20 +199,17 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
 bool XMLReader::nextValue(XML_tag_t *ptags)
 {
   if(!tagStart())
-  {
     return true;	                	// Find start of tag
-  }
   IncPtr();
-  if(m_pPtr >= m_pEnd) return false;
+  if(m_pPtr >= m_pEnd)
+   return false;
 
   char *p = m_pPtr;
 
   while(*p++ != '<')                  	// lookahead
   {
     if(p >= m_pEnd)
-    {
       return true;                    // not enough data to continue
-    }
   }
 
   if(*m_pPtr == '/')                      // an end tag
@@ -251,29 +217,34 @@ bool XMLReader::nextValue(XML_tag_t *ptags)
     IncPtr();
     if(tagCompare(m_pPtr, ptags[m_tagIdx].pszTag)) // end of value list
     {
-      m_Status = XML_TRUNCATE;
       m_tagIdx++;
       m_binValues = false;
       return true;
     }
   }
 
-  if(!tagEnd()) return true;			    // end of start tag
+  if(!tagEnd())
+    return true;    // end of start tag
   IncPtr();
-  if(m_pPtr >= m_pEnd) return false;
+  if(m_pPtr >= m_pEnd)
+    return false;
 
   char *ptr = m_pPtr;	// data
 
-  if(!tagStart()) return true;
-  if(m_pPtr >= m_pEnd) return false;
+  if(!tagStart())
+    return true;
+
+  if(m_pPtr >= m_pEnd)
+    return false;
 
   *m_pPtr++ = 0;		                    // null term data (unsafe increment)
-  if(m_pPtr >= m_pEnd) return false;
+  if(m_pPtr >= m_pEnd)
+   return false;
 
-   m_xml_callback(m_tagIdx, m_valIdx, ptr);
+  m_xml_callback(m_tagIdx, m_valIdx, ptr);
 
-   if(++m_valIdx >= ptags[m_tagIdx].valueCount)
-   {
+  if(++m_valIdx >= ptags[m_tagIdx].valueCount)
+  {
       m_binValues = false;
       m_tagIdx++;
   }
@@ -309,6 +280,20 @@ bool XMLReader::tagStart()
   return true;
 }
 
+int XMLReader::tagCnt()
+{
+  char *p = m_pPtr;
+  int cnt = 0;
+
+  while(*p)                       // find start of tag
+  {
+    if(*p++ == '<') cnt++;
+    if(p >= m_pEnd)
+      return cnt;
+  }
+  return cnt;
+}
+
 bool XMLReader::tagEnd()
 {
   while(*m_pPtr != '>')                       // find end of tag
@@ -317,4 +302,16 @@ bool XMLReader::tagEnd()
       return false;
   }
   return true;
+}
+
+void XMLReader::_onDisconnect(AsyncClient* client)
+{
+  (void)client;
+  m_xml_callback(-1, XML_DONE, NULL);
+}
+
+void XMLReader::_onTimeout(AsyncClient* client, uint32_t time)
+{
+  (void)client;
+  m_xml_callback(-1, XML_TIMEOUT, NULL);
 }
