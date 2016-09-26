@@ -35,7 +35,6 @@ void Display::oneSec()
     if(--m_backlightTimer == 0)
         screen(false);
   }
-
   static uint8_t lastState;
   static bool lastFan;
   if(--m_temp_counter <= 0 || hvac.getState() != lastState || hvac.getFanRunning() != lastFan)
@@ -283,6 +282,8 @@ void Display::drawForecast(bool bRef)
   if(m_updateFcst < 0) // An uncaught request timeout
     m_updateFcst = 5;
 
+  displayOutTemp(); // update temp for HVAC
+
   if(nex.getPage()) // on different page
     return;
 
@@ -344,9 +345,11 @@ void Display::drawForecast(bool bRef)
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
     nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
 
+  if((tmax-tmin) == 0 || hrs == 0) // divide by 0
+    return;
+
   int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].t - tmin) * (Fc_Height-2) / (tmax-tmin);
   int16_t x2 = Fc_Left;
-
   for(i = 1; i < fcCnt; i++) // should be 41 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
@@ -359,7 +362,6 @@ void Display::drawForecast(bool bRef)
     x2 = x1;
     y2 = y1;
   }
-  displayOutTemp();
 }
 
 // get value at current minute between hours
@@ -459,6 +461,7 @@ bool Display::screen(bool bOn)
     bOn = true;
 
   m_backlightTimer = NEX_TIMEOUT; // update the auto backlight timer
+
   if(bOn)
   {
     if( bOn == bOldOn )
