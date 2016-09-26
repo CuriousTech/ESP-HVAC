@@ -13,6 +13,7 @@
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
 #include <JsonClient.h>
+#include "eeMem.h"
 
 extern const char *controlPassword;
 extern uint8_t serverPort;
@@ -20,47 +21,12 @@ extern AsyncEventSource events;
 
 HVAC::HVAC()
 {
-  m_EE.size = sizeof(EEConfig);
-//---------- EEPROM default values ----------
-  m_EE.cycleMin = 60;         // 60 seconds minimum for a cycle
-  m_EE.cycleMax = 60*15;      // 15 minutes maximun for a cycle
-  m_EE.idleMin  = 60*5;       // 5 minutes minimum between cycles
-  m_EE.cycleThresh =  17;      // 1.7 degree cycle range
-  m_EE.coolTemp[1] = 820;     // 82.0 default temps
-  m_EE.coolTemp[0] = 790;     // 79.0
-  m_EE.heatTemp[1] = 740;     // 74.0
-  m_EE.heatTemp[0] = 700;     // 70.0
-  m_EE.eHeatThresh =  30;     // Setting this low (30 deg) for now
-  m_EE.fanPostDelay[0] = 60;  // 1 minute after compressor stops (HP)
-  m_EE.fanPostDelay[1] = 120; // 2 minutes after compressor stops (cool)
-  m_EE.overrideTime = 60*10;  // 10 mins default for override
-  m_remoteTimeout   = 0;   // remote transmit delay
-  m_EE.humidMode = 0;
-  m_EE.rhLevel[0] = 450;    // 45.0%
-  m_EE.rhLevel[1] = 550;
-  m_EE.tz = -5;
-  m_EE.filterMinutes = 0;
-  m_EE.adj = 0;
-  m_EE.fanPreTime[0] = 0; // disable by default
-  m_EE.fanPreTime[1] = 0;
-  m_EE.fanCycleTime = 30*60; // 30 mins
-  m_EE.awayDelta[0] = 40; // +4.0 cool
-  m_EE.awayDelta[1] = -40; // heat
-  m_EE.awayTime = 9*60; // 9 hours
-  m_EE.hostIp = 192 | (168<<8) | (105<<24); // 192.168.0.105
-  m_EE.hostPort = 85;
-  m_EE.bLock = false;
-  strcpy(m_EE.zipCode, "41042");
-  strcpy(m_EE.password, "password");
-  memset(m_EE.reserved, 0, sizeof(m_EE.reserved));
-//----------------------------
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
   m_outTemp = 0;
   m_inTemp = 0;
   m_rh = 0;
   m_bFanRunning = false;
   m_bHumidRunning = false;
-  m_outMax[0] = -50;      // set as invalid
   m_FanMode = FM_Auto;    // Auto, On, Cycle
   m_AutoMode = 0;         // cool, heat
   m_setMode = 0;          // new mode request
@@ -91,9 +57,9 @@ HVAC::HVAC()
 
 void HVAC::init()
 {
-  m_setMode = m_EE.Mode;
-  m_idleTimer = m_EE.idleMin - 60; // about 1 minute
-  m_setHeat = m_EE.heatMode;
+  m_setMode = ee.Mode;
+  m_idleTimer = ee.idleMin - 60; // about 1 minute
+  m_setHeat = ee.heatMode;
 }
 
 // Failsafe: shut everything off
@@ -111,13 +77,13 @@ void HVAC::service()
   {
     if(--m_remoteTimer == 0)
     {
-      if(old[0] != m_EE.coolTemp[0])  sendCmd("cooltempl", old[0] = m_EE.coolTemp[0]); 
-      if(old[1] != m_EE.coolTemp[1])  sendCmd("cooltemph", old[1] = m_EE.coolTemp[1]);
-      if(old[2] != m_EE.heatTemp[0])  sendCmd("heattempl", old[2] = m_EE.heatTemp[0]);
-      if(old[3] != m_EE.heatTemp[1])  sendCmd("heattemph", old[3] = m_EE.heatTemp[1]);
+      if(old[0] != ee.coolTemp[0])  sendCmd("cooltempl", old[0] = ee.coolTemp[0]); 
+      if(old[1] != ee.coolTemp[1])  sendCmd("cooltemph", old[1] = ee.coolTemp[1]);
+      if(old[2] != ee.heatTemp[0])  sendCmd("heattempl", old[2] = ee.heatTemp[0]);
+      if(old[3] != ee.heatTemp[1])  sendCmd("heattemph", old[3] = ee.heatTemp[1]);
 
-      if(m_EE.heatMode != m_setHeat)  sendCmd("heatmode", m_EE.heatMode = m_setHeat);
-      if(m_EE.Mode != m_setMode)      sendCmd("mode", m_EE.Mode = m_setMode);
+      if(ee.heatMode != m_setHeat)  sendCmd("heatmode", ee.heatMode = m_setHeat);
+      if(ee.Mode != m_setMode)      sendCmd("mode", ee.Mode = m_setMode);
     }
   }
 }
@@ -178,9 +144,9 @@ uint8_t HVAC::getState()
   if( m_bRunning == false) return 0;
 
   // Check if NG furnace is running, which controls the fan automatically
-  uint8_t state = (m_EE.Mode == Mode_Auto) ? m_AutoMode : m_EE.Mode; // convert auto to just cool / heat
+  uint8_t state = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode; // convert auto to just cool / heat
 
-  if(state == Mode_Heat && ( m_EE.heatMode == Heat_NG || (m_EE.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
+  if(state == Mode_Heat && ( ee.heatMode == Heat_NG || (ee.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
     state = 3; // so logs will only be 1, 2 or 3.
 
   return state;
@@ -198,7 +164,7 @@ bool HVAC::getHumidifierRunning()
 
 uint8_t HVAC::getMode()
 {
-  return m_EE.Mode;
+  return ee.Mode;
 }
 
 void HVAC::setHeatMode(uint8_t mode)
@@ -258,11 +224,11 @@ int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
   switch(mode)
   {
     case Mode_Cool:
-      return m_EE.coolTemp[hl];
+      return ee.coolTemp[hl];
     case Mode_Heat:
-      return m_EE.heatTemp[hl];
+      return ee.heatTemp[hl];
     case Mode_Auto:
-      return (m_AutoMode == Mode_Cool) ? m_EE.coolTemp[hl] : m_EE.heatTemp[hl];
+      return (m_AutoMode == Mode_Cool) ? ee.coolTemp[hl] : ee.heatTemp[hl];
   }
   return 0;
 }
@@ -283,35 +249,35 @@ void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
     case Mode_Cool:
       if(Temp < 650 || Temp > 900)    // ensure sane values
         break;
-      m_EE.coolTemp[hl] = Temp;
+      ee.coolTemp[hl] = Temp;
       if(hl)
       {
-        m_EE.coolTemp[0] = min((int)m_EE.coolTemp[1], (int)m_EE.coolTemp[0]);     // don't allow h/l to invert
+        ee.coolTemp[0] = min((int)ee.coolTemp[1], (int)ee.coolTemp[0]);     // don't allow h/l to invert
       }
       else
       {
-        m_EE.coolTemp[1] = max((int)m_EE.coolTemp[0], (int)m_EE.coolTemp[1]);
+        ee.coolTemp[1] = max((int)ee.coolTemp[0], (int)ee.coolTemp[1]);
       }
-      save = m_EE.heatTemp[1] - m_EE.heatTemp[0];
-      m_EE.heatTemp[1] = min((int)m_EE.coolTemp[0] - 20, (int)m_EE.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
-      m_EE.heatTemp[0] = m_EE.heatTemp[1] - save;                      // shift heat low by original diff
+      save = ee.heatTemp[1] - ee.heatTemp[0];
+      ee.heatTemp[1] = min((int)ee.coolTemp[0] - 20, (int)ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
+      ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
       break;
     case Mode_Heat:
       if(Temp < 630 || Temp > 860)    // ensure sane values
         break;
-      m_EE.heatTemp[hl] = Temp;
+      ee.heatTemp[hl] = Temp;
       if(hl)
       {
-        m_EE.heatTemp[0] = min(m_EE.heatTemp[1], m_EE.heatTemp[0]);
+        ee.heatTemp[0] = min(ee.heatTemp[1], ee.heatTemp[0]);
       }
       else
       {
-        m_EE.heatTemp[1] = max(m_EE.heatTemp[0], m_EE.heatTemp[1]);
+        ee.heatTemp[1] = max(ee.heatTemp[0], ee.heatTemp[1]);
       }
-      save = m_EE.coolTemp[1] - m_EE.coolTemp[0];
-      m_EE.coolTemp[0] = max(m_EE.heatTemp[1] - 20, (int)m_EE.coolTemp[0]);
-      m_EE.coolTemp[1] = m_EE.coolTemp[0] + save;
+      save = ee.coolTemp[1] - ee.coolTemp[0];
+      ee.coolTemp[0] = max(ee.heatTemp[1] - 20, (int)ee.coolTemp[0]);
+      ee.coolTemp[1] = ee.coolTemp[0] + save;
       break;
   }
 }
@@ -329,12 +295,12 @@ bool HVAC::isRemote()
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-  m_localTemp = Temp + m_EE.adj;
+  m_localTemp = Temp + ee.adj;
   m_localRh = rh;
 
   if( m_bRemoteStream )
   {
-    m_inTemp = Temp + m_EE.adj;
+    m_inTemp = Temp + ee.adj;
     m_rh = rh;
   }
 }
@@ -354,8 +320,15 @@ void HVAC::updatePeaks()
   if(tmin == -1) // initial value
     tmin = m_fcData[1].t;
 
+  int fcCnt;
+  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (255 = unused)
+  {
+    if(m_fcData[fcCnt].h == 255)
+      break;
+  }
+
   // Get min/max of current forecast
-  for(int i = 1; i <= 18; i++)
+  for(int i = 1; i < fcCnt; i++)
   {
     int8_t t = m_fcData[i].t;
     if(tmin > t) tmin = t;
@@ -364,53 +337,13 @@ void HVAC::updatePeaks()
 
   if(tmin == tmax) tmax++;   // div by 0 check
 
-  // add it to the history
-  if(m_outMax[0] != -50)      // preserve peaks longer
-  {
-    for(int i = 0; i < PEAKS_CNT-1; i++) // FIFO
-    {
-      m_outMax[i+1] = m_outMax[i];
-      m_outMin[i+1] = m_outMin[i];
-    }
-  }
-  else                        // initial fill value
-  {
-    for(int i = 0; i < PEAKS_CNT; i++)
-    {
-      m_outMax[i] = tmax;
-      m_outMin[i] = tmax;
-    }
-  }
-  m_outMin[0] = tmin;
-  m_outMax[0] = tmax;
-  Serial.print("Peaks ");
-  Serial.print(m_outMin[0]);
-  Serial.print(" ");
-  Serial.print(m_outMax[0]);
-
-  int16_t L = m_outMin[0];
-  int16_t H = m_outMax[0];
-
-  for(int i = 1; i < PEAKS_CNT; i++)
-  {
-    L = min(L, m_outMin[i]);
-    H = max(H, m_outMax[i]);
-  }
-
-  Serial.print(" LH ");
-
-  Serial.print(L);
-  Serial.print(" ");
-  Serial.print(H);
-  
-  Serial.write(0xFF);
-  Serial.write(0xFF);
-  Serial.write(0xFF);
+  m_outMin = tmin;
+  m_outMax = tmax;
 }
 
 void HVAC::resetFilter()
 {
-  m_EE.filterMinutes = 0;
+  ee.filterMinutes = 0;
   sendCmd("resetfilter", 0);
   if(m_notif == Note_Filter)
     m_notif = Note_None;
@@ -419,7 +352,7 @@ void HVAC::resetFilter()
 // returns filter over 200 hours
 bool HVAC::checkFilter(void)
 {
-  return (m_EE.filterMinutes >= 60*200);
+  return (ee.filterMinutes >= 60*200);
 }
 
 void HVAC::resetTotal()
@@ -452,7 +385,7 @@ void HVAC::updateVar(int iName, int iValue)// host values
       m_targetTemp = iValue;
       break;
     case 6: // fm
-      m_EE.filterMinutes = iValue;
+      ee.filterMinutes = iValue;
       break;
     case 7: // outTemp
       break;
@@ -489,13 +422,13 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
   switch(iName)
   {
     case 0:
-      m_setMode = m_EE.Mode = iValue;
+      m_setMode = ee.Mode = iValue;
       break;
     case 1:
       m_AutoMode = iValue;
       break;
     case 2:
-      m_setHeat = m_EE.heatMode = iValue;
+      m_setHeat = ee.heatMode = iValue;
       break;
     case 3:
       m_FanMode = iValue;
@@ -504,45 +437,45 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       m_ovrTemp = iValue;
       break;
     case 5:
-      m_EE.eHeatThresh = iValue;
+      ee.eHeatThresh = iValue;
       break;
     case 6:
-      m_EE.coolTemp[0] = iValue;
+      ee.coolTemp[0] = iValue;
       break;
     case 7:
-      m_EE.coolTemp[1] = iValue;
+      ee.coolTemp[1] = iValue;
       break;
     case 8:
-      m_EE.heatTemp[0] = iValue;
+      ee.heatTemp[0] = iValue;
       break;
     case 9:
-      m_EE.heatTemp[1] = iValue;
+      ee.heatTemp[1] = iValue;
       break;
     case 10:
-      m_EE.idleMin = iValue;
+      ee.idleMin = iValue;
       break;
     case 11:
-      m_EE.cycleMin = iValue;
+      ee.cycleMin = iValue;
       break;
     case 12:
-      m_EE.cycleMax = iValue;
+      ee.cycleMax = iValue;
       break;
     case 13:
-      m_EE.cycleThresh = iValue;
+      ee.cycleThresh = iValue;
       break;
     case 14:
       break;
     case 15:
-      m_EE.overrideTime = iValue;
+      ee.overrideTime = iValue;
       break;
     case 16:
-      m_EE.humidMode = iValue;
+      ee.humidMode = iValue;
       break;
     case 17:
-      m_EE.rhLevel[0] = iValue;
+      ee.rhLevel[0] = iValue;
       break;
     case 18:
-      m_EE.rhLevel[1] = iValue;
+      ee.rhLevel[1] = iValue;
       break;
   }
 }
