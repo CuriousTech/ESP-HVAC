@@ -23,7 +23,6 @@ SOFTWARE.
 
 // Build with Arduino IDE 1.6.11 and esp8266 SDK 2.3.0
 
-#include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -34,6 +33,7 @@ SOFTWARE.
 #include "WebHandler.h"
 #include "display.h"
 #include <Wire.h>
+#include "eeMem.h"
 
 //uncomment to swap Serial's pins to 15(TX) and 13(RX) that don't interfere with booting
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
@@ -55,6 +55,7 @@ SOFTWARE.
 extern AsyncEventSource events; // event source (Server-Sent events)
 
 Display display;
+eeMem eemem;
 
 HVAC hvac;
 
@@ -80,13 +81,10 @@ RunningMedian<float,20> tempMedian; //median over 20 samples at 5s intervals
 XML_tag_t Xtags[] =
 {
   {"creation-date", NULL, NULL, 1},
-  {"time-layout", "time-coordinate", "local", 19},
-  {"temperature", "type", "hourly", 19},
+  {"time-layout", "time-coordinate", "local", FC_CNT},
+  {"temperature", "type", "hourly", FC_CNT},
   {NULL}
 };
-
-bool bGettingForecast;
-char buffer[260]; // buffer for xml when in use
 
 void xml_callback(int8_t item, int8_t idx, char *p)
 {
@@ -99,6 +97,23 @@ void xml_callback(int8_t item, int8_t idx, char *p)
 
   switch(item)
   {
+    case -1: // done
+      switch(idx)
+      {
+        case XML_TIMEOUT:
+          events.send("Forcast timeout", "print");
+          hvac.disable();
+          hvac.m_notif = Note_Forecast;
+          break;
+        case XML_COMPLETED:
+        case XML_DONE:
+          hvac.enable();
+          hvac.updatePeaks();
+          events.send("Forecast success", "print");
+          display.drawForecast(true);
+          break;
+      }
+      break;
     case 0:
       if(atoi(p) == 0) // todo: fix
         break;
@@ -117,6 +132,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
         hvac.m_fcData[0].h = hvac.m_fcData[1].h;
         break;
       }
+
       d = atoi(p + 8);  // 2014-mm-ddThh:00:00-tz:00
       h = atoi(p + 11);
 
@@ -132,32 +148,27 @@ void xml_callback(int8_t item, int8_t idx, char *p)
       if(idx == 1)
       {
         time_t epoc = makeTime(t);
-        hvac.m_EE.tz = newtz;
-        epoc += hvac.m_EE.tz * 3600;
+        ee.tz = newtz;
+        epoc += ee.tz * 3600;
         setTime(epoc);
       }
       break;
     case 2:                  // temperature
-      if(idx == 0) break;               // 1st value is not temp
+      if(idx == 0) break;    // 1st value is not temp
       hvac.m_fcData[idx].t = atoi(p);
       break;
   }
 }
 
-XMLReader xml(buffer, 257, xml_callback);
+XMLReader xml(xml_callback, Xtags);
 
 void GetForecast()
 {
-  char *p_cstr_array[] =
-  {
-    (char *)"/xml/sample_products/browser_interface/ndfdXMLclient.php?zipCodeList=",
-    hvac.m_EE.zipCode,
-    (char*)"&Unit=e&temp=temp&Submit=Submit",
-    NULL
-  };
+  String path = "/xml/sample_products/browser_interface/ndfdXMLclient.php?zipCodeList=";
+  path += ee.zipCode;
+  path += "&Unit=e&temp=temp&Submit=Submit";
 
-  bGettingForecast = xml.begin("graphical.weather.gov", p_cstr_array);
-  if(!bGettingForecast)
+  if(!xml.begin("graphical.weather.gov", path))
     events.send("Forecast failed", "alert");
 }
 
@@ -167,7 +178,7 @@ Encoder rot(ENC_B, ENC_A);
 
 bool EncoderCheck()
 {
-  if(hvac.m_EE.bLock) return false;
+  if(ee.bLock) return false;
 
   int r = rot.poll();
 
@@ -197,7 +208,6 @@ void setup()
 #endif
 
   startServer();
-  eeRead(); // don't access EE before WiFi init
   hvac.init();
   display.init();
 #ifdef SHT21_H
@@ -272,75 +282,16 @@ void loop()
       min_save = minute();
       if (hour_save != hour()) // update our IP and time daily (at 2AM for DST)
       {
-        eeWrite(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+        eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
       }
 
       if(--display.m_updateFcst <= 0 )  // usually every hour / 3 hours
       {
+        display.m_updateFcst = 5;    // retry in 5 mins if anything fails
         GetForecast();
       }
     }
- 
-    if(bGettingForecast)
-    {
-      if(! (bGettingForecast = xml.service(Xtags)) )
-      {
-        switch(xml.getStatus())
-        {
-          case XML_DONE:
-            hvac.enable();
-            hvac.updatePeaks();
-            events.send("Forecast success", "print");
-            display.drawForecast(true);
-            break;
-          default:
-            hvac.disable();
-            hvac.m_notif = Note_Forecast;
-            display.m_updateFcst = 5;    // retry in 5 mins
-            break;
-        }
-      }
-    }
+
   }
   delay(8); // rotary encoder and lines() need 8ms minimum
-}
-
-extern WiFiManager wifi;
-
-void eeWrite() // write the settings if changed
-{
-  uint16_t old_sum = hvac.m_EE.sum;
-  hvac.m_EE.sum = 0;
-  hvac.m_EE.sum = Fletcher16((uint8_t *)&hvac.m_EE, sizeof(EEConfig));
-
-  if(old_sum == hvac.m_EE.sum)
-    return; // Nothing has changed?
-  wifi.eeWriteData((uint8_t*)&hvac.m_EE, sizeof(EEConfig)); // WiFiManager already has an instance open, so use that at offset 64+
-}
-
-void eeRead()
-{
-  EEConfig eeTest;
-
-  wifi.eeReadData((uint8_t*)&eeTest, sizeof(EEConfig));
-  if(eeTest.size != sizeof(EEConfig)) return; // revert to defaults if struct size changes
-  uint16_t sum = eeTest.sum;
-  eeTest.sum = 0;
-  eeTest.sum = Fletcher16((uint8_t *)&eeTest, sizeof(EEConfig));
-  if(eeTest.sum != sum) return; // revert to defaults if sum fails
-  memcpy(&hvac.m_EE, &eeTest, sizeof(EEConfig));
-}
-
-uint16_t Fletcher16( uint8_t* data, int count)
-{
-   uint16_t sum1 = 0;
-   uint16_t sum2 = 0;
-
-   for( int index = 0; index < count; ++index )
-   {
-      sum1 = (sum1 + data[index]) % 255;
-      sum2 = (sum2 + sum1) % 255;
-   }
-
-   return (sum2 << 8) | sum1;
 }
