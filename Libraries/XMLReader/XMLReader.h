@@ -6,6 +6,7 @@
 
 enum XML_Status
 {
+  XML_IDLE,
   XML_DONE,
   XML_COMPLETED,
   XML_TIMEOUT
