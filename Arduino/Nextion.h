@@ -23,7 +23,7 @@ public:
   Nextion():
     m_newBrightness(99),
     m_brightness(99),
-    m_page(10)
+    m_page(0)
   {};
   int service(char *pBuff);
   void itemText(uint8_t id, String t);
