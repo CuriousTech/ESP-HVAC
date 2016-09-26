@@ -14,25 +14,14 @@
 #include "WiFiManager.h"
 #include "Nextion.h"
 #include <TimeLib.h>
+#include "eeMem.h"
 
 extern Nextion nex;
 
 WiFiServer server_s ( 80 );
 
-WiFiManager::WiFiManager(int eepromStart)
+WiFiManager::WiFiManager()
 {
-    _eepromStart = eepromStart;
-}
-
-void WiFiManager::begin() {
-    begin("NoNetESP");
-}
-
-void WiFiManager::begin(char const *apName) {
-    _apName = apName;
-
-    EEPROM.begin(512);
-    delay(10);
 }
 
 boolean WiFiManager::autoConnect() {
@@ -40,19 +29,18 @@ boolean WiFiManager::autoConnect() {
 }
 
 boolean WiFiManager::autoConnect(char const *apName) {
-    begin(apName);
+    _apName = apName;
+    _ssid = ee.szSSID;
+    _pass = ee.szSSIDPassword;
 
 //  DEBUG_PRINT("");
 //    DEBUG_PRINT("AutoConnect");
-    // read eeprom for ssid and pass
-    String ssid = getSSID();
-    String pass = getPassword();
 
-    if ( ssid.length() > 1 ) {
+    if ( _ssid.length() > 1 ) {
         DEBUG_PRINT("Waiting for Wifi to connect");
 
         WiFi.mode(WIFI_STA);
-        WiFi.begin(ssid.c_str(), pass.c_str());
+        WiFi.begin(_ssid.c_str(), _pass.c_str());
         if ( hasConnected() ) {
             return true;
         }
@@ -60,72 +48,8 @@ boolean WiFiManager::autoConnect(char const *apName) {
     //setup AP
     beginConfigMode();
     //start portal and loop
-    startWebConfig(ssid);
+    startWebConfig(_ssid);
     return false;
-}
-
-String WiFiManager::getSSID() {
-    if(_ssid == "") {
-//        DEBUG_PRINT("Reading EEPROM SSID");
-        _ssid = getEEPROMString(0, 32);
-//        DEBUG_PRINT("SSID: ");
-//        DEBUG_PRINT(_ssid);
-    }
-    return _ssid;
-}
-
-String WiFiManager::getPassword() {
-    if(_pass == "") {
-//        DEBUG_PRINT("Reading EEPROM Password");
-        _pass = getEEPROMString(32, 64);
-//        DEBUG_PRINT("Password: ");
-//        DEBUG_PRINT(_pass);
-    }
-    return _pass;
-}
-
-String WiFiManager::getEEPROMString(int start, int len) {
-    String string = "";
-    for (int i = _eepromStart + start; i < _eepromStart + start + len; i++) {
-        //DEBUG_PRINT(i);
-        char c = char(EEPROM.read(i));
-        if(c == 0 ||c == 255) break; // fix for 2.0.0
-        string += c;
-    }
-    return string;
-}
-
-void WiFiManager::setEEPROMString(int start, int len, String string) {
-    int si = 0;
-    for (int i = _eepromStart + start; i < _eepromStart + start + len; i++) {
-        char c;
-        if(si < string.length()) {
-            c = string[si];
-//            DEBUG_PRINT("Wrote: ");
-//            DEBUG_PRINT(c);
-        } else {
-            c = 0;
-        }
-        EEPROM.write(i, c);
-        si++;
-    }
-}
-
-void WiFiManager::eeReadData(uint8_t *data, int size)
-{
-  for(int i = 0, addr = 64; i < size; i++, addr++)
-  {
-    data[i] = EEPROM.read( addr );
-  }
-}
-
-void WiFiManager::eeWriteData(uint8_t *data, int size)
-{
-  for(int i = 0, addr = 64; i < size; i++, addr++)
-  {
-    EEPROM.write(addr, data[i] );
-  }
-  EEPROM.commit();
 }
 
 boolean WiFiManager::hasConnected(void)
@@ -161,7 +85,6 @@ void WiFiManager::startWebConfig(String ssid) {
     uint8_t s;
     uint8_t m = minute();
 
-
     int n = WiFi.scanNetworks();
     if(n)
     {
@@ -173,7 +96,7 @@ void WiFiManager::startWebConfig(String ssid) {
         nex.btnText(i, ssidList[i] = WiFi.SSID(i));
       }
     }
-    
+
     _timeout = true;
     char cBuf[64];
     String sSsid;
@@ -200,9 +123,9 @@ void WiFiManager::startWebConfig(String ssid) {
               sPass = String(cBuf + 1);
   //            Serial.print("Pass ");
   //            Serial.println(sPass);
-              setEEPROMString(0, 32, sSsid);
-              setEEPROMString(32, 64, sPass);
-              EEPROM.commit();
+              sSsid.toCharArray(ee.szSSID, sizeof(ee.szSSID) );
+              sPass.toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
+              eemem.update();
 //              DEBUG_PRINT("Setup done");
               nex.setPage("Thermostat");
               delay(1000);
@@ -246,10 +169,6 @@ void WiFiManager::beginConfigMode(void) {
     WiFi.mode(WIFI_AP);
     WiFi.softAP(_apName);
     DEBUG_PRINT("Started Soft Access Point");
-//    IPAddress apIp = WiFi.softAPIP();
-//    char ip[24];
-//    sprintf(ip, "%d.%d.%d.%d", apIp[0], apIp[1], apIp[2], apIp[3]);
-//    display.print(String(ip));
 }
 
 int WiFiManager::serverLoop()
@@ -322,18 +241,13 @@ int WiFiManager::serverLoop()
         _timeout = false;
     }
     else if ( req.startsWith("/s") ) {
-        String qssid;
-        qssid = urldecode(req.substring(8,req.indexOf('&')).c_str());
-        DEBUG_PRINT(qssid);
-        DEBUG_PRINT("");
+        String s1 = urldecode(req.substring(8,req.indexOf('&')).c_str());
+        s1.toCharArray(ee.szSSID, sizeof(ee.szSSID) );
+        DEBUG_PRINT(ee.szSSID);
         req = req.substring( req.indexOf('&') + 1);
-        String qpass;
-        qpass = urldecode(req.substring(req.lastIndexOf('=')+1).c_str());
-
-        setEEPROMString(0, 32, qssid);
-        setEEPROMString(32, 64, qpass);
-
-        EEPROM.commit();
+        s1 = urldecode(req.substring(req.lastIndexOf('=')+1).c_str());
+        s1.toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
+        eemem.update();
 
         s = HTTP_200;
         String head = HTTP_HEAD;
@@ -399,17 +313,14 @@ String WiFiManager::urldecode(const char *src)
 boolean WiFiManager::findOpenAP(const char *szUrl)
 {
     int nOpen = 0;
-    begin("ESP8266");
+    _apName = "ESP8266";
+    _ssid = ee.szSSID;
+    _pass = ee.szSSIDPassword;
+
     int nScan = WiFi.scanNetworks();
     bool bFound = false;
     Serial.println("scan done");
-    String sSSID = getSSID();
     int ind = 0;
-
-    Serial.print("Cfg SSID: ");
-    Serial.print(sSSID);
-    Serial.print(" ");
-    Serial.println(sSSID.length());
 
     if (nScan == 0) {
         Serial.println( "No APs found" );
@@ -424,7 +335,7 @@ boolean WiFiManager::findOpenAP(const char *szUrl)
             {
               nOpen++;
             }
-            else if( sSSID == WiFi.SSID(i) ){ // The saved AP was found
+            else if( _ssid == WiFi.SSID(i) ){ // The saved AP was found
               bFound  = true;
               Serial.print("(Cfg) ");
             }
