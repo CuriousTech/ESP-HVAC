@@ -87,6 +87,8 @@ XML_tag_t Xtags[] =
   {NULL}
 };
 
+int xmlState;
+
 void xml_callback(int8_t item, int8_t idx, char *p)
 {
   int8_t newtz;
@@ -99,21 +101,7 @@ void xml_callback(int8_t item, int8_t idx, char *p)
   switch(item)
   {
     case -1: // done
-      switch(idx)
-      {
-        case XML_TIMEOUT:
-          events.send("Forcast timeout", "print");
-          hvac.disable();
-          hvac.m_notif = Note_Forecast;
-          break;
-        case XML_COMPLETED:
-        case XML_DONE:
-          hvac.enable();
-          hvac.updatePeaks();
-          events.send("Forecast success", "print");
-          display.drawForecast(true);
-          break;
-      }
+      xmlState = idx;
       break;
     case 0:
       if(atoi(p) == 0) // todo: fix
@@ -261,6 +249,26 @@ void loop()
     ds18reqlastreq = ds18lastreq;
   }
 #endif
+  if(xmlState)
+  {
+      switch(xmlState)
+      {
+        case XML_COMPLETED:
+        case XML_DONE:
+          hvac.enable();
+          events.send("Forecast success", "print");
+          hvac.updatePeaks();
+          display.screen(true);
+          display.drawForecast(true);
+          break;
+        case XML_TIMEOUT:
+          events.send("Forcast timeout", "print");
+          hvac.disable();
+          hvac.m_notif = Note_Forecast;
+          break;
+      }
+      xmlState = 0;
+  }
   if(sec_save != second()) // only do stuff once per second
   {
     sec_save = second();
