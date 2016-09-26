@@ -1,15 +1,19 @@
 // Do all the web stuff here (Remote unit)
 
-#include <WiFiClient.h>
-#include <EEPROM.h>
 #include <ESP8266mDNS.h>
-#include "WiFiManager.h"
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
+#ifdef OTA_ENABLE
+#include <FS.h>
+#include <ArduinoOTA.h>
+#endif
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
 #include "HVAC.h"
 #include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
 #include "display.h" // for display.Note()
 #include "pages.h"
+#include "WiFiManager.h"
+#include "eeMem.h"
 
 //-----------------
 uint8_t serverPort = 86;            // firewalled
@@ -17,9 +21,9 @@ uint8_t serverPort = 86;            // firewalled
 //-----------------
 AsyncWebServer server( serverPort );
 AsyncEventSource events("/events"); // event source (Server-Sent events)
-WiFiManager wifi(0);  // AP page:  192.168.4.1
 extern HVAC hvac;
 extern Display display;
+WiFiManager wifi;
 
 void startListener(void);
 void getSettings(void);
@@ -172,18 +176,18 @@ void parseParams(AsyncWebServerRequest *request)
     switch( p->name().charAt(0)  )
     {
       case 'F': // temp offset
-          hvac.m_EE.adj = val;
+          ee.adj = val;
           break;
       case 'H': // host  (from browser type: hTtp://thisip/?H=hostip&P=85)
           {
             IPAddress ip;
             ip.fromString(s);
-            hvac.m_EE.hostIp = ip;
+            ee.hostIp = ip;
             startListener(); // reset the URI
           }
           break;
       case 'R': // remote
-          if(hvac.m_EE.bLock) break;
+          if(ee.bLock) break;
           if(val)
           {
             if(hvac.m_bRemoteStream == false)
@@ -196,7 +200,7 @@ void parseParams(AsyncWebServerRequest *request)
           }
           break;
       case 'P': // host port
-          hvac.m_EE.hostPort = s.toInt();
+          ee.hostPort = s.toInt();
           startListener();
           break;
     }
@@ -297,8 +301,8 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 
 void startListener()
 {
-  IPAddress ip(hvac.m_EE.hostIp);
-  remoteStream.begin(ip.toString().c_str(), "/events", hvac.m_EE.hostPort, true);
+  IPAddress ip(ee.hostIp);
+  remoteStream.begin(ip.toString().c_str(), "/events", ee.hostPort, true);
   remoteStream.addList(jsonList1);
   remoteStream.addList(jsonList2);
 }
@@ -337,11 +341,11 @@ void getSettings()
   {
     bInit = true;
     path += "?key=";
-    path += hvac.m_EE.password;
+    path += ee.password;
     path += "&port=";
     path += serverPort;
   }
-  IPAddress ip(hvac.m_EE.hostIp);
-  remoteSet.begin(ip.toString().c_str(), path.c_str(), hvac.m_EE.hostPort, false);
+  IPAddress ip(ee.hostIp);
+  remoteSet.begin(ip.toString().c_str(), path.c_str(), ee.hostPort, false);
   remoteSet.addList(jsonList3);
 }
