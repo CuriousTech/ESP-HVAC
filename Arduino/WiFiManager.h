@@ -30,7 +30,6 @@ public:
     WiFiManager();
     boolean autoConnect(void);
     boolean autoConnect(char const *apName);
-    boolean findOpenAP(char const *szUrl);
 
     boolean hasConnected();
     
@@ -61,7 +60,6 @@ private:
     String ssidList[16];
 
     int serverLoop(void);
-    boolean attemptClient(const char *szUrl);
 };
 
 #endif
