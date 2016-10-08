@@ -33,6 +33,7 @@ public:
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
   bool  service(void);
   void  end(void);
+  void  process(char *event, char *data);
   int   status(void);
 
 private:
