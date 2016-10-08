@@ -69,6 +69,24 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   return connect();
 }
 
+void JsonClient::process(char *event, char *data)
+{
+  m_event = 0;
+  m_bufcnt = 0;
+
+  char temp[256];
+
+  strcpy(temp, "event:");
+  strcat(temp, event);
+  strcat(temp, "\r\n");
+  _onData(NULL, temp, strlen(temp) );
+
+  strcpy(temp, "data:");
+  strcat(temp, data);
+  strcat(temp, "\r\n");
+  _onData(NULL, temp, strlen(temp) );
+}
+
 // Call this from loop() ->remove
 bool JsonClient::service()
 {
