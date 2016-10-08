@@ -1,5 +1,3 @@
-// EEPROM wrapper
-
 #ifndef EEMEM_H
 #define EEMEM_H
 
@@ -37,7 +35,9 @@ struct eeSet // EEPROM backed data
   char     password[32];
   bool     bLock;
   bool     bRes;
-  char     reserved[32];
+  uint16_t ppkwh;
+  uint16_t ccf;
+  char     reserved[28];
 };
 
 extern eeSet ee;
