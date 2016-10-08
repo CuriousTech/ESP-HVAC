@@ -24,15 +24,19 @@ int serverPort = 85;            // Change to 80 for normal access
 //-----------------
 AsyncWebServer server( serverPort );
 AsyncEventSource events("/events"); // event source (Server-Sent events)
+AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
+
 WiFiManager wifi;  // AP page:  192.168.4.1
 extern HVAC hvac;
 extern Display display;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
+int chartFiller(uint8_t *buffer, int maxLen, int index);
 
 int nWrongPass;
 uint32_t lastIP;
+bool bKeyGood;
 
 void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
   //Handle body
@@ -42,16 +46,123 @@ void onUpload(AsyncWebServerRequest *request, String filename, size_t index, uin
   //Handle upload
 }
 
+//Handle Unknown Request
 void onRequest(AsyncWebServerRequest *request){
-  //Handle Unknown Request
   request->send(404);
 }
 
+// Handle event stream
 void onEvents(AsyncEventSourceClient *client)
 {
-//  client->send(":ok", NULL, millis(), 1000);
+  static bool rebooted = true;
+  if(rebooted)
+  {
+    rebooted = false;
+    events.send("Restarted", "alert");
+  }
   events.send(dataJson().c_str(), "state");
 }
+
+void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
+{  //Handle WebSocket event
+  if(type == WS_EVT_CONNECT){
+    //client connected
+    events.send("ws connect", "print");
+    client->printf("settings\n%s", hvac.settingsJson().c_str());
+    client->printf("state\n%s", dataJson().c_str());
+    client->ping();
+  } else if(type == WS_EVT_DISCONNECT){
+    //client disconnected
+    events.send("ws disconnect\n", "print");
+  } else if(type == WS_EVT_ERROR){
+    //error was received from the other end
+    events.send("ws error\n", "print");// *((uint16_t*)arg), (char*)data);
+  } else if(type == WS_EVT_PONG){
+    //pong message was received (in response to a ping request maybe)
+    events.send("ws pong", "print");// len, (len)?(char*)data:"");
+  } else if(type == WS_EVT_DATA){
+    //data packet
+    AwsFrameInfo * info = (AwsFrameInfo*)arg;
+    if(info->final && info->index == 0 && info->len == len){
+      //the whole message is in a single frame and we got all of it's data
+      if(info->opcode == WS_TEXT){
+        data[len] = 0;
+
+        char *pCmd = strtok((char *)data, "\n"); // assume format is "name\n{json}"
+        char *pData = strtok(NULL, "\n");
+
+        if(!strcmp(pCmd, "getSettings" ) )
+        {
+            client->printf("settings\n%s", hvac.settingsJson().c_str());
+        }
+        else
+        {
+          bKeyGood = false; // for callback (all commands need a key)
+          remoteStream.process(pCmd, pData);
+ //       Serial.printf("%s\n", (char*)data);
+        }
+      } else { // binary
+          events.send("ws binary", "print");// (info->opcode == WS_TEXT)?"text":"binary", info->len);
+//        for(size_t i=0; i < info->len; i++){
+//          Serial.printf("%02x ", data[i]);
+//        }
+//        Serial.printf("\n");
+//        client->binary("I got your binary message");
+      }
+    } else {
+      events.send("ws chunked", "print");
+      //message is comprised of multiple frames or the frame is split into multiple packets
+/*      if(info->index == 0){
+        if(info->num == 0)
+          Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+        Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
+      }
+
+      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
+      if(info->message_opcode == WS_TEXT){
+        data[len] = 0;
+        Serial.printf("%s\n", (char*)data);
+      } else {
+        for(size_t i=0; i < len; i++){
+          Serial.printf("%02x ", data[i]);
+        }
+        Serial.printf("\n");
+      }
+
+      if((info->index + len) == info->len){
+        Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
+        if(info->final){
+          Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
+          if(info->message_opcode == WS_TEXT)
+            client->text("I got your text message");
+          else
+            client->binary("I got your binary message");
+        }
+      }*/
+    }
+  }
+}
+
+const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
+const char *jsonList2[] = { "cmd",
+  "key",
+  "fanmode", // HVAC commands
+  "mode",
+  "heatmode",
+  "resettotal",
+  "resetfilter",
+  "fanpostdelay",
+  "cooltempl",
+  "cooltemph",
+  "heattempl",
+  "heattemph",
+  "humidmode",
+  "avgrmt",
+  "ppk",
+  "ccf",
+  NULL
+};
+const char *jsonList3[] = { "alert", NULL };
 
 void startServer()
 {
@@ -71,69 +182,143 @@ void startServer()
   events.onConnect(onEvents);
   server.addHandler(&events);
 
-  server.on ( "/", HTTP_GET | HTTP_POST, handleRoot );
-  server.on ( "/s", HTTP_GET | HTTP_POST, handleS );
-  server.on ( "/json", HTTP_GET | HTTP_POST, handleJson );
-  server.on ( "/settings", HTTP_GET | HTTP_POST, handleSettings );
-//  server.on ( "/remote", HTTP_GET | HTTP_POST, handleRemote );
-  server.on ( "/chart.html", HTTP_GET, handleChart );
+  // attach AsyncWebSocket
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
+  
+  server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    parseParams(request);
+    request->send_P ( 200, "text/html", page1 );
+  });
+  
+  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    parseParams(request);
+    request->send ( 200, "text/html", "OK" );
+  });
+
+  server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    String s = hvac.settingsJson();
+    request->send ( 200, "text/json", s);
+  });
+
+  server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    parseParams(request);
+    request->send_P ( 200, "text/html", page2 );
+  });
+  server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->sendChunked("text/html", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+    return chartFiller(buffer, maxLen, index);});
+  });
 
   server.onNotFound(onRequest);
   server.onFileUpload(onUpload);
   server.onRequestBody(onBody);
+
+  // respond to GET requests on URL /heap
+  server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", String(ESP.getFreeHeap()));
+  });
 
   server.begin();
 
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 
+  remoteStream.addList(jsonList1);
+  remoteStream.addList(jsonList2);
+  remoteStream.addList(jsonList3);
+
 #ifdef OTA_ENABLE
   ArduinoOTA.begin();
 #endif
 }
 
-void handleChart(AsyncWebServerRequest *request)
+// Send chart page in chunks.  First part is page HTML data.  Second is the data array.
+int chartFiller(uint8_t *buffer, int maxLen, int index)
 {
-  AsyncResponseStream *response = request->beginResponseStream("text/html");
+  int len = 0;
+  static int entryIdx; // data array index, reset by start of response
+  static int32_t tb; // time subtracted from entries (saves 5 bytes each)
 
-  String out = String(chart1); // Todo: Get from PROGMEM correctly
+  if(index == 0) // first call.  reset vars
+  {
+    entryIdx = 0;
+    tb = 0;
+  }
+
+  if(maxLen <= 0) // This is -7 on 2nd chunk often
+  {
+    return 0;
+  }
+
+  if(index < strlen_P(chart)) // Inside page data 
+  {
+    len = min(strlen_P(chart + index), maxLen);
+    memcpy_P(buffer, chart + index, len);
+  }
+
+  if(len >= maxLen) // full
+  {
+    return len;
+  }
 
   gPoint gpt;
 
-  int32_t tb = 0;
-
-  for(int x = 0; x < GPTS; x++)
+  if(display.getGrapthPoints(&gpt, entryIdx) == false) // end
   {
-    if( display.getGrapthPoints(&gpt, x) == false)
+    if(entryIdx == 0) // No data to fill
+    { // Todo: complete it with a valid page end
+//      Serial.println("NO DATA");
+    }
+    return len;
+  }
+
+  while(entryIdx < GPTS)
+  {
+    if( display.getGrapthPoints(&gpt, entryIdx) == false)
       break;
+   
     if(gpt.time == 0)
       continue; // some glitch?
+
+    String out = "";
     if(tb == 0) // first entry found
     {
-      tb = gpt.time - (60*60*26);
+      tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
+      out += "<script>\ntb=";      // first data opening statements
       out += tb;
       out += "\ndata = { values:[\n";
     }
     out += "{t:";
     out += gpt.time - tb;
-    out += ",temp:\"";
-    out += String((float)(gpt.temp * 110 / 101 + 660)/10, 1);
-    out += "\",rh:\"";
-    out += String((float)(gpt.rh * 250 / 55) / 10, 1);
-    out += "\",h:\"";
-    out += String((float)(gpt.h * 110 / 101 + 660)/10, 1);
-    out += "\",l:\"";
-    out += String((float)(gpt.l * 110 / 101 + 660)/10, 1);
-    out += "\",s:";
+    out += ",temp:";
+    out += gpt.temp * 110 / 101 + 660;
+    out += ",rh:";
+    out += gpt.rh * 250 / 55;
+    out += ",h:";
+    out += gpt.h * 110 / 101 + 660;
+    out += ",l:";
+    out += gpt.l * 110 / 101 + 660;
+    out += ",s:";
     out += gpt.state;
     out += ",f:";
     out += gpt.fan;
     out += "},\n";
-  }
-  response->print(out);
-  response->print(String(chart2));
 
-  request->send ( response );
+    if(len + out.length() >= maxLen)  // out of space
+    {
+      return len;
+    }
+    out.toCharArray((char *)buffer+len, maxLen-len);
+    len += out.length();
+    entryIdx++;
+  }
+
+  String out = "]};</script></html>";  // final closing statements
+
+  out.toCharArray((char *)buffer+len, maxLen-len); // could get cut short
+  len += out.length();
+  return len;
 }
 
 void handleServer()
@@ -148,34 +333,23 @@ void handleServer()
 
 void secondsServer() // called once per second
 {
-  static int n = 10;
-
   if(nWrongPass)
     nWrongPass--;
-  if(hvac.stateChange() || hvac.tempChange() || --n == 0)
+
+  static int n = 10;
+  if(hvac.stateChange() || hvac.tempChange())
   {
     events.send(dataJson().c_str(), "state" );
+    // push to all WebSockets
+    ws.printfAll("state\n%s", dataJson().c_str());
+    n = 10;
+  }
+  else if(--n == 0)
+  {
+    events.send("", "" ); // keepalive
     n = 10;
   }
 }
-
-const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
-const char *jsonList2[] = { "cmd",
-  "fanmode", // HVAC commands
-  "mode",
-  "heatmode",
-  "resettotal",
-  "resetfilter",
-  "fanpostdelay",
-  "cooltempl",
-  "cooltemph",
-  "heattempl",
-  "heattemph",
-  "humidmode",
-  "avgrmt",
-  NULL
-};
-const char *jsonList3[] = { "alert", NULL };
 
 void parseParams(AsyncWebServerRequest *request)
 {
@@ -231,45 +405,8 @@ void parseParams(AsyncWebServerRequest *request)
     else
     {
       hvac.setVar(p->name(), s.toInt() );
-//      display.screen(true); // switch to main page, undim when variables are changed
     }
   }
-}
-
-void handleS(AsyncWebServerRequest *request) { // standard params, but no page
-//  Serial.println("handleS\n");
-  parseParams(request);
-
-  request->send ( 200, "text/html", "OK" );
-}
-
-
-void handleRoot(AsyncWebServerRequest *request) // Main webpage interface
-{
-//  Serial.println("handleRoot");
-
-  parseParams(request);
-
-  request->send_P ( 200, "text/html", page1 );
-}
-
-void handleSettings(AsyncWebServerRequest *request) // Settings webpage interface
-{
-//  Serial.println("handleSettings");
-
-  parseParams(request);
-
-  request->send_P ( 200, "text/html", page2 );
-}
-
-// Return lots of vars as JSON
-void handleJson(AsyncWebServerRequest *request)
-{
-//  Serial.println("handleJson\n");
-  String s = hvac.settingsJson();
-  s += "\n";
-  request->send ( 200, "text/json", s);
-  handleRemote(request);
 }
 
 // Pushed data
@@ -282,10 +419,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
   {
-    case -1: // connection status
-//      if(iName == JC_CONNECTED) event.print("Remote connected");
-//      else event.print("Remote disconnected " + iName);
-      break;
     case 0: // state
       switch(iName)
       {
@@ -320,68 +453,19 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       }
       break;
     case 1: // cmd
-      hvac.setVar(jsonList2[iName+1], iValue); // 0 is "fanmode"
+      if(iName == 0) // 0 = key
+      {
+        if(!strcmp(psValue, ee.password)) // first item must be key
+          bKeyGood = true;
+      }
+      else
+      {
+        if(bKeyGood)
+          hvac.setVar(jsonList2[iName+1], iValue); // 1 is "fanmode"
+      }
       break;
     case 2: // alert
       display.Note(psValue);
       break;
   }
-}
-
-// remote streamer url/ip
-void handleRemote(AsyncWebServerRequest *request) // Todo: WebSocket
-{
-  char temp[100];
-  String sIp;
-  char path[64];
-  char password[64];
-  int nPort = 80;
-  bool bEnd = false;
-//  Serial.println("handleRemote");
-
-  if(request->params() == 0)
-    return;
-
-  sIp = request->client()->localIP().toString(); // default host IP is client
-
-  for ( uint8_t i = 0; i < request->params(); i++ ) {
-    AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + p->name() + ": " + s);
-
-    if(p->name() == "ip") // optional non-client source
-      sIp = s;
-    else if(p->name() == "path")
-      s.toCharArray(path, 64);
-    else if(p->name() == "port")
-      nPort = s.toInt();
-    else if(p->name() == "end")
-      bEnd = true;
-    else if(p->name() == "key")
-      s.toCharArray(password, sizeof(password));
-  }
-
-  if(strcmp(ee.password, password))
-  {
-    String data = "{\"ip\":\"";
-    data += request->client()->localIP().toString();
-    data += "\",\"pass\":\"";
-    data += password;
-    data += "\"}";
-    events.send(data.c_str(), "hack"); // log attempts
-    return;
-  }
-
-  if(bEnd) // end remote control and sensor
-  {
-    remoteStream.end();
-    hvac.m_bRemoteStream = false;
-    return;
-  }
-
-  remoteStream.begin(sIp.c_str(), path, nPort, true);
-  remoteStream.addList(jsonList1);
-  remoteStream.addList(jsonList2);
-  remoteStream.addList(jsonList3);
 }
