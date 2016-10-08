@@ -29,48 +29,27 @@ background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript" charset="utf-8"></script>
-
 <script type="text/javascript">
 <!--
 
 var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
-
+var ws
 function startEvents()
 {
-ev= new EventSource("events?i=30&p=1")
-ev.addEventListener('open',function(e){},false)
-ev.addEventListener('error',function(e){},false)
-ev.addEventListener('state',function(e){
-console.log(e)
-console.log(e.data)
-Json=JSON.parse(e.data)
-running= +Json.r
-fan= +Json.fr
-rh= +Json.h
-away=+Json.aw
-a.intemp.innerHTML= +Json.it/10
-a.rh.innerHTML= +Json.rh/10
-a.target.innerHTML= +Json.tt/10
-a.outtemp.innerHTML= +Json.ot/10
-a.cyctimer.innerHTML=secsToTime(+Json.ct)
-a.runtotal.value=secsToTime(+Json.rt)
-a.filter.value=s2t(+Json.fm)
-a.fan.innerHTML=fan?"Fan On":"Fan Off"
-a.run.innerHTML=states[+Json.s]
-a.hm.innerHTML=rh?"Humidifier On":"Humidifier Off"
-setAtt()
-},false)
-ev.addEventListener('alert',function(e){
-alert(e.data)
-},false)
-}
+var loc = window.location
+ws = new WebSocket("ws://"+loc.host+"/ws")
+ws.onopen = function(evt) { }
+ws.onclose = function(evt) { alert("Connection closed."); }
 
-function readSettings()
-{
-$.getJSON("json", function(Json){
+ws.onmessage = function(evt) {
+ lines = evt.data.split('\n')
+ event=lines[0]
+ data=lines[1]
+ Json=JSON.parse(data)
+ if(event == 'settings')
+ {
    	mode= +Json.m
 	autoMode= +Json.am
 	heatMode= +Json.hm
@@ -85,14 +64,42 @@ $.getJSON("json", function(Json){
 	a.ovrtime.value= s2t(+Json.ov)
 	a.fantime.value= s2t(+Json.fct)
 	a.awaytemp.value= +Json.ad/10
- if( +a.ovrtemp.value==0)
-	a.ovrtemp.value= -2.0
-});
+  if( +a.ovrtemp.value==0)
+	 a.ovrtemp.value= -2.0
+ }
+ else if(event == 'state')
+ {
+	running= +Json.r
+	fan= +Json.fr
+	rh= +Json.h
+	away=+Json.aw
+	a.intemp.innerHTML= +Json.it/10
+	a.rh.innerHTML= +Json.rh/10
+	a.target.innerHTML= +Json.tt/10
+	a.outtemp.innerHTML= +Json.ot/10
+	a.cyctimer.innerHTML=secsToTime(+Json.ct)
+	a.runtotal.value=secsToTime(+Json.rt)
+	a.filter.value=s2t(+Json.fm)
+	a.fan.innerHTML=fan?"Fan On":"Fan Off"
+	a.run.innerHTML=states[+Json.s]
+	a.hm.innerHTML=rh?"Humidifier On":"Humidifier Off"
+	setAtt()
+ }
+ else if(event == 'alert')
+ {
+	alert(data)
+ }
+}
+}
+
+function readSettings()
+{
+ ws.send('getSettings\nx')
 }
 
 function setVar(varName, value)
 {
-$.get('s?key='+a.myToken.value+'&'+varName+'='+value)
+ ws.send('cmd\n{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
 function setfan(n)
@@ -275,11 +282,10 @@ function t2s(v)
 <body onload="{
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null){
-	a.myToken.style.visibility = 'hidden'
-	a.hide.value='Show'
+	document.all.myToken.style.visibility = 'hidden'
+	document.all.hide.value='Show'
 	document.getElementById('myToken').value=myStorage1
  }
- readSettings()
   
  myStorage3 = localStorage.getItem('myStoredText3')
  if(myStorage3  != null){
