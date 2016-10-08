@@ -1,5 +1,3 @@
-// EEPROM wrapper with defaults
-
 #include "eeMem.h"
 #include <EEPROM.h>
 
@@ -31,7 +29,9 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "41042",      // zipCode
   "password",   // password for controlling thermostat
   false,        // bLock
-  false,
+  false,        // reserved
+  14543,        // price per KWH in cents / 100
+    700,         // nat gas cost per cubic foot in cents / 10
   {0}
 };
 
