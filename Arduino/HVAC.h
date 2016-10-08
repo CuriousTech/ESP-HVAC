@@ -23,7 +23,9 @@ enum Mode
   Mode_Off,
   Mode_Cool,
   Mode_Heat,
-  Mode_Auto
+  Mode_Auto,
+  Mode_Fan,
+  Mode_Humid,
 };
 
 enum FanMode
@@ -124,9 +126,9 @@ public:
   bool      m_bRemoteStream; // remote is streaming temp/rh
   bool      m_bRemoteDisconnect;
   bool      m_bLocalTempDisplay;
-  uint8_t   m_RemoteFlags;
+  uint8_t   m_RemoteFlags = RF_RL|RF_RH;
   int8_t    m_outMin, m_outMax;
-  uint16_t  m_fanPreElap;
+  uint16_t  m_fanPreElap = 60*10;
 
 private:
   void  fanSwitch(bool bOn);
@@ -134,6 +136,7 @@ private:
   void  tempCheck(void);
   bool  preCalcCycle(int8_t mode);
   void  calcTargetTemp(int8_t mode);
+  void  costAdd(int secs, int8_t mode, int8_t hm);
   int   CmdIdx(String s, const char **pCmds);
   void  sendCmd(const char *szName, int value);
 
@@ -155,12 +158,14 @@ private:
   uint16_t m_cycleTimer;    // time HVAC has been running
   uint16_t m_fanPostTimer;  // timer for delay
   uint16_t m_fanPreTimer;   // timer for fan pre-run
-  uint16_t m_idleTimer;     // time not running
+  uint16_t m_idleTimer = 3*60; // time not running
   int      m_overrideTimer; // countdown for override in seconds
   int8_t   m_ovrTemp;       // override delta of target
   uint16_t m_remoteTimeout; // timeout for remote sensor
   uint16_t m_remoteTimer;   // in seconds
   int8_t   m_furnaceFan;    // fake fan timer
+  uint16_t m_humidTimer;    // timer for humidifier cost
+  float    m_fCost;         // cost total
 };
 
 #endif
