@@ -15,39 +15,15 @@
 
 #define FF_DELAY 120            // internal furnace fan post-run delay
 
+const int compressorWatts = 6000;
+const int fanWatts = 350;
+const int furnaceWatts = 100;
+const int humidWatts = 150;
+const float furnaceCFH = 1.0; // nat gas cubic feet per hour
+
 HVAC::HVAC()
 {
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
-  m_outTemp = 0;
-  m_inTemp = 0;
-  m_rh = 0;
-  m_bFanRunning = false;
-  m_bHumidRunning = false;
-  m_FanMode = FM_Auto;    // Auto=0, On=1, S=2
-  m_AutoMode = 0;         // cool, heat
-  m_setMode = 0;          // new mode request
-  m_setHeat = 0;          // new heat mode request
-  m_AutoHeat = 0;         // auto heat mode choice
-  m_bRunning = false;     // is operating
-  m_bStart = false;       // signal to start
-  m_bStop = false;        // signal to stop
-  m_bRecheck = false;
-  m_bEnabled = false;
-  m_runTotal = 0;         // time HVAC has been running total since reset
-  m_fanOnTimer = 0;       // time fan is running
-  m_cycleTimer = 0;       // time HVAC has been running
-  m_fanPostTimer = 0;     // timer for delay
-  m_overrideTimer = 0;    // countdown for override in seconds
-  m_ovrTemp = 0;          // override delta of target
-  m_furnaceFan = 0;       // fake fan timer
-  m_notif = Note_None;    // Empty
-  m_idleTimer = 60*3;     // start with a high idle, in case of power outage
-  m_bRemoteStream = false;
-  m_bRemoteDisconnect = false;
-  m_bLocalTempDisplay = false;
-  m_RemoteFlags = RF_RL|RF_RH;
-  m_bAway = false;
-  m_fanPreElap = 60*10;
 
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
@@ -85,14 +61,23 @@ void HVAC::fanSwitch(bool bOn)
   }
   else
   {
+    costAdd(m_fanOnTimer, Mode_Fan, 0);
     humidSwitch(false);
   }
 }
 
 void HVAC::humidSwitch(bool bOn)
 {
+  if(m_bHumidRunning == bOn) return;
   digitalWrite(P_HUMID, bOn ? LOW:HIGH); // turn humidifier on
   m_bHumidRunning = bOn;
+  if(bOn)
+    m_humidTimer++;
+  else
+  {
+    costAdd(m_humidTimer, Mode_Humid, 0);
+    m_humidTimer = 0;
+  }
 }
 
 // Accumulate fan running times
@@ -132,6 +117,9 @@ void HVAC::service()
     if(m_furnaceFan)                // fake fan status for furnace fan
       m_furnaceFan--;
   }
+
+  if(m_bHumidRunning)
+    m_humidTimer++;
 
   if(m_fanPostTimer)                // Fan continuation delay
   {
@@ -179,7 +167,7 @@ void HVAC::service()
   }
 
   int8_t hm = (ee.heatMode == Heat_Auto) ? m_AutoHeat : ee.heatMode; // true heat mode
-  int8_t mode = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode;      // tue heat/cool mode
+  int8_t mode = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode;      // true heat/cool mode
 
   if(m_bStart && !m_bRunning)             // Start signal occurred
   {
@@ -225,6 +213,8 @@ void HVAC::service()
     digitalWrite(P_COOL, LOW);
     digitalWrite(P_HEAT, LOW);
 
+    costAdd(m_cycleTimer, mode, hm);
+
     if(ee.humidMode == HM_Run)      // shut off after heat/cool phase
       humidSwitch(false);
 
@@ -246,6 +236,34 @@ void HVAC::service()
   }
 
   tempCheck();
+}
+
+void HVAC::costAdd(int secs, int8_t mode, int8_t hm)
+{
+  switch(mode)
+  {
+    case Mode_Cool:
+      m_fCost += ee.ppkwh * secs * compressorWatts / (100000000*60*60);
+      break;
+    case Mode_Heat:
+      switch(hm)
+      {
+        case Heat_HP:
+          m_fCost += ee.ppkwh * secs * compressorWatts / (100000000*60*60);
+          break;
+        case Heat_NG:
+          m_fCost += ee.ccf * secs * furnaceCFH / (1000*60*60);
+          m_fCost += ee.ppkwh * secs * furnaceWatts / (100000000*60*60);
+          break;
+      }
+      break;
+    case Mode_Fan:
+      m_fCost += ee.ppkwh * secs * fanWatts / (100000000*60*60);
+      break;
+    case Mode_Humid:
+      m_fCost += ee.ppkwh * secs * humidWatts / (100000000*60*60);
+      break;
+  }
 }
 
 bool HVAC::stateChange()
@@ -784,6 +802,8 @@ String HVAC::settingsJson()
   s += ",\"ar\":";  s += m_RemoteFlags;
   s += ",\"at\":";  s += ee.awayTime;
   s += ",\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat];
+  s += ",\"ppk\":";  s += ee.ppkwh;
+  s += ",\"ccf\":";  s += ee.ccf;
   s += "}";
   return s;
 }
@@ -792,8 +812,9 @@ String HVAC::settingsJson()
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"r\":" ;  s += m_bRunning;
-  s += ",\"fr\":";  s += getFanRunning(),
+  s += "\"t\":";  s += now() - (ee.tz * 3600);
+  s += ",\"r\":" ;  s += m_bRunning;
+  s += ",\"fr\":";  s += getFanRunning();
   s += ",\"s\":" ;  s += getState();
   s += ",\"it\":";  s += m_inTemp;
   s += ",\"rh\":";  s += m_rh;
@@ -809,6 +830,7 @@ String HVAC::getPushData()
   s += ",\"rt\":";  s += m_runTotal;
   s += ",\"h\":";  s += m_bHumidRunning;
   s += ",\"aw\":";  s += m_bAway;
+  s += ",\"c\":\"";  s += m_fCost;  s += "\"";
   if(m_bRemoteDisconnect)
   {
     s += ",\"rmt\":0";
@@ -848,6 +870,9 @@ static const char *cSCmds[] =
   "awaytime",
   "awaydelta",
   "away",
+  "ppk",
+  "ccf",
+  "cost",
   NULL
 };
 
@@ -987,6 +1012,15 @@ void HVAC::setVar(String sCmd, int val)
         m_overrideTimer = 0;
         m_bAway = false;
       }
+      break;
+    case 27:
+      ee.ppkwh = val;
+      break;
+    case 28:
+      ee.ccf = val;
+      break;
+    case 29: // cost in cents/100
+      m_fCost = val / 10000;
       break;
   }
 }
