@@ -9,15 +9,9 @@ void handleServer(void);
 void secondsServer(void);
 String ipString(IPAddress ip);
 void parseParams(AsyncWebServerRequest *request);
-void handleRoot(AsyncWebServerRequest *request);
-void handleSettings(AsyncWebServerRequest *request);
 String sDec(int t); // just 123 to 12.3 string
 String timeFmt(void);
-void handleS(AsyncWebServerRequest *request);
-void handleJson(AsyncWebServerRequest *request);
-void handleRemote(AsyncWebServerRequest *request);
-void handleChart(AsyncWebServerRequest *request);
-void handleNotFound(AsyncWebServerRequest *request);
 String dataJson(void);
+void WsSend(const char *data, const char *event);
 
 #endif // WEBHANDLER_H
