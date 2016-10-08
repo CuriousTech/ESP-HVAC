@@ -12,47 +12,15 @@
 #include "HVAC.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
-#include <JsonClient.h>
+#include "WebHandler.h"
 #include "eeMem.h"
 
 extern const char *controlPassword;
 extern uint8_t serverPort;
-extern AsyncEventSource events;
 
 HVAC::HVAC()
 {
   memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
-  m_outTemp = 0;
-  m_inTemp = 0;
-  m_rh = 0;
-  m_bFanRunning = false;
-  m_bHumidRunning = false;
-  m_FanMode = FM_Auto;    // Auto, On, Cycle
-  m_AutoMode = 0;         // cool, heat
-  m_setMode = 0;          // new mode request
-  m_setHeat = 0;          // new heat mode request
-  m_AutoHeat = 0;         // auto heat mode choice
-  m_bRunning = false;     // is operating
-  m_bStart = false;       // signal to start
-  m_bStop = false;        // signal to stop
-  m_bRecheck = false;
-  m_bEnabled = false;
-  m_runTotal = 0;         // time HVAC has been running total since reset
-  m_fanOnTimer = 0;       // time fan is running
-  m_cycleTimer = 0;       // time HVAC has been running
-  m_fanPostTimer = 0;     // timer for delay
-  m_overrideTimer = 0;    // countdown for override in seconds
-  m_ovrTemp = 0;          // override delta of target
-  m_furnaceFan = 0;       // fake fan timer
-  m_notif = Note_None;    // Empty
-  m_idleTimer = 60*3;     // start with a high idle, in case of power outage
-  m_bRemoteStream = false;
-  m_bRemoteDisconnect = false;
-  m_bLocalTempDisplay = true; // default to local/remote temp
-  m_RemoteFlags = 0;
-  m_localTemp = 0;
-  m_bAway = false;
-  m_fanPreElap = 60*10;
 }
 
 void HVAC::init()
@@ -88,21 +56,25 @@ void HVAC::service()
   }
 }
 
+// send a command as JSON: cmd {key:password, command:value}
 void HVAC::sendCmd(const char *szName, int value)
 {
-  String s = "{\"";
+  String s = "cmd\n{\"key\":\"";
+  s += ee.password;
+  s += "\",\"";
   s += szName;
   s += "\":";
   s += value;
   s += "}";
 
-  events.send(s.c_str(), "cmd");  // Todo: WebSocket
+  WsSend(s);
 }
 
 void HVAC::enableRemote()
 {
-  m_bRemoteStream = !m_bRemoteStream; // Todo: WebSocket
-  events.send(getPushData().c_str(), "state"); // send rmt state + update temp/rh
+  m_bRemoteStream = !m_bRemoteStream;
+  String s = "state\n" + getPushData();
+  WsSend(s); // send rmt state + update temp/rh
 }
 
 bool HVAC::stateChange()
@@ -493,7 +465,8 @@ String HVAC::settingsJson()
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"tempi\":"; s += m_localTemp;
+  s += "\"t\":";  s += now() - (ee.tz * 3600);
+  s += ",\"tempi\":"; s += m_localTemp;
   s += ",\"rhi\":"; s += m_localRh;
   s += ",\"rmt\":"; s += m_bRemoteStream;
   s += "}";
