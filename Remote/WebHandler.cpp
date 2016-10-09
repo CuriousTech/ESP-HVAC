@@ -232,15 +232,15 @@ void secondsServer() // called once per second
   if(hvac.tempChange())
   {
     events.send(dataJson().c_str(), "state");
-    String s = "state\n" + dataJson();
+    String s = "state;" + dataJson();
     ws.sendTXT(s);
   }
 
-  static uint8_t cnt = 5;
+  static uint8_t cnt = 60; // first one is instant
   if(--cnt == 0)
   {
     cnt = 60; // refresh settings every 60 seconds
-    WsSend("getSettings\nx");
+    WsSend("getSettings;0");
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
@@ -344,8 +344,8 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
       break;
     case WStype_TEXT:
         {
-          char *pCmd = strtok((char *)payload, "\n");
-          char *pData = strtok(NULL, "\n");
+          char *pCmd = strtok((char *)payload, ";");
+          char *pData = strtok(NULL, "");
           remoteStream.process(pCmd, pData);
         }
       break;
