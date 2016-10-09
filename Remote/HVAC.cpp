@@ -59,7 +59,7 @@ void HVAC::service()
 // send a command as JSON: cmd {key:password, command:value}
 void HVAC::sendCmd(const char *szName, int value)
 {
-  String s = "cmd\n{\"key\":\"";
+  String s = "cmd;{\"key\":\"";
   s += ee.password;
   s += "\",\"";
   s += szName;
@@ -73,8 +73,7 @@ void HVAC::sendCmd(const char *szName, int value)
 void HVAC::enableRemote()
 {
   m_bRemoteStream = !m_bRemoteStream;
-  String s = "state\n" + getPushData();
-  WsSend(s); // send rmt state + update temp/rh
+  sendCmd("rmt", m_bRemoteStream);
 }
 
 bool HVAC::stateChange()
