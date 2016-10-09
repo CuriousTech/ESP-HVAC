@@ -37,6 +37,8 @@ int chartFiller(uint8_t *buffer, int maxLen, int index);
 int nWrongPass;
 uint32_t lastIP;
 bool bKeyGood;
+int WsClientID;
+int WsRemoteID;
 
 void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
   //Handle body
@@ -67,19 +69,31 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 {  //Handle WebSocket event
   if(type == WS_EVT_CONNECT){
     //client connected
-    events.send("ws connect", "print");
-    client->printf("settings\n%s", hvac.settingsJson().c_str());
-    client->printf("state\n%s", dataJson().c_str());
+//    events.send("ws connect", "print");
+    client->printf("settings;%s", hvac.settingsJson().c_str()); // update everything on start
+    client->printf("state;%s", dataJson().c_str());
     client->ping();
   } else if(type == WS_EVT_DISCONNECT){
+    if(hvac.m_bRemoteStream && client->id() == WsRemoteID) // stop remote
+    {
+       hvac.m_bRemoteStream = false;
+       hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
+       hvac.m_notif = Note_RemoteOff;
+    }
     //client disconnected
-    events.send("ws disconnect\n", "print");
+//    events.send("ws disconnect", "print");
   } else if(type == WS_EVT_ERROR){
+    if(hvac.m_bRemoteStream && client->id() == WsRemoteID)
+    {
+       hvac.m_bRemoteStream = false;
+       hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
+       hvac.m_notif = Note_RemoteOff;
+    }
     //error was received from the other end
-    events.send("ws error\n", "print");// *((uint16_t*)arg), (char*)data);
+//    events.send("ws error\n", "print");// *((uint16_t*)arg), (char*)data);
   } else if(type == WS_EVT_PONG){
     //pong message was received (in response to a ping request maybe)
-    events.send("ws pong", "print");// len, (len)?(char*)data:"");
+//    events.send("ws pong", "print");// len, (len)?(char*)data:"");
   } else if(type == WS_EVT_DATA){
     //data packet
     AwsFrameInfo * info = (AwsFrameInfo*)arg;
@@ -88,16 +102,17 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       if(info->opcode == WS_TEXT){
         data[len] = 0;
 
-        char *pCmd = strtok((char *)data, "\n"); // assume format is "name\n{json}"
-        char *pData = strtok(NULL, "\n");
+        char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
+        char *pData = strtok(NULL, "");
 
         if(!strcmp(pCmd, "getSettings" ) )
         {
-            client->printf("settings\n%s", hvac.settingsJson().c_str());
+            client->printf("settings;%s", hvac.settingsJson().c_str());
         }
         else
         {
           bKeyGood = false; // for callback (all commands need a key)
+          WsClientID = client->id();
           remoteStream.process(pCmd, pData);
  //       Serial.printf("%s\n", (char*)data);
         }
@@ -341,7 +356,7 @@ void secondsServer() // called once per second
   {
     events.send(dataJson().c_str(), "state" );
     // push to all WebSockets
-    ws.printfAll("state\n%s", dataJson().c_str());
+    ws.printfAll("state;%s", dataJson().c_str());
     n = 10;
   }
   else if(--n == 0)
@@ -441,6 +456,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         case 4: // rmt
           if(hvac.m_bRemoteStream != (iValue ? true:false) )
           {
+            WsRemoteID = WsClientID;
             hvac.m_bRemoteStream = (iValue ? true:false);
             hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
 
