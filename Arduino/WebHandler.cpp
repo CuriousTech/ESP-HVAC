@@ -221,7 +221,11 @@ void startServer()
     request->send_P ( 200, "text/html", page2 );
   });
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->sendChunked("text/html", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+    parseParams(request);
+    request->send_P ( 200, "text/html", chart );
+  });
+  server.on ( "/data.json", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->sendChunked("text/javascript", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
     return chartFiller(buffer, maxLen, index);});
   });
 
@@ -248,7 +252,7 @@ void startServer()
 #endif
 }
 
-// Send chart page in chunks.  First part is page HTML data.  Second is the data array.
+// Send the JSON formated chart data and any modified variables
 int chartFiller(uint8_t *buffer, int maxLen, int index)
 {
   int len = 0;
@@ -264,17 +268,6 @@ int chartFiller(uint8_t *buffer, int maxLen, int index)
   if(maxLen <= 0) // This is -7 on 2nd chunk often
   {
     return 0;
-  }
-
-  if(index < strlen_P(chart)) // Inside page data 
-  {
-    len = min(strlen_P(chart + index), maxLen);
-    memcpy_P(buffer, chart + index, len);
-  }
-
-  if(len >= maxLen) // full
-  {
-    return len;
   }
 
   gPoint gpt;
@@ -300,7 +293,7 @@ int chartFiller(uint8_t *buffer, int maxLen, int index)
     if(tb == 0) // first entry found
     {
       tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
-      out += "<script>\ntb=";      // first data opening statements
+      out += "tb=";      // first data opening statements
       out += tb;
       out += "\ndata = { values:[\n";
     }
@@ -329,7 +322,7 @@ int chartFiller(uint8_t *buffer, int maxLen, int index)
     entryIdx++;
   }
 
-  String out = "]};</script></html>";  // final closing statements
+  String out = "]}\n";  // final closing statements
 
   out.toCharArray((char *)buffer+len, maxLen-len); // could get cut short
   len += out.length();
