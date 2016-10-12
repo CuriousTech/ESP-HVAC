@@ -1,80 +1,33 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 <title>HVAC Chart</title>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="data.json"></script>
 <script>
-
 var graph;
-xPadding = 30
-yPadding = 100
+xPadding=30
+yPadding=100
 var yRange
-tb=1474138053
-data = { values:[
-{t:93600,temp:"87.3",rh:"50.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:93300,temp:"85.4",rh:"52.2",h:"88.4",l:"86.0",s:0,f:0},
-{t:93180,temp:"85.8",rh:"51.8",h:"88.4",l:"86.0",s:0,f:1},
-{t:93179,temp:"85.8",rh:"51.8",h:"88.4",l:"86.0",s:1,f:1},
-{t:92879,temp:"86.6",rh:"51.8",h:"88.4",l:"86.0",s:1,f:1},
-{t:92728,temp:"88.4",rh:"49.0",h:"88.4",l:"86.0",s:0,f:1},
-{t:92641,temp:"88.3",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:92341,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:92041,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:91741,temp:"88.1",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:91441,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:91141,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:90841,temp:"88.3",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:90541,temp:"88.2",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:90241,temp:"88.1",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:89941,temp:"88.0",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:89641,temp:"88.0",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:89341,temp:"87.8",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:89041,temp:"87.8",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:88741,temp:"87.6",rh:"49.0",h:"88.4",l:"86.0",s:0,f:0},
-{t:88441,temp:"87.1",rh:"49.5",h:"88.4",l:"86.0",s:0,f:0},
-{t:88141,temp:"85.1",rh:"51.8",h:"88.4",l:"86.0",s:0,f:0},
-{t:88021,temp:"85.1",rh:"51.3",h:"88.4",l:"86.0",s:0,f:1},
-{t:87839,temp:"85.2",rh:"51.8",h:"87.4",l:"85.0",s:1,f:1},
-{t:87539,temp:"85.6",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
-{t:87239,temp:"86.1",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
-{t:87088,temp:"87.4",rh:"49.5",h:"87.4",l:"85.0",s:0,f:1},
-{t:86999,temp:"87.3",rh:"50.0",h:"87.4",l:"85.0",s:0,f:0},
-{t:86699,temp:"85.3",rh:"51.3",h:"87.4",l:"85.0",s:0,f:0},
-{t:86579,temp:"85.3",rh:"51.3",h:"87.4",l:"85.0",s:0,f:1},
-{t:86279,temp:"85.4",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
-{t:85979,temp:"85.6",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
-{t:85679,temp:"85.9",rh:"51.8",h:"87.4",l:"85.0",s:1,f:1},
-{t:85379,temp:"86.4",rh:"51.3",h:"87.4",l:"85.0",s:1,f:1},
-{t:85228,temp:"87.5",rh:"49.5",h:"87.4",l:"85.0",s:0,f:1},
-{t:84934,temp:"85.8",rh:"51.3",h:"87.4",l:"85.0",s:0,f:0},
-{t:84814,temp:"85.7",rh:"51.3",h:"87.4",l:"85.0",s:0,f:1},
-{t:84514,temp:"85.9",rh:"52.2",h:"84.4",l:"82.0",s:1,f:1},
-{t:84214,temp:"86.1",rh:"52.7",h:"84.4",l:"82.0",s:1,f:1},
-{t:83914,temp:"86.3",rh:"53.1",h:"84.4",l:"82.0",s:1,f:1},
-{t:83614,temp:"86.5",rh:"53.6",h:"84.4",l:"82.0",s:1,f:1},
-{t:83463,temp:"86.6",rh:"53.6",h:"84.4",l:"82.0",s:0,f:1},
-]};
-
-$(document).ready(function() {
+$(document).ready(function(){
   graph = $('#graph')
-  c = graph[0].getContext('2d')
+  c=graph[0].getContext('2d')
 
-  tipCanvas = document.getElementById("tip")
-  tipCtx = tipCanvas.getContext("2d")
-  tipDiv = document.getElementById("popup")
+  tipCanvas=document.getElementById("tip")
+  tipCtx=tipCanvas.getContext("2d")
+  tipDiv=document.getElementById("popup")
 
-  canvasOffset = graph.offset()
-  offsetX = canvasOffset.left
-  offsetY = canvasOffset.top
+  canvasOffset=graph.offset()
+  offsetX=canvasOffset.left
+  offsetY=canvasOffset.top
 
-  c.lineWidth = 2
-  c.font = 'italic 8pt sans-serif'
-  c.textAlign = "left"
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
 
   c.beginPath() // borders
-  c.moveTo(xPadding, 0)
-  c.lineTo(xPadding, graph.height()-yPadding)
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,graph.height()-yPadding)
   c.lineTo(graph.width()-xPadding, graph.height()-yPadding)
   c.lineTo(graph.width()-xPadding, 0)
   c.stroke()
@@ -83,7 +36,7 @@ $(document).ready(function() {
   // dates
   step = Math.floor(data.values.length / 15)
   if(step == 0) step = 1
-  for(var i=0; i<data.values.length; i+=step) {
+  for(var i=0; i<data.values.length; i+=step){
     if( data.values[i].temp != 'nan')
     {
       c.save()
@@ -101,7 +54,7 @@ $(document).ready(function() {
   c.textBaseline = "middle"
 
   for(var i = getMinY(); i < getMaxY(); i += (yRange / 8) ) {
-    c.fillText(i.toFixed(1), xPadding - 6, getYPixel(i))
+    c.fillText((i/10).toFixed(1), xPadding - 6, getYPixel(i))
   }
 
   c.fillText('Temp', xPadding-4, 4 )
@@ -162,8 +115,8 @@ $(document).ready(function() {
             r: 4,
             rXr: 16,
             color: "red",
-            tip: data.values[i].temp,
-            tip2: data.values[i].rh,
+            tip: data.values[i].temp/10,
+            tip2: data.values[i].rh/10,
             tip3: date.toLocaleTimeString()
         })
     }
@@ -200,7 +153,7 @@ $(document).ready(function() {
       tipCtx.lineTo(0,0)
       tipCtx.stroke()
 
-      tipCtx.fillText( dot.tip + '°F', 4, 15)
+      tipCtx.fillText( dot.tip + 'F', 4, 15)
       tipCtx.fillText( dot.tip2 + '%', 4, 29)
       tipCtx.fillText( dot.tip3, 4, 44)
       hit = true
@@ -227,7 +180,7 @@ function getMaxY() {
 }
 
 function getMinY() {
-  var min = 200
+  var min = 1500
 
   for(i = 0; i < data.values.length; i ++)
   {
@@ -248,7 +201,7 @@ function getYPixel(val) {
 }
 
 function getRHPixel(val) {
-  return graph.height() - (((graph.height() - yPadding) / 100) * val) - yPadding
+  return graph.height() - (((graph.height() - yPadding) / 1000) * val) - yPadding
 }
 
 function stateColor(s,f)
