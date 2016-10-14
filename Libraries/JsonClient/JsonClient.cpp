@@ -1,5 +1,5 @@
 /*
-  JsonClient.h - Arduino library for reading JSON data streamed or single request.
+  JsonClient.cpp - Arduino library for reading JSON data streamed or single request.
   Copyright 2014 Greg Cunningham, CuriousTech.net
 
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
@@ -72,19 +72,18 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
 void JsonClient::process(char *event, char *data)
 {
   m_event = 0;
-  m_bufcnt = 0;
 
-  char temp[256];
+  strcpy(m_buffer, "event:");
+  strcat(m_buffer, event);
+  strcat(m_buffer, "\r\n");
+  m_bufcnt = strlen(m_buffer);
+  processLine();
 
-  strcpy(temp, "event:");
-  strcat(temp, event);
-  strcat(temp, "\r\n");
-  _onData(NULL, temp, strlen(temp) );
-
-  strcpy(temp, "data:");
-  strcat(temp, data);
-  strcat(temp, "\r\n");
-  _onData(NULL, temp, strlen(temp) );
+  strcpy(m_buffer, "data:");
+  strcat(m_buffer, data);
+  strcat(m_buffer, "\r\n");
+  m_bufcnt = strlen(m_buffer);
+  processLine();
 }
 
 // Call this from loop() ->remove
@@ -207,7 +206,7 @@ void JsonClient::_onConnect(AsyncClient* client)
   if(m_szData[0])
   {
     m_ac.add(m_szData, strlen(m_szData));
-	m_ac.add("\n", 1);
+    m_ac.add("\n", 1);
   }
 
   m_Status = JC_CONNECTED;
@@ -274,18 +273,19 @@ void JsonClient::processLine()
     pPair[1] = p;
     if(bInQ)
     {
-	   while(*p && *p!= '"') p++;
+       while(*p && *p!= '"') p++;
        if(*p == '"') *p++ = 0;
     }else
     {
-      while(*p && *p != ',') p++;
+      while(*p && *p != ',' && *p != '}') p++;
+	if(*p == '}') m_brace--;
       *p++ = 0;
     }
     p = skipwhite(p);
-    if(*p == '}'){p++; m_brace--;}
+    if(*p == '}'){*p++ = 0; m_brace--;}
 
-	if(pPair[0][0])
-	{
+    if(pPair[0][0])
+    {
       if(!strcmp(pPair[0], "event") && m_jsonList[0][0]) // need event names
       {
         for(int i = 0; i < m_jsonCnt; i++)
@@ -296,7 +296,9 @@ void JsonClient::processLine()
       {
         if(!strcmp(pPair[0], m_jsonList[m_event][i]))
         {
-            m_callback(m_event, i-1, atoi(pPair[1]), pPair[1]);
+            int n = atoi(pPair[1]);
+            if(!strcmp(pPair[1], "true")) n = 1; // bool case
+            m_callback(m_event, i-1, n, pPair[1]);
             break;
         }
       }
