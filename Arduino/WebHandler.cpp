@@ -33,6 +33,7 @@ extern Display display;
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
 int chartFiller(uint8_t *buffer, int maxLen, int index);
+void dataPage(AsyncWebServerRequest *request);
 
 int nWrongPass;
 uint32_t lastIP;
@@ -67,94 +68,40 @@ void onEvents(AsyncEventSourceClient *client)
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
-  if(type == WS_EVT_CONNECT){
-    //client connected
-//    events.send("ws connect", "print");
-    client->printf("settings;%s", hvac.settingsJson().c_str()); // update everything on start
-    client->printf("state;%s", dataJson().c_str());
-    client->ping();
-  } else if(type == WS_EVT_DISCONNECT){
-    if(hvac.m_bRemoteStream && client->id() == WsRemoteID) // stop remote
-    {
-       hvac.m_bRemoteStream = false;
-       hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
-       hvac.m_notif = Note_RemoteOff;
-    }
-    //client disconnected
-//    events.send("ws disconnect", "print");
-  } else if(type == WS_EVT_ERROR){
-    if(hvac.m_bRemoteStream && client->id() == WsRemoteID)
-    {
-       hvac.m_bRemoteStream = false;
-       hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
-       hvac.m_notif = Note_RemoteOff;
-    }
-    //error was received from the other end
-//    events.send("ws error\n", "print");// *((uint16_t*)arg), (char*)data);
-  } else if(type == WS_EVT_PONG){
-    //pong message was received (in response to a ping request maybe)
-//    events.send("ws pong", "print");// len, (len)?(char*)data:"");
-  } else if(type == WS_EVT_DATA){
-    //data packet
-    AwsFrameInfo * info = (AwsFrameInfo*)arg;
-    if(info->final && info->index == 0 && info->len == len){
-      //the whole message is in a single frame and we got all of it's data
-      if(info->opcode == WS_TEXT){
-        data[len] = 0;
+  switch(type)
+  {
+    case WS_EVT_CONNECT:      //client connected
+      client->printf("settings;%s", hvac.settingsJson().c_str()); // update everything on start
+      client->printf("state;%s", dataJson().c_str());
+      client->ping();
+      break;
+    case WS_EVT_DISCONNECT:    //client disconnected
+    case WS_EVT_ERROR:    //error was received from the other end
+      if(hvac.m_bRemoteStream && client->id() == WsRemoteID) // stop remote
+      {
+         hvac.m_bRemoteStream = false;
+         hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
+         hvac.m_notif = Note_RemoteOff;
+      }
+      break;
+    case WS_EVT_PONG:    //pong message was received (in response to a ping request maybe)
+      break;
+    case WS_EVT_DATA:  //data packet
+      AwsFrameInfo * info = (AwsFrameInfo*)arg;
+      if(info->final && info->index == 0 && info->len == len){
+        //the whole message is in a single frame and we got all of it's data
+        if(info->opcode == WS_TEXT){
+          data[len] = 0;
 
-        char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
-        char *pData = strtok(NULL, "");
-
-        if(!strcmp(pCmd, "getSettings" ) )
-        {
-            client->printf("settings;%s", hvac.settingsJson().c_str());
-        }
-        else
-        {
+          char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
+          char *pData = strtok(NULL, "");
+          if(pCmd == NULL || pData == NULL) break;
           bKeyGood = false; // for callback (all commands need a key)
           WsClientID = client->id();
           remoteStream.process(pCmd, pData);
- //       Serial.printf("%s\n", (char*)data);
         }
-      } else { // binary
-          events.send("ws binary", "print");// (info->opcode == WS_TEXT)?"text":"binary", info->len);
-//        for(size_t i=0; i < info->len; i++){
-//          Serial.printf("%02x ", data[i]);
-//        }
-//        Serial.printf("\n");
-//        client->binary("I got your binary message");
       }
-    } else {
-      events.send("ws chunked", "print");
-      //message is comprised of multiple frames or the frame is split into multiple packets
-/*      if(info->index == 0){
-        if(info->num == 0)
-          Serial.printf("ws[%s][%u] %s-message start\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-        Serial.printf("ws[%s][%u] frame[%u] start[%llu]\n", server->url(), client->id(), info->num, info->len);
-      }
-
-      os_printf("ws[%s][%u] frame[%u] %s[%llu - %llu]: ", server->url(), client->id(), info->num, (info->message_opcode == WS_TEXT)?"text":"binary", info->index, info->index + len);
-      if(info->message_opcode == WS_TEXT){
-        data[len] = 0;
-        Serial.printf("%s\n", (char*)data);
-      } else {
-        for(size_t i=0; i < len; i++){
-          Serial.printf("%02x ", data[i]);
-        }
-        Serial.printf("\n");
-      }
-
-      if((info->index + len) == info->len){
-        Serial.printf("ws[%s][%u] frame[%u] end[%llu]\n", server->url(), client->id(), info->num, info->len);
-        if(info->final){
-          Serial.printf("ws[%s][%u] %s-message end\n", server->url(), client->id(), (info->message_opcode == WS_TEXT)?"text":"binary");
-          if(info->message_opcode == WS_TEXT)
-            client->text("I got your text message");
-          else
-            client->binary("I got your binary message");
-        }
-      }*/
-    }
+      break;
   }
 }
 
@@ -224,10 +171,7 @@ void startServer()
     parseParams(request);
     request->send_P ( 200, "text/html", chart );
   });
-  server.on ( "/data.json", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->sendChunked("text/javascript", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
-    return chartFiller(buffer, maxLen, index);});
-  });
+  server.on ( "/data", HTTP_GET, dataPage);
 
   server.onNotFound(onRequest);
   server.onFileUpload(onUpload);
@@ -252,37 +196,16 @@ void startServer()
 #endif
 }
 
-// Send the JSON formated chart data and any modified variables
-int chartFiller(uint8_t *buffer, int maxLen, int index)
+// Send the array formated chart data and any modified variables
+void dataPage(AsyncWebServerRequest *request)
 {
-  int len = 0;
-  static int entryIdx; // data array index, reset by start of response
-  static int32_t tb; // time subtracted from entries (saves 5 bytes each)
+  int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
 
-  if(index == 0) // first call.  reset vars
+  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
+
+  for(int entryIdx = 0; entryIdx < GPTS; entryIdx++)
   {
-    entryIdx = 0;
-    tb = 0;
-  }
-
-  if(maxLen <= 0) // This is -7 on 2nd chunk often
-  {
-    return 0;
-  }
-
-  gPoint gpt;
-
-  if(display.getGrapthPoints(&gpt, entryIdx) == false) // end
-  {
-    if(entryIdx == 0) // No data to fill
-    { // Todo: complete it with a valid page end
-//      Serial.println("NO DATA");
-    }
-    return len;
-  }
-
-  while(entryIdx < GPTS)
-  {
+    gPoint gpt;
     if( display.getGrapthPoints(&gpt, entryIdx) == false)
       break;
    
@@ -295,38 +218,29 @@ int chartFiller(uint8_t *buffer, int maxLen, int index)
       tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
       out += "tb=";      // first data opening statements
       out += tb;
-      out += "\ndata = { values:[\n";
+      out += "\ndata=[\n";
     }
-    out += "{t:";
-    out += gpt.time - tb;
-    out += ",temp:";
+    out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
+    out += (gpt.time - tb)/10;
+    out += ",";
     out += gpt.temp * 110 / 101 + 660;
-    out += ",rh:";
+    out += ",";
     out += gpt.rh * 250 / 55;
-    out += ",h:";
+    out += ",";
     out += gpt.h * 110 / 101 + 660;
-    out += ",l:";
+    out += ",";
     out += gpt.l * 110 / 101 + 660;
-    out += ",s:";
-    out += gpt.state;
-    out += ",f:";
-    out += gpt.fan;
-    out += "},\n";
-
-    if(len + out.length() >= maxLen)  // out of space
-    {
-      return len;
-    }
-    out.toCharArray((char *)buffer+len, maxLen-len);
-    len += out.length();
-    entryIdx++;
+    out += ",";
+    out += (gpt.state << 1) | gpt.fan;
+    out += "],";
+    response->print(out);
   }
 
-  String out = "]}\n";  // final closing statements
-
-  out.toCharArray((char *)buffer+len, maxLen-len); // could get cut short
-  len += out.length();
-  return len;
+  response->print("]\n");
+  response->print("cost=");
+  response->print(String(hvac.m_fCost, 2));
+  response->print("\n");
+  request->send ( response );
 }
 
 void handleServer()
@@ -357,6 +271,10 @@ void secondsServer() // called once per second
     events.send("", "" ); // keepalive
     n = 10;
   }
+
+  String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
+  if(s.length() > 2)
+    ws.printfAll("settings;%s", s.c_str()); // update anything changed
 }
 
 void parseParams(AsyncWebServerRequest *request)
