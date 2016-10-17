@@ -3,7 +3,7 @@
 <head>
 <title>HVAC Chart</title>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
-<script type="text/javascript" src="data.json"></script>
+<script type="text/javascript" src="data"></script>
 <script>
 var graph;
 xPadding=30
@@ -34,15 +34,15 @@ $(document).ready(function(){
 
   c.lineWidth = 1
   // dates
-  step = Math.floor(data.values.length / 15)
+  step = Math.floor(data.length / 15)
   if(step == 0) step = 1
-  for(var i=0; i<data.values.length; i+=step){
-    if( data.values[i].temp != 'nan')
+  for(var i=0; i<data.length-1; i+=step){
+    if( data[i][1] != 'nan')
     {
       c.save()
       c.translate(getXPixel(i), graph.height() - yPadding + 5)
       c.rotate(0.9)
-      date = new Date((data.values[i].t+tb)*1000)
+      date = new Date((data[i][0]*10+tb)*1000)
       c.fillText(date.toLocaleTimeString(),0,0)
       c.restore()
     }
@@ -70,27 +70,27 @@ $(document).ready(function(){
   //threshold
   c.fillStyle = 'rgba(200, 200, 200, 0.25)'
   c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(data.values[0].h))
+  c.moveTo(getXPixel(0), getYPixel(data[0][3]))
 
-  for(i = 1; i < data.values.length-1; i ++){
-    if( data.values[i].h != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data.values[i].h))
+  for(i = 1; i < data.length-1; i ++){
+    if( data[i][3] != 'nan')
+      c.lineTo(getXPixel(i), getYPixel(data[i][3]))
   }
-  for(i = data.values.length - 2; i >= 0; i--){
-    if( data.values[i].l != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data.values[i].l))
+  for(i = data.length - 2; i >= 0; i--){
+    if( data[i][4] != 'nan')
+      c.lineTo(getXPixel(i), getYPixel(data[i][4]))
   }
   c.closePath()
   c.fill()
 
   // temp lines
-  for(i = 0; i < data.values.length-1; i ++) {
-    if( data.values[i].temp != 'nan')
+  for(i = 0; i < data.length-1; i ++) {
+    if( data[i][1] != 'nan')
     {
-      c.strokeStyle = stateColor(data.values[i].s,data.values[i].f)
+      c.strokeStyle = stateColor(data[i][5])
       c.beginPath()
-      c.moveTo(getXPixel(i), getYPixel(data.values[i].temp))
-      c.lineTo(getXPixel(i+1), getYPixel(data.values[i+1].temp))
+      c.moveTo(getXPixel(i), getYPixel(data[i][1]))
+      c.lineTo(getXPixel(i+1), getYPixel(data[i+1][1]))
       c.stroke()
     }
   }
@@ -98,25 +98,28 @@ $(document).ready(function(){
   // rh lines
   c.strokeStyle = '#0f0'
   c.beginPath()
-  c.moveTo(getXPixel(0), getRHPixel(data.values[0].rh))
+  c.moveTo(getXPixel(0), getRHPixel(data[0][2]))
 
-  for(var i = 1; i < data.values.length; i ++) {
-    if( data.values[i].rh != 'nan')
-      c.lineTo(getXPixel(i), getRHPixel(data.values[i].rh))
+  for(var i = 1; i < data.length-1; i ++) {
+    if( data[i][2] != 'nan')
+      c.lineTo(getXPixel(i), getRHPixel(data[i][2]))
   }
   c.stroke()
- 
+
+  noteDiv=document.getElementById("note")
+  noteDiv.innerHTML='Cost: $'+cost
+
   var dots = []
-    for(i = 0; i < data.values.length; i ++) {
-        date = new Date((data.values[i].t+tb)*1000)
+    for(i = 0; i < data.length; i ++) {
+        date = new Date((data[i][0]*10+tb)*1000)
         dots.push({
             x: getXPixel(i),
-            y: getYPixel(data.values[i].temp),
+            y: getYPixel(data[i][1]),
             r: 4,
             rXr: 16,
             color: "red",
-            tip: data.values[i].temp/10,
-            tip2: data.values[i].rh/10,
+            tip: data[i][1]/10,
+            tip2: data[i][2]/10,
             tip3: date.toLocaleTimeString()
         })
     }
@@ -153,7 +156,7 @@ $(document).ready(function(){
       tipCtx.lineTo(0,0)
       tipCtx.stroke()
 
-      tipCtx.fillText( dot.tip + 'F', 4, 15)
+      tipCtx.fillText( dot.tip + '°F', 4, 15)
       tipCtx.fillText( dot.tip2 + '%', 4, 29)
       tipCtx.fillText( dot.tip3, 4, 44)
       hit = true
@@ -169,12 +172,12 @@ $(document).ready(function(){
 function getMaxY() {
   var max = 0
 
-  for(i = 0; i < data.values.length; i ++)
+  for(i = 0; i < data.length-1; i ++)
   {
-    if(data.values[i].temp != 'nan' && data.values[i].temp > max)
-      max = data.values[i].temp
-    if(data.values[i].h != 'nan' && data.values[i].h > max)
-      max = data.values[i].h
+    if(data[i][1] != 'nan' && data[i][1] > max)
+      max = data[i][1]
+    if(data[i][3] != 'nan' && data[i][3] > max)
+      max = data[i][3]
   }
   return Math.floor(max) + 1
 }
@@ -182,18 +185,18 @@ function getMaxY() {
 function getMinY() {
   var min = 1500
 
-  for(i = 0; i < data.values.length; i ++)
+  for(i = 0; i < data.length; i ++)
   {
-    if(data.values[i].temp != 'nan' && data.values[i].temp < min)
-      min = data.values[i].temp
-    if(data.values[i].l != 'nan' && data.values[i].l < min)
-      min = data.values[i].l
+    if(data[i][1] != 'nan' && data[i][1] < min)
+      min = data[i][1]
+    if(data[i][4] != 'nan' && data[i][4] < min)
+      min = data[i][4]
   }
   return Math.floor(min)
 }
  
 function getXPixel(val) {
-  return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.values.length) * val
+  return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.length) * val
 }
 
 function getYPixel(val) {
@@ -204,11 +207,11 @@ function getRHPixel(val) {
   return graph.height() - (((graph.height() - yPadding) / 1000) * val) - yPadding
 }
 
-function stateColor(s,f)
+function stateColor(s)
 {
   sts=Array('gray','blue','red','red')
-  if(s==0) return f?'cyan':'gray'
-  return sts[s]
+  if((s&6)==0) return (s&1)?'cyan':'gray'
+  return sts[s>>1]
 }
 
 </script>
@@ -240,5 +243,6 @@ function stateColor(s,f)
 <canvas id="graph" width="800" height="400"></canvas>
 <div id="popup" width="60" height="50"><canvas id="tip" width="60" height="50"></canvas></div>
 </div>
+<div id='note'></div>
 </body>
 </html>
