@@ -1,5 +1,5 @@
 /*
-  JsonClient.cpp - Arduino library for reading JSON data streamed or single request.
+  JsonClient.h - Arduino library for reading JSON data streamed or single request.
   Copyright 2014 Greg Cunningham, CuriousTech.net
 
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
@@ -206,7 +206,7 @@ void JsonClient::_onConnect(AsyncClient* client)
   if(m_szData[0])
   {
     m_ac.add(m_szData, strlen(m_szData));
-    m_ac.add("\n", 1);
+      m_ac.add("\n", 1);
   }
 
   m_Status = JC_CONNECTED;
@@ -277,8 +277,8 @@ void JsonClient::processLine()
        if(*p == '"') *p++ = 0;
     }else
     {
-      while(*p && *p != ',' && *p != '}') p++;
-	if(*p == '}') m_brace--;
+      while(*p && *p != ',' && *p != '}' && *p != '\r' && *p != '\n') p++;
+      if(*p == '}') m_brace--;
       *p++ = 0;
     }
     p = skipwhite(p);
