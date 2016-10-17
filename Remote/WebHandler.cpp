@@ -29,6 +29,7 @@ WiFiManager wifi;
 WebSocketsClient ws;
 
 void startListener(void);
+void dataPage(AsyncWebServerRequest *request);
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient remoteStream(remoteCallback);
@@ -112,9 +113,10 @@ void startServer()
   });
 
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->sendChunked("text/html", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
-    return chartFiller(buffer, maxLen, index);});
+    parseParams(request);
+    request->send_P ( 200, "text/html", chart );
   });
+  server.on ( "/data", HTTP_GET, dataPage);
 
   server.onNotFound(onRequest);
   server.onFileUpload(onUpload);
@@ -125,52 +127,16 @@ void startServer()
   MDNS.addService("http", "tcp", serverPort);
 }
 
-// Send chart page in chunks.  First part is page HTML data.  Second is the data array.
-int chartFiller(uint8_t *buffer, int maxLen, int index)
+// Send the array formated chart data and any modified variables
+void dataPage(AsyncWebServerRequest *request)
 {
-  int len = 0;
-  static int entryIdx; // data array index, reset by start of response
-  static int32_t tb; // time subtracted from entries (saves 5 bytes each)
+  int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
 
-  if(index == 0) // first call.  reset vars
+  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
+
+  for(int entryIdx = 0; entryIdx < GPTS; entryIdx++)
   {
-    entryIdx = 0;
-    tb = 0;
-  }
-
-  if(maxLen <= 0) // This is -7 often
-  {
-    Serial.print("chartFiller error maxLen=");
-    Serial.print(maxLen);
-    Serial.print(" index=");
-    Serial.println(index);
-    return 0;
-  }
-
-  if(index < strlen_P(chart)) // Inside page data 
-  {
-    len = min(strlen_P(chart + index), maxLen);
-    memcpy_P(buffer, chart + index, len);
-  }
-
-  if(len >= maxLen) // full
-  {
-    return len;
-  }
-
-  gPoint gpt;
-
-  if(display.getGrapthPoints(&gpt, entryIdx) == false) // end
-  {
-    if(entryIdx == 0) // No data to fill
-    { // Todo: complete it with a valid page end
-      Serial.println("NO DATA");
-    }
-    return len;
-  }
-
-  while(entryIdx < GPTS)
-  {
+    gPoint gpt;
     if( display.getGrapthPoints(&gpt, entryIdx) == false)
       break;
    
@@ -181,40 +147,29 @@ int chartFiller(uint8_t *buffer, int maxLen, int index)
     if(tb == 0) // first entry found
     {
       tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
-      out += "<script>\ntb=";      // first data opening statements
+      out += "tb=";      // first data opening statements
       out += tb;
-      out += "\ndata = { values:[\n";
+      out += "\ndata=[\n";
     }
-    out += "{t:";
-    out += gpt.time - tb;
-    out += ",temp:";
+    out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
+    out += (gpt.time - tb)/10;
+    out += ",";
     out += gpt.temp * 110 / 101 + 660;
-    out += ",rh:";
+    out += ",";
     out += gpt.rh * 250 / 55;
-    out += ",h:";
+    out += ",";
     out += gpt.h * 110 / 101 + 660;
-    out += ",l:";
+    out += ",";
     out += gpt.l * 110 / 101 + 660;
-    out += ",s:";
-    out += gpt.state;
-    out += ",f:";
-    out += gpt.fan;
-    out += "},\n";
+    out += ",";
+    out += (gpt.state << 1) | gpt.fan;
+    out += "],";
 
-    if(len + out.length() >= maxLen)  // out of space
-    {
-      return len;
-    }
-    out.toCharArray((char *)buffer+len, maxLen-len);
-    len += out.length();
-    entryIdx++;
+    response->print(out);
   }
 
-  String out = "]};</script></html>";  // final closing statements
-
-  out.toCharArray((char *)buffer+len, maxLen-len); // could get cut short
-  len += out.length();
-  return len;
+  response->print("]\n");
+  request->send ( response );
 }
 
 void handleServer()
@@ -234,13 +189,6 @@ void secondsServer() // called once per second
     events.send(dataJson().c_str(), "state");
     String s = "state;" + dataJson();
     ws.sendTXT(s);
-  }
-
-  static uint8_t cnt = 60; // first one is instant
-  if(--cnt == 0)
-  {
-    cnt = 60; // refresh settings every 60 seconds
-    WsSend("getSettings;0");
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
@@ -307,9 +255,8 @@ String dataJson()
 
 // values sent at an interval of 30 seconds unless they change sooner
 const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
-// settings read about every minute
-const char *jsonList3[] = { "", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", NULL };
-const char *jsonList2[] = { "alert", NULL };
+const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", NULL };
+const char *jsonList3[] = { "alert", NULL };
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
@@ -346,6 +293,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
         {
           char *pCmd = strtok((char *)payload, ";");
           char *pData = strtok(NULL, "");
+          if(pCmd == NULL || pData == NULL) break;
           remoteStream.process(pCmd, pData);
         }
       break;
