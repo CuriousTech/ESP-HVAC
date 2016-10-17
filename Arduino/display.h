@@ -70,7 +70,7 @@ private:
 public:
   uint16_t m_pointsIdx;
   int16_t m_updateFcst = 1;
-  uint16_t m_temp_counter;
+  uint16_t m_temp_counter = 60;
   uint8_t m_adjustMode;
 };
 
