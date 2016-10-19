@@ -113,22 +113,24 @@ public:
   void    setSettings(int iName, int iValue);// remote settings
   void    enable(void);
   String  settingsJson(void); // get all settings in json format
+  String  settingsJsonMod(void);
   String  getPushData(void);  // get states/temps/data in json
 #define FC_CNT 41
-  Forecast  m_fcData[FC_CNT];
-  int16_t   m_outTemp;       // adjusted current temp *10
-  int16_t   m_inTemp;        // current indoor temperature *10
-  int16_t   m_rh;
-  int16_t   m_localTemp;     // this device's temperature *10
-  int16_t   m_localRh;
-  uint16_t  m_targetTemp;    // end temp for cycle
-  uint8_t   m_notif;
-  bool      m_bRemoteStream; // remote is streaming temp/rh
-  bool      m_bRemoteDisconnect;
-  bool      m_bLocalTempDisplay;
-  uint8_t   m_RemoteFlags = RF_RL|RF_RH;
-  int8_t    m_outMin, m_outMax;
-  uint16_t  m_fanPreElap = 60*10;
+  Forecast m_fcData[FC_CNT];
+  int16_t  m_outTemp;       // adjusted current temp *10
+  int16_t  m_inTemp;        // current indoor temperature *10
+  int16_t  m_rh;
+  int16_t  m_localTemp;     // this device's temperature *10
+  int16_t  m_localRh;
+  uint16_t m_targetTemp;    // end temp for cycle
+  uint8_t  m_notif;
+  bool     m_bRemoteStream; // remote is streaming temp/rh
+  bool     m_bRemoteDisconnect;
+  bool     m_bLocalTempDisplay;
+  uint8_t  m_RemoteFlags = RF_RL|RF_RH;
+  int8_t   m_outMin, m_outMax;
+  uint16_t m_fanPreElap = 60*10;
+  float    m_fCost;         // cost total
 
 private:
   void  fanSwitch(bool bOn);
@@ -137,7 +139,7 @@ private:
   bool  preCalcCycle(int8_t mode);
   void  calcTargetTemp(int8_t mode);
   void  costAdd(int secs, int8_t mode, int8_t hm);
-  int   CmdIdx(String s, const char **pCmds);
+  int   CmdIdx(String s);
   void  sendCmd(const char *szName, int value);
 
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
@@ -165,7 +167,6 @@ private:
   uint16_t m_remoteTimer;   // in seconds
   int8_t   m_furnaceFan;    // fake fan timer
   uint16_t m_humidTimer;    // timer for humidifier cost
-  float    m_fCost;         // cost total
 };
 
 #endif
