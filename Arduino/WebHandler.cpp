@@ -92,7 +92,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         //the whole message is in a single frame and we got all of it's data
         if(info->opcode == WS_TEXT){
           data[len] = 0;
-
           char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
           char *pData = strtok(NULL, "");
           if(pCmd == NULL || pData == NULL) break;
@@ -106,24 +105,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 }
 
 const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
-const char *jsonList2[] = { "cmd",
-  "key",
-  "fanmode", // HVAC commands
-  "mode",
-  "heatmode",
-  "resettotal",
-  "resetfilter",
-  "fanpostdelay",
-  "cooltempl",
-  "cooltemph",
-  "heattempl",
-  "heattemph",
-  "humidmode",
-  "avgrmt",
-  "ppk",
-  "ccf",
-  NULL
-};
+extern const char *cmdList[];
 const char *jsonList3[] = { "alert", NULL };
 
 void startServer()
@@ -136,9 +118,8 @@ void startServer()
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  if( !MDNS.begin ( "HVAC", WiFi.localIP() ) ) {
+  if( !MDNS.begin ( "HVAC", WiFi.localIP() ) )
     Serial.println ( "MDNS responder failed" );
-  }
 
   // attach AsyncEventSource
   events.onConnect(onEvents);
@@ -188,7 +169,7 @@ void startServer()
   MDNS.addService("http", "tcp", serverPort);
 
   remoteStream.addList(jsonList1);
-  remoteStream.addList(jsonList2);
+  remoteStream.addList(cmdList);
   remoteStream.addList(jsonList3);
 
 #ifdef OTA_ENABLE
@@ -388,7 +369,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       else
       {
         if(bKeyGood)
-          hvac.setVar(jsonList2[iName+1], iValue); // 1 is "fanmode"
+          hvac.setVar(cmdList[iName+1], iValue); // 1 is "fanmode"
       }
       break;
     case 2: // alert
