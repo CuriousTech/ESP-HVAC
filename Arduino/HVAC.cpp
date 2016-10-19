@@ -243,25 +243,25 @@ void HVAC::costAdd(int secs, int8_t mode, int8_t hm)
   switch(mode)
   {
     case Mode_Cool:
-      m_fCost += ee.ppkwh * secs * compressorWatts / (100000000*60*60);
+      m_fCost += (float)(ee.ppkwh * secs * compressorWatts) / (100000000*60*60);
       break;
     case Mode_Heat:
       switch(hm)
       {
         case Heat_HP:
-          m_fCost += ee.ppkwh * secs * compressorWatts / (100000000*60*60);
+          m_fCost += (float)(ee.ppkwh * secs * compressorWatts) / (100000000*60*60);
           break;
         case Heat_NG:
-          m_fCost += ee.ccf * secs * furnaceCFH / (1000*60*60);
-          m_fCost += ee.ppkwh * secs * furnaceWatts / (100000000*60*60);
+          m_fCost += (float)(ee.ccf * secs * furnaceCFH) / (1000*60*60);
+          m_fCost += (float)(ee.ppkwh * secs * furnaceWatts) / (100000000*60*60);
           break;
       }
       break;
     case Mode_Fan:
-      m_fCost += ee.ppkwh * secs * fanWatts / (100000000*60*60);
+      m_fCost += (float)(ee.ppkwh * secs * fanWatts) / (100000000*60*60);
       break;
     case Mode_Humid:
-      m_fCost += ee.ppkwh * secs * humidWatts / (100000000*60*60);
+      m_fCost += (float)(ee.ppkwh * secs * humidWatts) / (100000000*60*60);
       break;
   }
 }
@@ -812,35 +812,49 @@ String HVAC::settingsJson()
 String HVAC::settingsJsonMod()
 {
   static eeSet eeOld;
+  bool bSend = false;
   static int8_t AutoMode, FanMode, RemoteFlags, ovrTemp;
 
+  if(AutoMode != m_AutoMode || FanMode != m_FanMode || RemoteFlags != m_RemoteFlags || ovrTemp != m_ovrTemp)
+  {
+    AutoMode = m_AutoMode; FanMode = m_FanMode; RemoteFlags = m_RemoteFlags; ovrTemp = m_ovrTemp;
+    bSend = true;
+  }
+
+  if( memcmp(&eeOld, &ee, sizeof(eeSet)) )
+  {
+    memcpy(&eeOld, &ee, sizeof(eeSet));
+    bSend = true;
+  }
+  if(!bSend) return "";
+
   String s = "{";
-  if(m_AutoMode != AutoMode){ s += "\"am\":";  s += m_AutoMode; s += ","; AutoMode = m_AutoMode; }
-  if(m_FanMode != FanMode){ s += "\"fm\":";  s += m_FanMode; s += ","; FanMode = m_FanMode; }
-  if(m_RemoteFlags != RemoteFlags){ s += "\"ar\":";  s += m_RemoteFlags; s += ","; RemoteFlags = m_RemoteFlags; }
-  if(ee.Mode != eeOld.Mode){ s += "\"m\":";  s += ee.Mode; s += ","; eeOld.Mode = ee.Mode;}
-  if(ee.heatMode != eeOld.heatMode){ s += "\"hm\":";  s += ee.heatMode; s += ","; eeOld.heatMode = ee.heatMode; }
-  if(m_ovrTemp != ovrTemp){ s += "\"ot\":";  s += m_ovrTemp; s += ","; ovrTemp = m_ovrTemp; }
-  if(ee.eHeatThresh != eeOld.eHeatThresh){ s += "\"ht\":";  s += ee.eHeatThresh; s += ","; eeOld.eHeatThresh = ee.eHeatThresh; }
-  if(ee.coolTemp[0] != eeOld.coolTemp[0]){ s += "\"c0\":";  s += ee.coolTemp[0]; s += ","; eeOld.coolTemp[0] = ee.coolTemp[0]; }
-  if(ee.coolTemp[1] != eeOld.coolTemp[1]){ s += "\"c1\":";  s += ee.coolTemp[1]; s += ","; eeOld.coolTemp[1] = ee.coolTemp[1]; }
-  if(ee.heatTemp[0] != eeOld.heatTemp[0]){ s += "\"h0\":";  s += ee.heatTemp[0]; s += ","; eeOld.heatTemp[0] = ee.heatTemp[0]; }
-  if(ee.heatTemp[1] != eeOld.heatTemp[1]){ s += "\"h1\":";  s += ee.heatTemp[1]; s += ","; eeOld.heatTemp[1] = ee.heatTemp[1]; }
-  if(ee.idleMin != eeOld.idleMin){ s += "\"im\":";  s += ee.idleMin; s += ","; eeOld.idleMin = ee.idleMin; }
-  if(ee.cycleMin != eeOld.cycleMin){ s += "\"cn\":";  s += ee.cycleMin; s += ","; eeOld.cycleMin = ee.cycleMin; }
-  if(ee.cycleMax != eeOld.cycleMax){ s += "\"cx\":";  s += ee.cycleMax; s += ","; eeOld.cycleMax = ee.cycleMax; }
-  if(ee.cycleThresh != eeOld.cycleThresh){ s += "\"ct\":";  s += ee.cycleThresh; s += ","; eeOld.cycleThresh = ee.cycleThresh; }
-  if(ee.fanPostDelay[digitalRead(P_REV)] != eeOld.fanPostDelay[digitalRead(P_REV)]){ s += "\"fd\":";  s += ee.fanPostDelay[digitalRead(P_REV)]; s += ","; eeOld.fanPostDelay[digitalRead(P_REV)] = ee.fanPostDelay[digitalRead(P_REV)]; }
-  if(ee.overrideTime != eeOld.overrideTime){ s += "\"ov\":";  s += ee.overrideTime; s += ","; eeOld.overrideTime = ee.overrideTime; }
-  if(ee.humidMode != eeOld.humidMode){ s += "\"rhm\":";  s += ee.humidMode; s += ","; eeOld.humidMode = ee.humidMode; }
-  if(ee.rhLevel[0] != eeOld.rhLevel[0]){ s += "\"rh0\":";  s += ee.rhLevel[0]; s += ","; eeOld.rhLevel[0] = ee.rhLevel[0]; }
-  if(ee.rhLevel[1] != eeOld.rhLevel[1]){ s += "\"rh1\":";  s += ee.rhLevel[1]; s += ","; eeOld.rhLevel[1] = ee.rhLevel[1]; }
-  if(ee.fanPreTime[ee.Mode == Mode_Heat] != eeOld.fanPreTime[ee.Mode == Mode_Heat]){ s += ",\"fp\":";   s += ee.fanPreTime[ee.Mode == Mode_Heat]; s += ","; eeOld.fanPreTime[ee.Mode == Mode_Heat] = ee.fanPreTime[ee.Mode == Mode_Heat]; }
-  if(ee.fanCycleTime != eeOld.fanCycleTime){ s += "\"fct\":";  s += ee.fanCycleTime; s += ","; eeOld.fanCycleTime = ee.fanCycleTime; }
-  if(ee.awayTime != eeOld.awayTime){ s += "\"at\":";  s += ee.awayTime; s += ","; eeOld.awayTime = ee.awayTime; }
-  if(ee.awayDelta[ee.Mode == Mode_Heat] != eeOld.awayDelta[ee.Mode == Mode_Heat]){ s += "\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat]; s += ","; eeOld.awayDelta[ee.Mode == Mode_Heat] = ee.awayDelta[ee.Mode == Mode_Heat]; }
-  if(ee.ppkwh != eeOld.ppkwh){ s += "\"ppk\":";  s += ee.ppkwh; s += ","; eeOld.ppkwh = ee.ppkwh; }
-  if(ee.ccf != eeOld.ccf){ s += "\"ccf\":";  s += ee.ccf; s += ","; eeOld.ccf = ee.ccf; }
+  s += "\"m\":";   s += ee.Mode;
+  s += ",\"am\":";  s += m_AutoMode;
+  s += ",\"hm\":";  s += ee.heatMode;
+  s += ",\"fm\":";  s += m_FanMode;
+  s += ",\"ot\":";  s += m_ovrTemp;
+  s += ",\"ht\":";  s += ee.eHeatThresh;
+  s += ",\"c0\":";  s += ee.coolTemp[0];
+  s += ",\"c1\":";  s += ee.coolTemp[1];
+  s += ",\"h0\":";  s += ee.heatTemp[0];
+  s += ",\"h1\":";  s += ee.heatTemp[1];
+  s += ",\"im\":";  s += ee.idleMin;
+  s += ",\"cn\":";  s += ee.cycleMin;
+  s += ",\"cx\":";  s += ee.cycleMax;
+  s += ",\"ct\":";  s += ee.cycleThresh;
+  s += ",\"fd\":";  s += ee.fanPostDelay[digitalRead(P_REV)];
+  s += ",\"ov\":";  s += ee.overrideTime;
+  s += ",\"rhm\":";  s += ee.humidMode;
+  s += ",\"rh0\":";  s += ee.rhLevel[0];
+  s += ",\"rh1\":";  s += ee.rhLevel[1];
+  s += ",\"fp\":";   s += ee.fanPreTime[ee.Mode == Mode_Heat];
+  s += ",\"fct\":";  s += ee.fanCycleTime;
+  s += ",\"ar\":";  s += m_RemoteFlags;
+  s += ",\"at\":";  s += ee.awayTime;
+  s += ",\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat];
+  s += ",\"ppk\":";  s += ee.ppkwh;
+  s += ",\"ccf\":";  s += ee.ccf;
   s += "}";
   return s;
 }
@@ -878,8 +892,8 @@ String HVAC::getPushData()
   return s;
 }
 
-static const char *cSCmds[] =
-{
+const char *cmdList[] = { "cmd",
+  "key",
   "fanmode",
   "mode",
   "heatmode",
@@ -913,16 +927,16 @@ static const char *cSCmds[] =
   NULL
 };
 
-int HVAC::CmdIdx(String s, const char **pCmds )
+int HVAC::CmdIdx(String s )
 {
   int iCmd;
-
-  for(iCmd = 0; pCmds[iCmd]; iCmd++)
+  // skip the top 2 (event, key)
+  for(iCmd = 2; cmdList[iCmd]; iCmd++)
   {
-    if( s.equalsIgnoreCase( String(pCmds[iCmd]) ) )
+    if( s.equalsIgnoreCase( String(cmdList[iCmd]) ) )
       break;
   }
-  return iCmd;
+  return iCmd - 2;
 }
 
 // POST set params as "fanmode=1"
@@ -930,7 +944,7 @@ void HVAC::setVar(String sCmd, int val)
 {
   if(ee.bLock) return;
 
-  switch( CmdIdx( sCmd, cSCmds ) )
+  switch( CmdIdx( sCmd ) )
   {
     case 0:     // fanmode
       if(val == 3) // "freshen"
