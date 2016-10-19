@@ -36,6 +36,7 @@ var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
+var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
 var loc = window.location
@@ -44,7 +45,7 @@ ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
 ws.onmessage = function(evt) {
- lines = evt.data.split('\n')
+ lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
  Json=JSON.parse(data)
@@ -92,14 +93,9 @@ ws.onmessage = function(evt) {
 }
 }
 
-function readSettings()
-{
- ws.send('getSettings\nx')
-}
-
 function setVar(varName, value)
 {
- ws.send('cmd\n{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+ ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function setfan(n)
@@ -280,17 +276,9 @@ function t2s(v)
 //--></script>
 </head>
 <body onload="{
- myStorage1 = localStorage.getItem('myStoredText1')
- if(myStorage1  != null){
-	document.all.myToken.style.visibility = 'hidden'
-	document.all.hide.value='Show'
-	document.getElementById('myToken').value=myStorage1
- }
-  
  myStorage3 = localStorage.getItem('myStoredText3')
- if(myStorage3  != null){
+ if(myStorage3  != null)
 	document.getElementById('ovrtemp').value=myStorage3
- }
  startEvents()
 }">
 <strong><em>CuriousTech HVAC Remote</em></strong><br>
@@ -391,29 +379,6 @@ function t2s(v)
 <td>Filter</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
-<p>
-<table style="width: 350px">
-<tr>
-<td>Password</td>
-<td>
-<input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 150px">
-</td><td>
-<input type="button" value="Save" onClick="{
- localStorage.setItem('myStoredText1', a.myToken.value)
- alert(a.myToken.value+' Has been stored')
-}">
-<input type="button" value="Hide" name="hide" onClick="{
-if(a.myToken.style.visibility == 'hidden'){
- a.myToken.style.visibility = 'visible'
- a.hide.value='Hide'
- }else{
- a.myToken.style.visibility = 'hidden'
- a.hide.value='Show'
-}
-}">
-</td>
-</tr>
-</table></p>
 <small>Copyright &copy 2016 CuriousTech.net</small>
 </body>
 </html>
