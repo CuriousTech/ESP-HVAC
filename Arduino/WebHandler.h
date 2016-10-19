@@ -12,6 +12,6 @@ void parseParams(AsyncWebServerRequest *request);
 String sDec(int t); // just 123 to 12.3 string
 String timeFmt(void);
 String dataJson(void);
-void WsSend(const char *data, const char *event);
+void WsSend(String s);
 
 #endif // WEBHANDLER_H
