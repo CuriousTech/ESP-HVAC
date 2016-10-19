@@ -44,13 +44,12 @@ ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
 ws.onmessage = function(evt) {
- lines = evt.data.split('\n')
+ lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
  Json=JSON.parse(data)
  if(event == 'settings')
  {
-	setAtt()
 	a.humidl.value= +Json.rh0/10
 	a.humidh.value= +Json.rh1/10
 	a.idlemin.value= s2t(+Json.im)
@@ -64,10 +63,12 @@ ws.onmessage = function(evt) {
 	a.ppkwh.value= +Json.ppk / 10000
 	a.ccf.value= +Json.ccf / 1000
 	rmtMode=+Json.ar
+	setAtt()
  }
  else if(event == 'state')
  {
 	away=+Json.aw
+	a.cost.value='$'+Json.c
 	setAtt()
  }
  else if(event == 'alert')
@@ -77,14 +78,9 @@ ws.onmessage = function(evt) {
 }
 }
 
-function readSettings()
-{
- ws.send('getSettings\nx')
-}
-
 function setVar(varName, value)
 {
- ws.send('cmd\n{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+ ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
 function setAway()
@@ -104,20 +100,9 @@ a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')
 a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
 }
 
-function setHT()
-{
-setVar('eheatthresh',+a.heatthr.value)
-}
-
-function setHumidHi()
-{
-setVar('humidh',(+a.humidh.value*10).toFixed())
-}
-
-function setHumidLo()
-{
-setVar('humidl',(+a.humidl.value*10).toFixed())
-}
+function setHT(){setVar('eheatthresh',+a.heatthr.value)}
+function setHumidHi(){setVar('humidh',(+a.humidh.value*10).toFixed())}
+function setHumidLo(){setVar('humidl',(+a.humidl.value*10).toFixed())}
 
 function incHumid(n)
 {
@@ -128,75 +113,21 @@ setVar('humidh',(+a.humidh.value*10).toFixed())
 setVar('humidl',(+a.humidl.value*10).toFixed())
 }
 
-function setThresh()
-{
-setVar('cyclethresh',(+a.thresh.value*10).toFixed())
-}
-
-function setFanDelay()
-{
-setVar('fanpostdelay',t2s(a.fandelay.value))
-}
-
-function setFanPre()
-{
-setVar('fanpretime',t2s(a.fanpre.value))
-}
-
-function setIdleMin()
-{
-setVar('idlemin',t2s(a.idlemin.value))
-}
-
-function setCycMin()
-{
-setVar('cyclemin',t2s(a.cycmin.value))
-}
-
-function setCycMax()
-{
-setVar('cyclemax',t2s(a.cycmax.value))
-}
-
-function setOvrTime()
-{
-	setVar('overridetime',t2s(a.ovrtime.value))
-}
-
-function setOvrTemp()
-{
-	setVar('override',(+a.ovrtemp.value*10).toFixed())
-}
-
-function cancelOvr()
-{
-	setVar('override',0)
-}
-
-function setFanTime()
-{
-	setVar('fantime',t2s(a.fantime.value))
-}
-
-function setAwayTime()
-{
-	setVar('awaytime',t2s(a.awaytime.value))
-}
-
-function setAwayTemp()
-{
-	setVar('awaydelta',(+a.awaytemp.value*10).toFixed())
-}
-
-function setPPKWH()
-{
-	setVar('ppk',(+a.ppkwh.value*10000).toFixed())
-}
-
-function setCCF()
-{
-	setVar('ccf',(+a.ccf.value*1000).toFixed())
-}
+function setThresh(){setVar('cyclethresh',(+a.thresh.value*10).toFixed())}
+function setFanDelay(){setVar('fanpostdelay',t2s(a.fandelay.value))}
+function setFanPre(){setVar('fanpretime',t2s(a.fanpre.value))}
+function setIdleMin(){setVar('idlemin',t2s(a.idlemin.value))}
+function setCycMin(){setVar('cyclemin',t2s(a.cycmin.value))}
+function setCycMax(){setVar('cyclemax',t2s(a.cycmax.value))}
+function setOvrTime(){setVar('overridetime',t2s(a.ovrtime.value))}
+function setOvrTemp(){setVar('override',(+a.ovrtemp.value*10).toFixed())}
+function cancelOvr(){setVar('override',0)}
+function setFanTime(){setVar('fantime',t2s(a.fantime.value))}
+function setAwayTime(){setVar('awaytime',t2s(a.awaytime.value))}
+function setAwayTemp(){	setVar('awaydelta',(+a.awaytemp.value*10).toFixed())}
+function setPPKWH(){setVar('ppk',(+a.ppkwh.value*10000).toFixed())}
+function setCCF(){setVar('ccf',(+a.ccf.value*1000).toFixed())}
+function rsttCost(){setVar('cost',0)}
 
 function setRmt(v)
 {
@@ -356,7 +287,7 @@ function t2s(v)
 <td>CCF</td>
 <td><input type=text size=4 id="ccf"></td>
 <td><input type="button" value="Set" onClick="{setCCF()}"></td>
-<td></td>
+<td><input type="button" id ="cost" value="0" onClick="{rstCost()}"></td>
 </tr>
 </table>
 <p>
