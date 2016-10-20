@@ -1,12 +1,11 @@
 //  HvacRemote script running on PngMagic  http://www.curioustech.net/pngmagic.html
 // Device is set to a fixed IP in the router
 
-	hvacUrl = 'http://192.168.0.100:85'
+	hvacUrl = 'ws://192.168.0.105:85/ws'
 	password = 'password'
 
 	kwh = 3600 // killowatt hours (compressor+fan)
-	ppkwh = 0.126  // price per KWH  (price / KWH)
-	ppkwh  += 0.091 + 0.03 // surcharge 9.1%, school 3%, misc
+	ppkwh = 0.14320  // electric price per KWH  (price / KWH)
 	ccfs	= 0.70 / (60*60) // NatGas cost per hour divided into seconds
 
 	modes = new Array('Off', 'Cool', 'Heat', 'Auto')
@@ -19,16 +18,18 @@
 		Reg.overrideTemp = -1.2
 
 	var hvacJson
+	var mode
+	var last
+	var last1, last2
 
 	Pm.Window('HvacRemote')
 
 	Gdi.Width = 208 // resize drawing area
-	Gdi.Height = 320
-
-	Pm.HVAC() // Start the HVAC listener
+	Gdi.Height = 250
 
 	Pm.SetTimer(60*1000)
-	OnTimer()
+
+	Http.Connect('HVAC', hvacUrl)
 
 // Handle published events
 function OnCall(msg, event, data, d2)
@@ -48,34 +49,9 @@ function OnCall(msg, event, data, d2)
 			break
 		case 'HTTPDATA':
 			timeout = new Date()
-			if(data.length) procLine(event, data)
+			if(data.length) procLine(data)
 			break
 		case 'HTTPCLOSE':
-			break
-
-		case 'hvacData':
-			timeout = new Date()
-//Pm.Echo('hvacData: ' + event)
-
-			hvacJson = !(/[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(
-					event.replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + event + ')')
-			running = +hvacJson.r
-			state = +hvacJson.s
-			fan = +hvacJson.fr
-			inTemp = +hvacJson.it / 10
-			rh = +hvacJson.rh / 10
-			targetTemp = +hvacJson.tt / 10
-			filterMins = +hvacJson.fm
-			outTemp = +hvacJson.ot / 10
-			outFL = +hvacJson.ol
-			outFH = +hvacJson.oh
-			cycleTimer = +hvacJson.ct
-			fanTimer = +hvacJson.ft
-			runTotal = +hvacJson.rt
-
-			if(Pm.FindWindow( 'History' ))
-				Pm.History( 'REFRESH' )
-			Draw()
 			break
 
 		case 'BUTTON':
@@ -90,7 +66,7 @@ function OnCall(msg, event, data, d2)
 					filterMins = 0
 					break
 				case 2:		// fan
-					fanMode ^= 1; SetVar('fanmode', fanMode)
+					fanMode = (fanMode+1) % 3; SetVar('fanmode', fanMode)
 					break
 				case 3:		// mode
 					mode = (mode + 1) & 3; SetVar('mode', mode)
@@ -99,7 +75,6 @@ function OnCall(msg, event, data, d2)
 					heatMode = (heatMode+1) % 3; SetVar('heatMode', heatMode)
 					break
 				case 5:		// Unused
-					GetVar( 'rssi' )
 					break
 				case 6:		// cool H up
 					setTemp(1, coolTempH + 0.1, 1); SetVar('cooltemph', (coolTempH * 10).toFixed())
@@ -131,41 +106,19 @@ function OnCall(msg, event, data, d2)
 				case 15:		// thresh dn
 					if(cycleThresh > 0.1){ cycleThresh -= 0.1; SetVar('cyclethresh', (cycleThresh * 10).toFixed()); }
 					break
-				case 16:		// fanDelay up
-					if(fanDelay < 255){ fanDelay += 10; SetVar('fanpostdelay', fanDelay); }
+				case 16:		// override time up
+					overrideTime += 60
+					SetVar('overridetime', overrideTime)
 					break
-				case 17:		// fanDelay dn
-					if(fanDelay > 0){ fanDelay -= 10; SetVar('fanpostdelay', fanDelay); }
-					break
-				case 18:		// idleMin up
-					idleMin++; SetVar('idlemin', idleMin)
-					break
-				case 19:		// idleMin dn
-					idleMin--; SetVar('idlemin', idleMin)
-					break
-				case 20:		// cycleMin up
-					cycleMin++; SetVar('cyclemin', cycleMin)
-					break
-				case 21:		// cycleMin dn
-					cycleMin--; SetVar('cyclemin', cycleMin)
-					break
-				case 22:		// cycleMax up
-					cycleMax+=60; SetVar('cyclemax', cycleMax)
-					break
-				case 23:		// cycleMax dn
-					cycleMax--; SetVar('cyclemax', cycleMax)
-					break
-				case 24:		// override time up
-					overrideTime+=60; SetVar('overridetime', overrideTime)
-					break
-				case 25:		// override time dn
-					overrideTime-=10; SetVar('overridetime', overrideTime)
+				case 17:		// override time dn
+					overrideTime -= 10
+					SetVar('overridetime', overrideTime)
 					break	
-				case 26:		// override temp up
-					Reg.overrideTemp += 0.1
+				case 18:		// override temp up
+					Reg.overrideTemp = +Reg.overrideTemp + 0.1
 					break
-				case 27:		// override temp dn
-					Reg.overrideTemp -= 0.1
+				case 19:		// override temp dn
+					Reg.overrideTemp = +Reg.overrideTemp - 0.1
 					break
 			}
 			Draw()
@@ -177,58 +130,65 @@ function OnCall(msg, event, data, d2)
 	}
 }
 
-function OnTimer()
-{
-	GetSettings()
-}
-
 function SetVar(v, val)
 {
-	Http.Connect( 'setvar', hvacUrl + '/s?key=' + password + '&' + v + '=' + val  )
+	Http.Send( 'cmd;{key:' + password + ',' + v + ':' + val  )
 }
 
-function GetSettings()
+function procLine(data)
 {
-	Http.Connect('settings', hvacUrl + '/json' )
-}
+	if(data.length < 2) return
+	parts = data.split(';')
+	json = !(/[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(
+		parts[1].replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + parts[1] + ')')
 
-function procLine(event, data)
-{
-	Json = !(/[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(
-			data.replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + data + ')')
-
-	switch(event)
+	switch(parts[0])
 	{
 		case 'settings':
-			mode = +Json.m
-			autoMode = +Json.am
-			heatMode = +Json.hm
-			fanMode = +Json.fm
-			ovrActive = +Json.ot
-			eHeatThresh = +Json.ht
+			mode = +json.m
+			autoMode = +json.am
+			heatMode = +json.hm
+			fanMode = +json.fm
+			ovrActive = +json.ot
+			eHeatThresh = +json.ht
 
-			coolTempL = +Json.c0 / 10
-			coolTempH = +Json.c1 / 10
-			heatTempL = +Json.h0 / 10
-			heatTempH = +Json.h1 / 10
-			idleMin = +Json.im
-			cycleMin = +Json.cn
-			cycleMax = +Json.cx
-			cycleThresh = +Json.ct / 10
+			coolTempL = +json.c0 / 10
+			coolTempH = +json.c1 / 10
+			heatTempL = +json.h0 / 10
+			heatTempH = +json.h1 / 10
+			cycleThresh = +json.ct / 10
 			Reg.cycleThresh = cycleThresh
-			fanDelay = Json.fd
-			overrideTime = +Json.ov
-			remoteTimer = Json.rm
-			remoteTimeout = Json.ro
-
+			overrideTime = +json.ov
+			remoteTimer = json.rm
+			remoteTimeout = json.ro
 			Draw()
 			break
 
-		case 'setvar':
+		case 'state':
+			hvacJson = json
+			running = +json.r
+			state = +json.s
+			fan = +json.fr
+			inTemp = +json.it / 10
+			rh = +json.rh / 10
+			targetTemp = +json.tt / 10
+			filterMins = +json.fm
+			outTemp = +json.ot / 10
+			outFL = +json.ol
+			outFH = +json.oh
+			cycleTimer = +json.ct
+			fanTimer = +json.ft
+			runTotal = +json.rt
+
+			if(Pm.FindWindow( 'History' ))
+				Pm.History( 'REFRESH' )
+			Draw()
+			LogTemps()
+			Pm.X10('STATTEMP', inTemp + '° ' + rh + '% > ' + targetTemp + '° ')
 			break
 
 		default:
-			Pm.Echo('HR Unknown event: ' + event)
+			Pm.Echo('HR Unknown event: ' + data)
 			break	
 	}
 }
@@ -244,7 +204,7 @@ function setTemp( mode, Temp, hl)
 	switch(mode)
 	{
 		case 1:
-			if(Temp < 65.0 || Temp > 88.0)    // ensure sane values
+			if(Temp < 65.0 || Temp > 90.0)    // ensure sane values
 				break
 			if(hl)
 			{
@@ -344,14 +304,6 @@ function Draw()
 	y += bh
 	Gdi.Text('Threshold:', x, y); 	Gdi.Text(cycleThresh.toFixed(1) + '°', x + 112, y, 'Right')
 	y += bh
-	Gdi.Text('Fan Delay:', x, y); Gdi.Text(fanDelay , x + 112, y, 'Time')
-	y += bh
-	Gdi.Text('Idle Min:', x, y); 	Gdi.Text(idleMin , x + 112, y, 'Time')
-	y += bh
-	Gdi.Text('cycle Min:', x, y); 	Gdi.Text(cycleMin, x + 112, y, 'Time')
-	y += bh
-	Gdi.Text('cycle Max:', x, y); 	Gdi.Text(cycleMax , x + 112, y, 'Time')
-	y += bh
 	Gdi.Text('ovr Time:', x, y); 	Gdi.Text(overrideTime , x + 112, y, 'Time')
 	y += bh
 	a = Reg.overrideTemp
@@ -375,16 +327,17 @@ function Draw()
 	Gdi.Pen(Gdi.Argb(255,20,20,255), 2 )	// Button square
 	Pm.Button(x, y, 100, 15)
 	Gdi.Rectangle(x, y, 100, 15, 2)
-	Gdi.Text('Cost:', x+110, y); 	Gdi.Text( '$' +cost.toFixed(2) , x + 190, y, 'Right')
+	Gdi.Text('Cost:', x+104, y); 	Gdi.Text( '$' +cost.toFixed(2) , x + 190, y, 'Right')
 
 	y += bh
 	Gdi.Text('Cycle:', x, y); 	Gdi.Text( cycleTimer, x + 100, y, 'Time')
-	Gdi.Text('Total:', x+110, y); 	Gdi.Text(runTotal, x + 190, y, 'Time')
+	Gdi.Text('Total:', x+104, y); 	Gdi.Text(runTotal, x + 190, y, 'Time')
 
 	heatModes = Array('HP', 'NG', 'Auto')
-	buttons = Array(fanMode ? 'On' : 'Auto', modes[mode],
+	fanModes = Array('Auto', 'On', 'Cyc')
+	buttons = Array(fanModes[fanMode], modes[mode],
 		heatModes[heatMode], ' ',
-		'+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-' )
+		'+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-' )
 
 	for (n = 0, row = 0; row < buttons.length / 2; row++)
 	{
@@ -411,4 +364,27 @@ function ShadowText(str, x, y, clr)
 	Gdi.Text( str, x+1, y+1, 'Center')
 	Gdi.Brush( clr )
 	Gdi.Text( str, x, y, 'Center')
+}
+
+function LogTemps( )
+{
+	if(targetTemp == 0)
+		return
+
+	if( (inTemp == last1 || inTemp == last2) && last == state+fan) // reduce logging some
+	{
+		last1  = last2
+		last2 = inTemp
+		return
+	}
+	last = state+fan
+	last1  = last2
+	last2 = inTemp
+
+	fso = new ActiveXObject( 'Scripting.FileSystemObject' )
+
+	tf = fso.OpenTextFile( 'statTemp.log', 8, true)
+	tf.WriteLine( hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + targetTemp + ',' + rh)
+	tf.Close()
+	fso = null
 }
