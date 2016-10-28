@@ -14,7 +14,6 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-#include <WiFiClient.h>
 
 #define DEBUG //until arduino ide can include defines at compile time from main sketch
 
@@ -28,38 +27,28 @@ class WiFiManager
 {
 public:
     WiFiManager();
-    boolean autoConnect(void);
-    boolean autoConnect(char const *apName);
-
-    boolean hasConnected();
-    
-    void beginConfigMode(void);
-    void startWebConfig(String ssid);
-
-    //for convenience
+    void autoConnect(void);
+    void autoConnect(char const *apName);
+    String page(void);
+    void seconds(void);
+    void setSSID(int idx);
+    void setPass(const char *p);
     String urldecode(const char*);
+    bool isCfg(void);
 private:
-    const int WM_DONE = 0;
-    const int WM_WAIT = 10;
-    bool _timeout;
+    boolean hasConnected();
 
-    const String HTTP_404 = "HTTP/1.1 404 Not Found\r\n\r\n";
-    const String HTTP_200 = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-    const String HTTP_HEAD = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><title>{v}</title>";
+    const char* _apName = "no-net";
+    bool _timeout;
+    bool _bCfg;
+
+    const String HTTP_HEAD = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><title>Config ESP</title>";
     const String HTTP_STYLE = "<style>div,input {margin-bottom: 5px;}body{width:200px;display:block;margin-left:auto;margin-right:auto;}</style>";
     const String HTTP_SCRIPT = "<script>function c(l){document.getElementById('s').value=l.innerText||l.textContent;document.getElementById('p').focus();}</script>";
     const String HTTP_HEAD_END = "</head><body>";
     const String HTTP_ITEM = "<div><a href='#' onclick='c(this)'>{v}</a></div>";
-    const String HTTP_FORM = "<form method='get' action='s'><input id='s' name='ssid' length=32 placeholder='SSID'><input id='p' name='pass' length=64 placeholder='password'><br/><input type='submit'></form>";
+    const String HTTP_FORM = "<form method='get' action='/'><input id='s' name='ssid' length=32 placeholder='SSID'><input id='p' name='pass' length=64 placeholder='password'><br/><input type='submit'></form>";
     const String HTTP_END = "</body></html>";
-    
-    const char* _apName = "no-net";
-    String _ssid = "";
-    String _pass = "";
-
-    String ssidList[16];
-
-    int serverLoop(void);
 };
 
 #endif
