@@ -9,7 +9,7 @@
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
 #include "HVAC.h"
-#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
+#include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
 #include "display.h" // for display.Note()
 #include "pages.h"
 #include "WiFiManager.h"
@@ -32,7 +32,7 @@ void startListener(void);
 void dataPage(AsyncWebServerRequest *request);
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
-JsonClient remoteStream(remoteCallback);
+JsonParse remoteParse(remoteCallback);
 
 int chartFiller(uint8_t *buffer, int maxLen, int index);
 
@@ -80,6 +80,7 @@ const char pageR[] PROGMEM =
    "</head>\n"
    "<body\">\n"
    "<strong><em>CuriousTech HVAC Remote</em></strong><br>\n"
+   "<input type=\"submit\" value=\"Chart\" onClick=\"window.location='/chart.html';\">\n"
    "<small>Copyright &copy 2016 CuriousTech.net</small>\n"
    "</body>\n"
    "</html>\n";
@@ -90,12 +91,13 @@ void startServer()
   wifi.autoConnect("HVACRemote");  // AP you'll see on your phone
 
   Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  if ( !MDNS.begin ( "HVACRemote", WiFi.localIP() ) ) {
-    Serial.println ( "MDNS responder failed" );
+  if(wifi.isCfg() == false)
+  {
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    if ( !MDNS.begin ( "HVACRemote", WiFi.localIP() ) )
+      Serial.println ( "MDNS responder failed" );
   }
 
   // attach AsyncEventSource
@@ -103,8 +105,12 @@ void startServer()
   server.addHandler(&events);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    Serial.println("handleRoot");
     parseParams(request);
-    request->send_P( 200, "text/html", pageR );
+    if(wifi.isCfg())
+      request->send( 200, "text/html", wifi.page() );
+    else
+      request->send_P( 200, "text/html", pageR );
   });
 
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -149,6 +155,8 @@ void dataPage(AsyncWebServerRequest *request)
       tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
       out += "tb=";      // first data opening statements
       out += tb;
+      out += "\ncost=";
+      out +=  String(hvac.m_fCost, 2);
       out += "\ndata=[\n";
     }
     out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
@@ -162,12 +170,10 @@ void dataPage(AsyncWebServerRequest *request)
     out += ",";
     out += gpt.l * 110 / 101 + 660;
     out += ",";
-    out += (gpt.state << 1) | gpt.fan;
+    out += gpt.state;
     out += "],";
-
     response->print(out);
   }
-
   response->print("]\n");
   request->send ( response );
 }
@@ -192,10 +198,17 @@ void secondsServer() // called once per second
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
-  if(start)
+  if(wifi.isCfg())
   {
-    if(--start == 0)
-      startListener();
+    wifi.seconds();
+  }
+  else
+  {
+    if(start)
+    {
+      if(--start == 0)
+        startListener();
+    }
   }
 }
 
@@ -204,13 +217,13 @@ void parseParams(AsyncWebServerRequest *request)
   char temp[100];
   int val;
 
-//  Serial.println("parseArgs");
+  Serial.println("parseParams");
 
   for ( uint8_t i = 0; i < request->params(); i++ ) {
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + p->name() + ": " + s);
+    Serial.println( i + " " + p->name() + ": " + s);
     int val = s.toInt();
  
     switch( p->name().charAt(0)  )
@@ -242,6 +255,12 @@ void parseParams(AsyncWebServerRequest *request)
       case 'P': // host port
           ee.hostPort = s.toInt();
           startListener();
+          break;
+      case 's': // SSID
+          s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
+          break;
+      case 'p': // AP password
+          wifi.setPass(s.c_str());
           break;
     }
   }
@@ -294,7 +313,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
           char *pCmd = strtok((char *)payload, ";");
           char *pData = strtok(NULL, "");
           if(pCmd == NULL || pData == NULL) break;
-          remoteStream.process(pCmd, pData);
+          remoteParse.process(pCmd, pData);
         }
       break;
     case WStype_BIN:
@@ -317,7 +336,7 @@ void startListener()
   Serial.println(ee.hostPort);
   */
   ws.onEvent(webSocketEvent);
-  remoteStream.addList(jsonList1);
-  remoteStream.addList(jsonList2);
-  remoteStream.addList(jsonList3);
+  remoteParse.addList(jsonList1);
+  remoteParse.addList(jsonList2);
+  remoteParse.addList(jsonList3);
 }
