@@ -13,7 +13,7 @@
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include "WebHandler.h"
 #include "HVAC.h"
-#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
+#include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
 #include "display.h" // for display.Note()
 #include "pages.h"
 #include "eeMem.h"
@@ -31,7 +31,7 @@ extern HVAC hvac;
 extern Display display;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
-JsonClient remoteStream(remoteCallback);
+JsonParse remoteParse(remoteCallback);
 int chartFiller(uint8_t *buffer, int maxLen, int index);
 void dataPage(AsyncWebServerRequest *request);
 
@@ -68,9 +68,15 @@ void onEvents(AsyncEventSourceClient *client)
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
+  static bool rebooted = true;
   switch(type)
   {
     case WS_EVT_CONNECT:      //client connected
+      if(rebooted)
+      {
+        rebooted = false;
+        client->printf("alert;Restarted");
+      }
       client->printf("settings;%s", hvac.settingsJson().c_str()); // update everything on start
       client->printf("state;%s", dataJson().c_str());
       client->ping();
@@ -97,7 +103,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           if(pCmd == NULL || pData == NULL) break;
           bKeyGood = false; // for callback (all commands need a key)
           WsClientID = client->id();
-          remoteStream.process(pCmd, pData);
+          remoteParse.process(pCmd, pData);
         }
       }
       break;
@@ -114,12 +120,15 @@ void startServer()
   wifi.autoConnect("HVAC"); // Tries all open APs, then starts softAP mode for config
 
   Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  if( !MDNS.begin ( "HVAC", WiFi.localIP() ) )
-    Serial.println ( "MDNS responder failed" );
+  if(wifi.isCfg() == false)
+  {
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+  
+    if( !MDNS.begin ( "HVAC", WiFi.localIP() ) )
+      Serial.println ( "MDNS responder failed" );
+  }
 
   // attach AsyncEventSource
   events.onConnect(onEvents);
@@ -131,7 +140,10 @@ void startServer()
   
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
-    request->send_P ( 200, "text/html", page1 );
+    if(wifi.isCfg())
+      request->send( 200, "text/html", wifi.page() );
+    else
+      request->send_P ( 200, "text/html", page1 );
   });
   
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -168,9 +180,9 @@ void startServer()
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 
-  remoteStream.addList(jsonList1);
-  remoteStream.addList(cmdList);
-  remoteStream.addList(jsonList3);
+  remoteParse.addList(jsonList1);
+  remoteParse.addList(cmdList);
+  remoteParse.addList(jsonList3);
 
 #ifdef OTA_ENABLE
   ArduinoOTA.begin();
@@ -199,6 +211,8 @@ void dataPage(AsyncWebServerRequest *request)
       tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
       out += "tb=";      // first data opening statements
       out += tb;
+      out += "\ncost=";
+      out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
       out += "\ndata=[\n";
     }
     out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
@@ -212,15 +226,12 @@ void dataPage(AsyncWebServerRequest *request)
     out += ",";
     out += gpt.l * 110 / 101 + 660;
     out += ",";
-    out += (gpt.state << 1) | gpt.fan;
+    out += gpt.state;
     out += "],";
     response->print(out);
   }
 
   response->print("]\n");
-  response->print("cost=");
-  response->print(String(hvac.m_fCost, 2));
-  response->print("\n");
   request->send ( response );
 }
 
@@ -309,6 +320,10 @@ void parseParams(AsyncWebServerRequest *request)
     if(p->name() == "key");
     else if(p->name() == "rest")
       display.init();
+    else if(p->name() == "ssid")
+      s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
+    else if(p->name() == "pass")
+      wifi.setPass(s.c_str());
     else
     {
       hvac.setVar(p->name(), s.toInt() );
