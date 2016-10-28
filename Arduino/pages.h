@@ -667,7 +667,7 @@ const char page2[] PROGMEM =
    "<td></td>\n"
    "</tr>\n"
    "<tr>\n"
-   "<td>PPWH</td>\n"
+   "<td>PPKWH</td>\n"
    "<td><input type=text size=4 id=\"ppkwh\"></td>\n"
    "<td><input type=\"button\" value=\"Set\" onClick=\"{setPPKWH()}\"></td>\n"
    "<td></td>\n"
