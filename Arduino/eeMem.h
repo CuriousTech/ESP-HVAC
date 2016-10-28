@@ -5,13 +5,13 @@
 
 struct eeSet // EEPROM backed data
 {
-  uint16_t size;          // if size changes, use defauls
+  uint16_t size;          // if size changes, use defaults
   uint16_t sum;           // if sum is different from memory struct, write
   char     szSSID[32];
   char     szSSIDPassword[64];
   uint16_t coolTemp[2]; // cool to temp *10 low/high
   uint16_t heatTemp[2]; // heat to temp *10 low/high
-  int16_t  cycleThresh; // temp range for cycle *10
+  int16_t  cycleThresh[2]; // temp range for cycle *10
   uint8_t  Mode;        // Off, Cool, Heat, Auto
   uint8_t  eHeatThresh; // degree threshold to switch to gas
   uint16_t cycleMin;    // min time to run
