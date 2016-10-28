@@ -432,7 +432,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       ee.cycleMax = iValue;
       break;
     case 13:
-      ee.cycleThresh = iValue;
+      ee.cycleThresh[ee.Mode == Mode_Heat] = iValue;
       break;
     case 14:
       break;
