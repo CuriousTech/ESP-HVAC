@@ -5,13 +5,17 @@
 #include <TimeLib.h>
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
 #include "eeMem.h"
+#include "WiFiManager.h"
 
 Nextion nex;
 extern HVAC hvac;
 extern AsyncEventSource events;
+extern WiFiManager wifi;
 
 void Display::init()
 {
+  if(wifi.isCfg() ) // don't interfere with SSID config
+    return;
   nex.FFF(); // Just to end any debug strings in the Nextion
   nex.reset();
   screen( true ); // brighten the screen if it just reset
@@ -22,6 +26,8 @@ void Display::init()
 // called each second
 void Display::oneSec()
 {
+  if(wifi.isCfg() )
+    return;
   updateClock();
   updateRunIndicator(false); // running stuff
   displayTime();    // time update every seconds
@@ -158,6 +164,14 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
           }
           break;
+        case Page_SSID: // Selection page t1=ID 2 ~ t16=ID 17
+          wifi.setSSID(cBuf[2]-2);
+          nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
+          nex.setPage("keyboard"); // go to keyboard
+          nex.itemText(1, "Enter Password");
+          textIdx = 3; // AP password
+          break;
+
         default: // all pages go back
           screen(true);
           break;
@@ -181,6 +195,10 @@ void Display::checkNextion() // all the Nextion recieved commands
             ee.bLock = false;
           nex.itemText(0, ""); // clear password
           nex.itemPic(9, ee.bLock ? 20:21);
+          break;
+        case 3: // AP password
+          nex.setPage("Thermostat");
+          wifi.setPass(cBuf + 1);
           break;
       }
       screen(true); // back to main page
@@ -448,6 +466,8 @@ void Display::updateNotification(bool bRef)
 // false: cycle to next screensaver
 bool Display::screen(bool bOn)
 {
+  if(wifi.isCfg() )
+    return false;
   static bool bOldOn = true;
 
   if(bOldOn && nex.getPage()) // not in sync
@@ -744,7 +764,6 @@ void Display::addGraphPoints()
   }
   if( hvac.m_inTemp == 0)
     return;
-
   m_points[m_pointsIdx].time = now() - (ee.tz*3600);
 
   const int base = 660; // 66.0 base   Todo: scale all this
@@ -752,16 +771,20 @@ void Display::addGraphPoints()
   m_points[m_pointsIdx].temp = (t - base) * 101 / 110; // 66~90 scale to 0~220
   m_points[m_pointsIdx].rh = hvac.m_rh * 55 / 250;
   t = constrain(hvac.m_targetTemp, 660, 900);
-  m_points[m_pointsIdx].h = (t - base) * 101 / 110;
-
-  int8_t ct = ee.cycleThresh;
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
-    ct = -ct;
-  t = constrain(hvac.m_targetTemp + ct, 660, 900);
-  m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+  {
+    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+    t = constrain(hvac.m_targetTemp - ee.cycleThresh[0], 660, 900); // for display errors
+    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
+  }
+  else // heat
+  {
+    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
+    t = constrain(hvac.m_targetTemp + ee.cycleThresh[1], 660, 900);
+    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+  }
   m_points[m_pointsIdx].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
-  m_points[m_pointsIdx].state = hvac.getState();
-  m_points[m_pointsIdx].fan = hvac.getFanRunning();
+  m_points[m_pointsIdx].state = ( hvac.getState() << 1) | hvac.getFanRunning();
 
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
@@ -858,7 +881,10 @@ uint16_t Display::stateColor(uint8_t v) // return a color based on run state
 {
   uint16_t color;
 
-  switch(v)
+  if(v&1) // fan
+    color = rgb16(0, 50, 0); // green
+
+  switch(v >> 1)
   {
     case State_Off: // off
       color = rgb16(20, 40, 20); // gray
