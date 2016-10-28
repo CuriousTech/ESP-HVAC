@@ -130,7 +130,8 @@ public:
   uint8_t  m_RemoteFlags = RF_RL|RF_RH;
   int8_t   m_outMin, m_outMax;
   uint16_t m_fanPreElap = 60*10;
-  float    m_fCost;         // cost total
+  float    m_fCostE;        // cost total (elec)
+  float    m_fCostG;        // cost total (gas)
 
 private:
   void  fanSwitch(bool bOn);
