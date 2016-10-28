@@ -18,38 +18,46 @@
 
 extern Nextion nex;
 
-WiFiServer server_s ( 80 );
-
 WiFiManager::WiFiManager()
 {
 }
 
-boolean WiFiManager::autoConnect() {
-    autoConnect("NoNetESP");
+void WiFiManager::autoConnect() {
+  autoConnect("NoNetESP");
 }
 
-boolean WiFiManager::autoConnect(char const *apName) {
-    _apName = apName;
-    _ssid = ee.szSSID;
-    _pass = ee.szSSIDPassword;
+void WiFiManager::autoConnect(char const *apName) {
 
-//  DEBUG_PRINT("");
-//    DEBUG_PRINT("AutoConnect");
+  _apName = apName;
+  //  DEBUG_PRINT("");
+  //    DEBUG_PRINT("AutoConnect");
 
-    if ( _ssid.length() > 1 ) {
-        DEBUG_PRINT("Waiting for Wifi to connect");
+  if ( ee.szSSID[0] ) {
+    DEBUG_PRINT("Waiting for Wifi to connect");
 
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(_ssid.c_str(), _pass.c_str());
-        if ( hasConnected() ) {
-            return true;
-        }
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ee.szSSID, ee.szSSIDPassword);
+    if ( hasConnected() )
+    {
+      _bCfg = false;
+      return;
     }
-    //setup AP
-    beginConfigMode();
-    //start portal and loop
-    startWebConfig(_ssid);
-    return false;
+  }
+  //setup AP
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(apName);
+  DEBUG_PRINT("Started Soft Access Point");
+  nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
+  nex.setPage("SSID");
+
+  DEBUG_PRINT(WiFi.softAPIP());
+  DEBUG_PRINT("Don't forget the port #");
+
+  if (!MDNS.begin(apName))
+    DEBUG_PRINT("Error setting up MDNS responder!");
+
+  _timeout = true;
+  _bCfg = true;
 }
 
 boolean WiFiManager::hasConnected(void)
@@ -66,211 +74,72 @@ boolean WiFiManager::hasConnected(void)
   return false;
 }
 
-void WiFiManager::startWebConfig(String ssid) {
-    DEBUG_PRINT("");
-    DEBUG_PRINT("WiFi connected");
-    DEBUG_PRINT(WiFi.localIP());
-    DEBUG_PRINT(WiFi.softAPIP());
-    if (!MDNS.begin(_apName)) {
-        DEBUG_PRINT("Error setting up MDNS responder!");
-        while(1) {
-            delay(1000);
-        }
-    }
-    DEBUG_PRINT("mDNS responder started");
-    // Start the server
-    server_s.begin();
-    DEBUG_PRINT("Server started");
-
-    uint8_t s;
-    uint8_t m = minute();
-
-    int n = WiFi.scanNetworks();
-    if(n)
-    {
-      nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
-      nex.setPage("SSID");
-  
-      for (int i = 0; i < n && n < 16; i++)
-      {
-        nex.btnText(i, ssidList[i] = WiFi.SSID(i));
-      }
-    }
-
-    _timeout = true;
-    char cBuf[64];
-    String sSsid;
-    String sPass;
-  
-    while(serverLoop() == WM_WAIT) {      //looping
-      if(nex.service(cBuf))
-      {
-          switch(cBuf[0])  // code
-          {
-            case 0x65: // button
-              switch(cBuf[1]) // page
-              {
-                  case 2: // Selection page t1=ID 2 ~ t16=ID 17
-                    sSsid = ssidList[cBuf[2] - 2];
-                    nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
-                    nex.setPage("keyboard"); // go to keyboard
-                    nex.itemText(1, "Enter Password");
-                    _timeout = false; // user detected
-                    break;
-              }
-              break;
-            case 0x70:// string return from keyboard
-              sPass = String(cBuf + 1);
-  //            Serial.print("Pass ");
-  //            Serial.println(sPass);
-              sSsid.toCharArray(ee.szSSID, sizeof(ee.szSSID) );
-              sPass.toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
-              eemem.update();
-//              DEBUG_PRINT("Setup done");
-              nex.setPage("Thermostat");
-              delay(1000);
-              ESP.reset();
-              break;
-          }
-      }
-      if(s != second())
-      {
-        s = second();
-        digitalWrite(2, !digitalRead(2)); // Toggle blue LED (also SCL)
-      }
-      if(_timeout)
-      {
-        if(m != minute())
-        {
-          m = minute();
-          int n = WiFi.scanNetworks();
-          if(n){
-            for (int i = 0; i < n; ++i)
-            {
-                if(WiFi.SSID(i) == ssid)
-                {
-                  nex.setPage("Thermostat"); // set back to normal while restarting
-                  delay(500);
-                  ESP.reset();
-                }
-            }
-          }
-        }
-      }
-    }
-
-//    DEBUG_PRINT("Setup done");
-    nex.setPage("Thermostat"); // set back to normal while restarting
-    delay(5000);
-    ESP.reset();
-}
-
-void WiFiManager::beginConfigMode(void) {
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(_apName);
-    DEBUG_PRINT("Started Soft Access Point");
-}
-
-int WiFiManager::serverLoop()
+bool WiFiManager::isCfg(void)
 {
-    // Check for any mDNS queries and send responses
-    MDNS.update();
-    String s;
+  return _bCfg;
+}
 
-    WiFiClient client = server_s.available();
-    if (!client) {
-        return(WM_WAIT);
-    }
+void WiFiManager::setSSID(int idx){
+  WiFi.SSID(idx).toCharArray(ee.szSSID, sizeof(ee.szSSID) );
+}
 
-    DEBUG_PRINT("New client");
-    
-    // Wait for data from client to become available
-    while(client.connected() && !client.available()){
-        delay(1);
-    }
-    
-    // Read the first line of HTTP request
-    String req = client.readStringUntil('\r');
-    
-    // First line of HTTP request looks like "GET /path HTTP/1.1"
-    // Retrieve the "/path" part by finding the spaces
-    int addr_start = req.indexOf(' ');
-    int addr_end = req.indexOf(' ', addr_start + 1);
-    if (addr_start == -1 || addr_end == -1) {
-        DEBUG_PRINT("Invalid request: ");
-        DEBUG_PRINT(req);
-        return(WM_WAIT);
-    }
-    req = req.substring(addr_start + 1, addr_end);
-    DEBUG_PRINT("Request: ");
-    DEBUG_PRINT(req);
-    client.flush();
+void WiFiManager::setPass(const char *p){
+  strncpy(ee.szSSIDPassword, p, sizeof(ee.szSSIDPassword) );
+  eemem.update();
+  DEBUG_PRINT("Updated EEPROM.  Restaring.");
+  autoConnect(_apName);
+}
 
-    if (req == "/")
+void WiFiManager::seconds(void) {
+  static int s = 1; // do first list soon
+
+  if(_timeout == false || nex.getPage() != Page_SSID)
+    return;
+  if(--s)
+    return;
+  s = 60;
+  int n = WiFi.scanNetworks(); // scan for stored SSID each minute
+  if(n == 0 )
+    return;
+
+  nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
+
+  for (int i = 0; i < n; i++)
+  {
+    if(n < 16)
+      nex.btnText(i, WiFi.SSID(i));
+
+    if(WiFi.SSID(i) == ee.szSSID) // found cfg SSID
     {
-        s = HTTP_200;
-        String head = HTTP_HEAD;
-        head.replace("{v}", "Config ESP");
-        s += head;
-        s += HTTP_SCRIPT;
-        s += HTTP_STYLE;
-        s += HTTP_HEAD_END;
-
-        int n = WiFi.scanNetworks();
-        DEBUG_PRINT("scan done");
-        if (n == 0) {
-            DEBUG_PRINT("no networks found");
-            s += "<div>No networks found. Refresh to scan again.</div>";
-        }
-        else {
-            for (int i = 0; i < n; ++i)
-            {
-                DEBUG_PRINT(WiFi.SSID(i));
-                DEBUG_PRINT(WiFi.RSSI(i));
-                String item = HTTP_ITEM;
-                item.replace("{v}", WiFi.SSID(i));
-                s += item;
-                delay(10);
-            }
-        }
-        
-        s += HTTP_FORM;
-        s += HTTP_END;
-        
-        DEBUG_PRINT("Sending config page");
-        _timeout = false;
+      nex.setPage("Thermostat"); // set back to normal while restarting
+      DEBUG_PRINT("SSID found.  Restarting.");
+      autoConnect(_apName);
+      s = 5; // set to 5 seconds in case it fails again
     }
-    else if ( req.startsWith("/s") ) {
-        String s1 = urldecode(req.substring(8,req.indexOf('&')).c_str());
-        s1.toCharArray(ee.szSSID, sizeof(ee.szSSID) );
-        DEBUG_PRINT(ee.szSSID);
-        req = req.substring( req.indexOf('&') + 1);
-        s1 = urldecode(req.substring(req.lastIndexOf('=')+1).c_str());
-        s1.toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
-        eemem.update();
+  }
+}
 
-        s = HTTP_200;
-        String head = HTTP_HEAD;
-        head.replace("{v}", "Saved config");
-        s += HTTP_STYLE;
-        s += HTTP_HEAD_END;
-        s += "saved to eeprom...<br/>resetting in 5 seconds";
-        s += HTTP_END;
-        client.print(s);
-        client.flush();
+String WiFiManager::page()
+{
+  String s = HTTP_HEAD;
+  s += HTTP_SCRIPT;
+  s += HTTP_STYLE;
+  s += HTTP_HEAD_END;
 
-        DEBUG_PRINT("Saved WiFiConfig...restarting.");
-        return WM_DONE;
-    }
-    else
-    {
-        s = HTTP_404;
-        DEBUG_PRINT("Sending 404");
-    }
-    
-    client.print(s);
-    DEBUG_PRINT("Done with client");
-    return(WM_WAIT);
+  for (int i = 0;  WiFi.SSID(i).length(); ++i)
+  {
+    DEBUG_PRINT(WiFi.SSID(i));
+    DEBUG_PRINT(WiFi.RSSI(i));
+    String item = HTTP_ITEM;
+    item.replace("{v}", WiFi.SSID(i) );
+    s += item;
+  }
+  
+  s += HTTP_FORM;
+  s += HTTP_END;
+  
+  _timeout = false;
+  return s;
 }
 
 String WiFiManager::urldecode(const char *src)
@@ -308,4 +177,3 @@ String WiFiManager::urldecode(const char *src)
     
     return decoded;
 }
-
