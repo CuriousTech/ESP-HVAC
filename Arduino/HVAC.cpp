@@ -240,30 +240,33 @@ void HVAC::service()
 
 void HVAC::costAdd(int secs, int8_t mode, int8_t hm)
 {
+  uint16_t watts;
+
   switch(mode)
   {
     case Mode_Cool:
-      m_fCost += (float)(ee.ppkwh * secs * compressorWatts) / (100000000*60*60);
+      watts = compressorWatts;
       break;
     case Mode_Heat:
       switch(hm)
       {
         case Heat_HP:
-          m_fCost += (float)(ee.ppkwh * secs * compressorWatts) / (100000000*60*60);
+          watts = compressorWatts;
           break;
         case Heat_NG:
-          m_fCost += (float)(ee.ccf * secs * furnaceCFH) / (1000*60*60);
-          m_fCost += (float)(ee.ppkwh * secs * furnaceWatts) / (100000000*60*60);
+          watts = furnaceWatts;
+          m_fCostG += (float)ee.ccf * secs * furnaceCFH / 3600000.0;
           break;
       }
       break;
     case Mode_Fan:
-      m_fCost += (float)(ee.ppkwh * secs * fanWatts) / (100000000*60*60);
+      watts = fanWatts;
       break;
     case Mode_Humid:
-      m_fCost += (float)(ee.ppkwh * secs * humidWatts) / (100000000*60*60);
+      watts = humidWatts;
       break;
   }
+  m_fCostE += (float)ee.ppkwh / 100000.0 * secs * watts / 3600000.0;
 }
 
 bool HVAC::stateChange()
@@ -335,11 +338,11 @@ void HVAC::tempCheck()
     switch(mode)
     {
       case Mode_Cool:
-        if( tempL <= m_targetTemp - ee.cycleThresh ) // has cooled to desired temp - threshold
+        if( tempL <= m_targetTemp - ee.cycleThresh[0]) // has cooled to desired temp - threshold
           m_bStop = true;
         break;
       case Mode_Heat:
-        if(tempH > m_targetTemp + ee.cycleThresh) // has heated above desired temp + threshold
+        if(tempH > m_targetTemp + ee.cycleThresh[1]) // has heated above desired temp + threshold
           m_bStop = true;
         break;
     }
@@ -352,11 +355,11 @@ void HVAC::tempCheck()
       switch(mode)
       {
         case Mode_Cool:
-          if( tempL <= m_targetTemp - ee.cycleThresh ) // has cooled to desired temp - threshold
+          if( tempL <= m_targetTemp - ee.cycleThresh[0]) // has cooled to desired temp - threshold
             bHit = true;
           break;
         case Mode_Heat:
-          if(tempH >= m_targetTemp + ee.cycleThresh) // has heated to desired temp + threshold
+          if(tempH >= m_targetTemp + ee.cycleThresh[1]) // has heated to desired temp + threshold
             bHit = true;
           break;
       }
@@ -791,7 +794,7 @@ String HVAC::settingsJson()
   s += ",\"im\":";  s += ee.idleMin;
   s += ",\"cn\":";  s += ee.cycleMin;
   s += ",\"cx\":";  s += ee.cycleMax;
-  s += ",\"ct\":";  s += ee.cycleThresh;
+  s += ",\"ct\":";  s += ee.cycleThresh[ee.Mode == Mode_Heat];
   s += ",\"fd\":";  s += ee.fanPostDelay[digitalRead(P_REV)];
   s += ",\"ov\":";  s += ee.overrideTime;
   s += ",\"rhm\":";  s += ee.humidMode;
@@ -842,7 +845,7 @@ String HVAC::settingsJsonMod()
   s += ",\"im\":";  s += ee.idleMin;
   s += ",\"cn\":";  s += ee.cycleMin;
   s += ",\"cx\":";  s += ee.cycleMax;
-  s += ",\"ct\":";  s += ee.cycleThresh;
+  s += ",\"ct\":";  s += ee.cycleThresh[ee.Mode == Mode_Heat];
   s += ",\"fd\":";  s += ee.fanPostDelay[digitalRead(P_REV)];
   s += ",\"ov\":";  s += ee.overrideTime;
   s += ",\"rhm\":";  s += ee.humidMode;
@@ -881,7 +884,7 @@ String HVAC::getPushData()
   s += ",\"rt\":";  s += m_runTotal;
   s += ",\"h\":";  s += m_bHumidRunning;
   s += ",\"aw\":";  s += m_bAway;
-  s += ",\"c\":\"";  s += m_fCost;  s += "\"";
+  s += ",\"c\":\"";  s += m_fCostE + m_fCostG;  s += "\"";
   if(m_bRemoteDisconnect)
   {
     s += ",\"rmt\":0";
@@ -981,7 +984,7 @@ void HVAC::setVar(String sCmd, int val)
       ee.idleMin = constrain(val, 60, 60*30); // Limit 1 to 30 minutes
       break;
     case 9:    // cyclethresh
-      ee.cycleThresh = constrain(val, 5, 50); // Limit 0.5 to 5.0 degrees
+      ee.cycleThresh[ee.Mode == Mode_Heat] = constrain(val, 5, 50); // Limit 0.5 to 5.0 degrees
       break;
     case 10:    // cooltempl
       setTemp(Mode_Cool, val, 0);
@@ -1071,7 +1074,8 @@ void HVAC::setVar(String sCmd, int val)
       ee.ccf = val;
       break;
     case 29: // cost in cents/100
-      m_fCost = val / 10000;
+      m_fCostE = val / 10000;
+      m_fCostG = 0;
       break;
   }
 }
