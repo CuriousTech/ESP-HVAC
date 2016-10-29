@@ -3,6 +3,8 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
+//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -15,8 +17,13 @@
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
 #include "display.h" // for display.Note()
-#include "pages.h"
 #include "eeMem.h"
+#ifdef USE_SPIFFS
+#include <FS.h>
+#include <SPIFFSEditor.h>
+#else
+#include "pages.h"
+#endif
 
 //-----------------
 int serverPort = 85;            // Change to 80 for normal access
@@ -40,19 +47,6 @@ uint32_t lastIP;
 bool bKeyGood;
 int WsClientID;
 int WsRemoteID;
-
-void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
-  //Handle body
-}
-
-void onUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
-  //Handle upload
-}
-
-//Handle Unknown Request
-void onRequest(AsyncWebServerRequest *request){
-  request->send(404);
-}
 
 // Handle event stream
 void onEvents(AsyncEventSourceClient *client)
@@ -130,6 +124,11 @@ void startServer()
       Serial.println ( "MDNS responder failed" );
   }
 
+#ifdef USE_SPIFFS
+  SPIFFS.begin();
+  server.addHandler(new SPIFFSEditor("admin", ee.password));
+#endif
+
   // attach AsyncEventSource
   events.onConnect(onEvents);
   server.addHandler(&events);
@@ -143,9 +142,15 @@ void startServer()
     if(wifi.isCfg())
       request->send( 200, "text/html", wifi.page() );
     else
-      request->send_P ( 200, "text/html", page1 );
+    {
+#ifdef USE_SPIFFS
+      request->send(SPIFFS, "/index.html");
+#else
+      request->send_P(200, "text/html", page1);
+#endif
+    }
   });
-  
+
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
     request->send ( 200, "text/html", "OK" );
@@ -158,17 +163,29 @@ void startServer()
 
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
-    request->send_P ( 200, "text/html", page2 );
+#ifdef USE_SPIFFS
+    request->send(SPIFFS, "/settings.html");
+#else
+    request->send_P(200, "text/html", page2);
+#endif
   });
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
     parseParams(request);
-    request->send_P ( 200, "text/html", chart );
+#ifdef USE_SPIFFS
+    request->send(SPIFFS, "/chart.html");
+#else
+    request->send_P(200, "text/html", chart);
+#endif
   });
   server.on ( "/data", HTTP_GET, dataPage);
 
-  server.onNotFound(onRequest);
-  server.onFileUpload(onUpload);
-  server.onRequestBody(onBody);
+  server.onNotFound([](AsyncWebServerRequest *request){
+    request->send(404);
+  });
+  server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  });
+  server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+  });
 
   // respond to GET requests on URL /heap
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
