@@ -773,15 +773,15 @@ void Display::addGraphPoints()
   t = constrain(hvac.m_targetTemp, 660, 900);
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
   {
-    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
-    t = constrain(hvac.m_targetTemp - ee.cycleThresh[0], 660, 900); // for display errors
     m_points[m_pointsIdx].h = (t - base) * 101 / 110;
+    t = constrain(hvac.m_targetTemp - ee.cycleThresh[0], 660, 900); // for display errors
+    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
   }
   else // heat
   {
-    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
-    t = constrain(hvac.m_targetTemp + ee.cycleThresh[1], 660, 900);
     m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+    t = constrain(hvac.m_targetTemp + ee.cycleThresh[1], 660, 900);
+    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
   }
   m_points[m_pointsIdx].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
   m_points[m_pointsIdx].state = ( hvac.getState() << 1) | hvac.getFanRunning();
