@@ -17,11 +17,11 @@ struct Line{
 
 struct gPoint{
   uint32_t time;
-  uint8_t temp;
+  int16_t temp;
+  int16_t l;
+  int16_t h;
+  int16_t ltemp;
   uint8_t rh;
-  uint8_t l;
-  uint8_t h;
-  uint8_t ltemp;
   uint8_t state;
 };
 
@@ -56,7 +56,8 @@ private:
   void updateRunIndicator(bool bForce); // run and fan running
   void addGraphPoints(void);
   void fillGraph(void);
-  void drawPoints(uint8_t *arr, uint16_t color);
+  void drawPoints(int w, uint16_t color);
+  void drawPointsRh(uint16_t color);
   void drawPointsTemp(void);
   uint16_t stateColor(uint8_t v);
   void Lines(void);
