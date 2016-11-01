@@ -37,15 +37,12 @@ $(document).ready(function(){
   step = Math.floor(data.length / 15)
   if(step == 0) step = 1
   for(var i=0; i<data.length-1; i+=step){
-    if( data[i][1] != 'nan')
-    {
-      c.save()
-      c.translate(getXPixel(i), graph.height() - yPadding + 5)
-      c.rotate(0.9)
-      date = new Date((data[i][0]*10+tb)*1000)
-      c.fillText(date.toLocaleTimeString(),0,0)
-      c.restore()
-    }
+    c.save()
+    c.translate(getXPixel(i), graph.height() - yPadding + 5)
+    c.rotate(0.9)
+    date = new Date((data[i][0]*10+tb)*1000)
+    c.fillText(date.toLocaleTimeString(),0,0)
+    c.restore()
   }
 
   yRange = getMaxY() - getMinY()
@@ -72,27 +69,20 @@ $(document).ready(function(){
   c.beginPath()
   c.moveTo(getXPixel(0), getYPixel(data[0][3]))
 
-  for(i = 1; i < data.length-1; i ++){
-    if( data[i][3] != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data[i][3]))
-  }
-  for(i = data.length - 2; i >= 0; i--){
-    if( data[i][4] != 'nan')
-      c.lineTo(getXPixel(i), getYPixel(data[i][4]))
-  }
+  for(i = 1; i < data.length-1; i ++)
+    c.lineTo(getXPixel(i), getYPixel(data[i][3]))
+  for(i = data.length - 2; i >= 0; i--)
+    c.lineTo(getXPixel(i), getYPixel(data[i][4]))
   c.closePath()
   c.fill()
 
   // temp lines
   for(i = 1; i < data.length; i++){
-    if( data[i][1] != 'nan')
-    {
-      c.strokeStyle = stateColor(data[i][5])
-      c.beginPath()
-      c.moveTo(getXPixel(i), getYPixel(data[i][1]))
-      c.lineTo(getXPixel(i-1), getYPixel(data[i-1][1]))
-      c.stroke()
-    }
+	c.strokeStyle = stateColor(data[i][5])
+	c.beginPath()
+	c.moveTo(getXPixel(i), getYPixel(data[i][1]))
+	c.lineTo(getXPixel(i-1), getYPixel(data[i-1][1]))
+	c.stroke()
   }
 
   // rh lines
@@ -100,107 +90,105 @@ $(document).ready(function(){
   c.beginPath()
   c.moveTo(getXPixel(0), getRHPixel(data[0][2]))
 
-  for(var i = 1; i < data.length-1; i ++) {
-    if( data[i][2] != 'nan')
-      c.lineTo(getXPixel(i), getRHPixel(data[i][2]))
-  }
+  for(var i = 1; i < data.length-1; i ++)
+	c.lineTo(getXPixel(i), getRHPixel(data[i][2]))
   c.stroke()
 
   noteDiv=document.getElementById("note")
   noteDiv.innerHTML='Cost: $'+cost
 
   var dots = []
-    for(i = 0; i < data.length; i ++) {
-        date = new Date((data[i][0]*10+tb)*1000)
-        dots.push({
-            x: getXPixel(i),
-            y: getYPixel(data[i][1]),
-            r: 4,
-            rXr: 16,
-            color: "red",
-            tip: data[i][1]/10,
-            tip2: data[i][2]/10,
-            tip3: date.toLocaleTimeString()
-        })
-    }
+	for(i = 0; i < data.length; i ++) {
+		date = new Date((data[i][0]*10+tb)*1000)
+		dots.push({
+			x: getXPixel(i),
+			y: getYPixel(data[i][1]),
+			r: 4,
+			rXr: 16,
+			color: "red",
+			tip: data[i][1]/10,
+			tip2: data[i][2]/10,
+			tip3: date.toLocaleTimeString()
+		})
+	}
 
-    // request mousemove events
-    graph.mousemove(function(e){handleMouseMove(e);})
-
-    // show tooltip when mouse hovers over dot
-    function handleMouseMove(e){
-      mouseX=parseInt(e.clientX-offsetX)
-      mouseY=parseInt(e.clientY-offsetY)
-
-      // Put your mousemove stuff here
-      var hit = false
-      for (i = 0; i < dots.length; i++) {
-          dot = dots[i]
-          dx = mouseX - dot.x
-          dy = mouseY - dot.y
-          if (dx * dx + dy * dy < dot.rXr) {
-      tipCtx.fillStyle = "#C0C0C0"
-      tipCtx.fillRect(0, 0, tipCanvas.width, tipCanvas.height)
-
-      tipCtx.lineWidth = 2
-      tipCtx.fillStyle = "#000000"
-      tipCtx.strokeStyle = '#333'
-      tipCtx.font = 'italic 8pt sans-serif'
-      tipCtx.textAlign = "left"
-    
-      tipCtx.beginPath() // borders
-      tipCtx.moveTo(0,0)
-      tipCtx.lineTo(0,50)
-      tipCtx.lineTo(60,50)
-      tipCtx.lineTo(60,0)
-      tipCtx.lineTo(0,0)
-      tipCtx.stroke()
-
-      tipCtx.fillText( dot.tip + '°F', 4, 15)
-      tipCtx.fillText( dot.tip2 + '%', 4, 29)
-      tipCtx.fillText( dot.tip3, 4, 44)
-      hit = true
-      popup = document.getElementById("popup")
-      popup.style.top = dot.y + "px"
-      popup.style.left = (dot.x-60) + "px"
-          }
-      }
-      if (!hit) { popup.style.left = "-200px" }
-    }
+	// request mousemove events
+	graph.mousemove(function(e){handleMouseMove(e);})
+	
+	// show tooltip when mouse hovers over dot
+	function handleMouseMove(e){
+		mouseX=parseInt(e.clientX-offsetX)
+		mouseY=parseInt(e.clientY-offsetY)
+		
+		// Put your mousemove stuff here
+		var hit = false
+		for (i = 0; i < dots.length; i++) {
+			dot = dots[i]
+			dx = mouseX - dot.x
+			dy = mouseY - dot.y
+			if (dx * dx + dy * dy < dot.rXr) {
+				tipCtx.fillStyle = "#C0C0C0"
+				tipCtx.fillRect(0, 0, tipCanvas.width, tipCanvas.height)
+				
+				tipCtx.lineWidth = 2
+				tipCtx.fillStyle = "#000000"
+				tipCtx.strokeStyle = '#333'
+				tipCtx.font = 'italic 8pt sans-serif'
+				tipCtx.textAlign = "left"
+				
+				tipCtx.beginPath() // borders
+				tipCtx.moveTo(0,0)
+				tipCtx.lineTo(0,50)
+				tipCtx.lineTo(60,50)
+				tipCtx.lineTo(60,0)
+				tipCtx.lineTo(0,0)
+				tipCtx.stroke()
+				
+				tipCtx.fillText( dot.tip + '°F', 4, 15)
+				tipCtx.fillText( dot.tip2 + '%', 4, 29)
+				tipCtx.fillText( dot.tip3, 4, 44)
+				hit = true
+				popup = document.getElementById("popup")
+				popup.style.top = dot.y + "px"
+				popup.style.left = (dot.x-60) + "px"
+			}
+		}
+		if (!hit) { popup.style.left = "-200px" }
+	}
 });
 
 function getMaxY(){
-  var max = 0
-
-  for(i = 0; i < data.length-1; i ++)
-  {
-    if(data[i][1] != 'nan' && data[i][1] > max)
-      max = data[i][1]
-    if(data[i][3] != 'nan' && data[i][3] > max)
-      max = data[i][3]
-  }
-  return Math.floor(max)+1
+	var max = 0
+	
+	for(i = 0; i < data.length-1; i ++)
+	{
+		if(data[i][1] > max)
+		  max = data[i][1]
+		if(data[i][3] > max)
+		  max = data[i][3]
+	}
+	return Math.floor(max)+1
 }
 
 function getMinY(){
-  var min = 1500
+	var min = 1500
 
-  for(i = 0; i < data.length; i ++)
-  {
-    if(data[i][1] != 'nan' && data[i][1] < min)
-      min = data[i][1]
-    if(data[i][4] != 'nan' && data[i][4] < min)
-      min = data[i][4]
-  }
-  return Math.floor(min)-2
+	for(i = 0; i < data.length; i ++)
+	{
+		if(data[i][1] < min)
+		  min = data[i][1]
+		if(data[i][4] < min)
+		  min = data[i][4]
+	}
+	return Math.floor(min)-2
 }
  
 function getXPixel(val) {
-  return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.length) * val
+	return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.length) * val
 }
 
 function getYPixel(val) {
-  return graph.height()-6-( ((graph.height() - yPadding) / yRange) * ( val-getMinY() )) - yPadding
+	return graph.height()-6-( ((graph.height() - yPadding) / yRange) * ( val-getMinY() )) - yPadding
 }
 
 function getRHPixel(val) {
