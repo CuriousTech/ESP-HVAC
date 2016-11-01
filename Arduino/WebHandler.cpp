@@ -213,7 +213,7 @@ void dataPage(AsyncWebServerRequest *request)
 
   AsyncResponseStream *response = request->beginResponseStream("text/javascript");
 
-  for(int entryIdx = 0; entryIdx < GPTS; entryIdx++)
+  for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
   {
     gPoint gpt;
     if( display.getGrapthPoints(&gpt, entryIdx) == false)
@@ -235,19 +235,18 @@ void dataPage(AsyncWebServerRequest *request)
     out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
     out += (gpt.time - tb)/10;
     out += ",";
-    out += gpt.temp * 110 / 101 + 660;
+    out += gpt.temp;
     out += ",";
-    out += gpt.rh * 250 / 55;
+    out += gpt.rh;
     out += ",";
-    out += gpt.h * 110 / 101 + 660;
+    out += gpt.h;
     out += ",";
-    out += gpt.l * 110 / 101 + 660;
+    out += gpt.l;
     out += ",";
     out += gpt.state;
     out += "],";
     response->print(out);
   }
-
   response->print("]\n");
   request->send ( response );
 }
