@@ -16,6 +16,7 @@ void Display::init()
 {
   if(wifi.isCfg() ) // don't interfere with SSID config
     return;
+  memset(m_points, 255, sizeof(m_points));
   nex.FFF(); // Just to end any debug strings in the Nextion
   nex.reset();
   screen( true ); // brighten the screen if it just reset
@@ -756,34 +757,23 @@ void Display::Lines()
 
 void Display::addGraphPoints()
 {
-  static bool bInit = false;
-  if(bInit == false)
-  {
-    memset(m_points, 255, sizeof(m_points));
-    bInit = true;
-  }
-  if( hvac.m_inTemp == 0)
+  if( hvac.m_inTemp == 0 || hvac.m_targetTemp == 0)
     return;
   m_points[m_pointsIdx].time = now() - (ee.tz*3600);
 
-  const int base = 660; // 66.0 base   Todo: scale all this
-  int t = constrain(hvac.m_inTemp, 660, 900);
-  m_points[m_pointsIdx].temp = (t - base) * 101 / 110; // 66~90 scale to 0~220
-  m_points[m_pointsIdx].rh = hvac.m_rh * 55 / 250;
-  t = constrain(hvac.m_targetTemp, 660, 900);
+  m_points[m_pointsIdx].temp = hvac.m_inTemp; // 66~90 scale to 0~220
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
   {
-    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
-    t = constrain(hvac.m_targetTemp - ee.cycleThresh[0], 660, 900); // for display errors
-    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
+    m_points[m_pointsIdx].h = hvac.m_targetTemp;
+    m_points[m_pointsIdx].l = hvac.m_targetTemp - ee.cycleThresh[0];
   }
   else // heat
   {
-    m_points[m_pointsIdx].l = (t - base) * 101 / 110;
-    t = constrain(hvac.m_targetTemp + ee.cycleThresh[1], 660, 900);
-    m_points[m_pointsIdx].h = (t - base) * 101 / 110;
+    m_points[m_pointsIdx].l = hvac.m_targetTemp;
+    m_points[m_pointsIdx].h = hvac.m_targetTemp + ee.cycleThresh[1];
   }
-  m_points[m_pointsIdx].ltemp = (hvac.m_localTemp - base) * 101 / 110; // 66~90 scale to 0~220
+  m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
+  m_points[m_pointsIdx].rh = hvac.m_rh;
   m_points[m_pointsIdx].state = ( hvac.getState() << 1) | hvac.getFanRunning();
 
   if(++m_pointsIdx >= GPTS)
@@ -814,34 +804,48 @@ void Display::fillGraph()
     h -= 6;
     if( h <= 0) h += 12;
   }
-
-  drawPoints(&m_points[0].h, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
-  drawPoints(&m_points[0].l, rgb16( 22, 40, 10) ); // target threshold
-  drawPoints(&m_points[0].rh, rgb16(  0, 53,  0) ); // rh green
+  drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
+  drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
+  drawPointsRh( rgb16(  0, 53,  0) ); // rh green
   if(hvac.isRemote())
-    drawPoints(&m_points[0].ltemp, rgb16( 31, 0,  15) ); // remote temp
+  {
+    drawPoints(2, rgb16( 31, 0,  15) ); // remote temp
+  }
   drawPointsTemp(); // off/cool/heat colors
 }
 
-void Display::drawPoints(uint8_t *arr, uint16_t color)
+void Display::drawPoints(int w, uint16_t color)
 {
   int i = m_pointsIdx - 1;
   if(i < 0) i = GPTS-1;
-  uint8_t *p = (uint8_t *)arr + ( i * sizeof(gPoint) );
   const int yOff = 240-10;
-  int y, y2 = *p;
-  if(y2 == 255) return; // not enough data
+  int y, y2;
+
+  switch(w)
+  {
+    case 0: y2 = m_points[i].h; break;
+    case 1: y2 = m_points[i].l; break;
+    case 2: y2 = m_points[i].ltemp; break;
+  }
+  if(y2 == -1) return; // not enough data
+
+  const int base = 660; // 66.0 base
+  y2 = (constrain(y2, 660, 900) - base) * 101 / 110;
 
   for(int x = 309, x2 = 310; x >= 10; x--)
   {
     if(--i < 0)
-    {
       i = GPTS-1;
-      p = (uint8_t *)arr + (i * sizeof(gPoint) );
+
+    switch(w)
+    {
+      case 0: y = m_points[i].h; break;
+      case 1: y = m_points[i].l; break;
+      case 2: y = m_points[i].ltemp; break;
     }
 
-    y = *p;
-    if(y == 255) return;
+    if(y == -1) return;
+    y = (constrain(y, 660, 900) - base) * 101 / 110; // 660~900 scale to 0~220
 
     if(y != y2)
     {
@@ -849,7 +853,34 @@ void Display::drawPoints(uint8_t *arr, uint16_t color)
       y2 = y;
       x2 = x;
     }
-    p -= sizeof(gPoint);
+  }
+}
+
+void Display::drawPointsRh(uint16_t color)
+{
+  int i = m_pointsIdx - 1;
+  if(i < 0) i = GPTS-1;
+  const int yOff = 240-10;
+  int y, y2 = m_points[i].rh;
+  if(y2 == 255) return; // not enough data
+
+  y2 = y2 * 55 / 250; // 0~100 to 0~240
+
+  for(int x = 309, x2 = 310; x >= 10; x--)
+  {
+    if(--i < 0)
+      i = GPTS-1;
+
+    y = m_points[i].rh;
+    if(y == 255) return;
+    y = y * 55 / 250;
+
+    if(y != y2)
+    {
+      nex.line(x, yOff - y, x2, yOff - y2, color);
+      y2 = y;
+      x2 = x;
+    }
   }
 }
 
@@ -859,15 +890,19 @@ void Display::drawPointsTemp()
   int i = m_pointsIdx-1;
   if(i < 0) i = GPTS-1;
   uint8_t y, y2 = m_points[i].temp;
-  if(y2 == 255) return;
+  if(y2 == -1) return;
   int x2 = 310;
+
+  const int base = 660; // 66.0 base
+  y2 = (constrain(y2, 660, 900) - base) * 101 / 110;
 
   for(int x = 309; x >= 10; x--)
   {
     if(--i < 0)
       i = GPTS-1;
     y = m_points[i].temp;
-    if(y == 255) break; // invalid data
+    if(y == -1) break; // invalid data
+    y = (constrain(y, 660, 900) - base) * 101 / 110;
     if(y != y2)
     {
       nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].state) );
@@ -906,7 +941,7 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
     return false;
   int idx = m_pointsIdx - 1 - n; // 0 = last entry
   if(idx < 0) idx += GPTS;
-  if(m_points[idx].temp == 255) // invalid data
+  if(m_points[idx].temp == -1) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
 }
