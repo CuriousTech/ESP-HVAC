@@ -243,7 +243,7 @@ void dataPage(AsyncWebServerRequest *request)
     out += ",";
     out += gpt.l;
     out += ",";
-    out += gpt.state;
+    out += gpt.bits.u;
     out += "],";
     response->print(out);
   }
