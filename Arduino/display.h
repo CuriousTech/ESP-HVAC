@@ -15,14 +15,25 @@ struct Line{
   int16_t y2;
 };
 
+union gflags
+{
+  struct
+  {
+    uint16_t fan:1;
+    uint16_t state:3;
+    uint16_t res:12;
+  } b;
+  uint16_t u;
+};
+
 struct gPoint{
   uint32_t time;
-  int16_t temp;
-  int16_t l;
-  int16_t h;
-  int16_t ltemp;
-  uint8_t rh;
-  uint8_t state;
+  uint16_t temp;
+  uint16_t l;
+  uint16_t h;
+  uint16_t rh;
+  uint16_t ltemp;
+  gflags bits;
 };
 
 class Display
@@ -59,7 +70,7 @@ private:
   void drawPoints(int w, uint16_t color);
   void drawPointsRh(uint16_t color);
   void drawPointsTemp(void);
-  uint16_t stateColor(uint8_t v);
+  uint16_t stateColor(gflags v);
   void Lines(void);
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
