@@ -1,5 +1,10 @@
 // Do all the web stuff here (Remote unit)
 
+//uncomment to enable Arduino IDE Over The Air update code
+//#define OTA_ENABLE
+
+//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+
 #include <ESP8266mDNS.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
@@ -11,11 +16,16 @@
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
 #include "display.h" // for display.Note()
-#include "pages.h"
 #include "WiFiManager.h"
 #include "eeMem.h"
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
 //switch WEBSOCKETS_NETWORK_TYPE to NETWORK_ESP8266_ASYNC in WebSockets.h
+#ifdef USE_SPIFFS
+#include <FS.h>
+#include <SPIFFSEditor.h>
+#else
+#include "pages.h"
+#endif
 
 //-----------------
 uint8_t serverPort = 86;            // firewalled
@@ -35,19 +45,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
 
 int chartFiller(uint8_t *buffer, int maxLen, int index);
-
-void onBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
-  //Handle body
-}
-
-void onUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
-  //Handle upload
-}
-
-void onRequest(AsyncWebServerRequest *request){
-  //Handle Unknown Request
-  request->send(404);
-}
 
 void onEvents(AsyncEventSourceClient *client)
 {
@@ -100,12 +97,17 @@ void startServer()
       Serial.println ( "MDNS responder failed" );
   }
 
+#ifdef USE_SPIFFS
+  SPIFFS.begin();
+  server.addHandler(new SPIFFSEditor("admin", ee.password));
+#endif
+
   // attach AsyncEventSource
   events.onConnect(onEvents);
   server.addHandler(&events);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    Serial.println("handleRoot");
+//    Serial.println("handleRoot");
     parseParams(request);
     if(wifi.isCfg())
       request->send( 200, "text/html", wifi.page() );
@@ -120,13 +122,24 @@ void startServer()
 
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
     parseParams(request);
-    request->send_P ( 200, "text/html", chart );
+#ifdef USE_SPIFFS
+      request->send(SPIFFS, "/chart.html");
+#else
+      request->send_P(200, "text/html", chart);
+#endif
   });
   server.on ( "/data", HTTP_GET, dataPage);
 
-  server.onNotFound(onRequest);
-  server.onFileUpload(onUpload);
-  server.onRequestBody(onBody);
+  server.onNotFound([](AsyncWebServerRequest *request){
+    //Handle Unknown Request
+    request->send(404);
+  });
+  server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+    //Handle upload
+  });
+  server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    //Handle body
+  });
 
   server.begin();
   // Add service to MDNS-SD
@@ -140,7 +153,7 @@ void dataPage(AsyncWebServerRequest *request)
 
   AsyncResponseStream *response = request->beginResponseStream("text/javascript");
 
-  for(int entryIdx = 0; entryIdx < GPTS; entryIdx++)
+  for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
   {
     gPoint gpt;
     if( display.getGrapthPoints(&gpt, entryIdx) == false)
@@ -156,21 +169,21 @@ void dataPage(AsyncWebServerRequest *request)
       out += "tb=";      // first data opening statements
       out += tb;
       out += "\ncost=";
-      out +=  String(hvac.m_fCost, 2);
+      out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
       out += "\ndata=[\n";
     }
     out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
     out += (gpt.time - tb)/10;
     out += ",";
-    out += gpt.temp * 110 / 101 + 660;
+    out += gpt.temp;
     out += ",";
-    out += gpt.rh * 250 / 55;
+    out += gpt.rh;
     out += ",";
-    out += gpt.h * 110 / 101 + 660;
+    out += gpt.h;
     out += ",";
-    out += gpt.l * 110 / 101 + 660;
+    out += gpt.l;
     out += ",";
-    out += gpt.state;
+    out += gpt.bits.u;
     out += "],";
     response->print(out);
   }
@@ -190,11 +203,20 @@ void WsSend(String s)
 
 void secondsServer() // called once per second
 {
+  static uint8_t timer = 10;
+
+  if(--timer == 0) // event stream needs a keep-alive of 10 seconds
+  {
+    timer = 10;
+    events.send("", "");
+  }
+
   if(hvac.tempChange())
   {
     events.send(dataJson().c_str(), "state");
     String s = "state;" + dataJson();
-    ws.sendTXT(s);
+    ws.sendTXT("state;" + dataJson());
+    timer = 10;
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
@@ -217,13 +239,13 @@ void parseParams(AsyncWebServerRequest *request)
   char temp[100];
   int val;
 
-  Serial.println("parseParams");
+//  Serial.println("parseParams");
 
   for ( uint8_t i = 0; i < request->params(); i++ ) {
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-    Serial.println( i + " " + p->name() + ": " + s);
+//    Serial.println( i + " " + p->name() + ": " + s);
     int val = s.toInt();
  
     switch( p->name().charAt(0)  )
