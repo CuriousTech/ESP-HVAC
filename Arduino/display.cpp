@@ -774,8 +774,9 @@ void Display::addGraphPoints()
   }
   m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
   m_points[m_pointsIdx].rh = hvac.m_rh;
-  m_points[m_pointsIdx].state = ( hvac.getState() << 1) | hvac.getFanRunning();
-
+  m_points[m_pointsIdx].bits.b.fan = hvac.getFanRunning();
+  m_points[m_pointsIdx].bits.b.state = hvac.getState(); 
+  m_points[m_pointsIdx].bits.b.res = 0; // just clear the extra
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
 }
@@ -905,21 +906,21 @@ void Display::drawPointsTemp()
     y = (constrain(y, 660, 900) - base) * 101 / 110;
     if(y != y2)
     {
-      nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].state) );
+      nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
       y2 = y;
       x2 = x;
     }
   }
 }
 
-uint16_t Display::stateColor(uint8_t v) // return a color based on run state
+uint16_t Display::stateColor(gflags v) // return a color based on run state
 {
   uint16_t color;
 
-  if(v&1) // fan
+  if(v.b.fan) // fan
     color = rgb16(0, 50, 0); // green
 
-  switch(v >> 1)
+  switch(v.b.state)
   {
     case State_Off: // off
       color = rgb16(20, 40, 20); // gray
