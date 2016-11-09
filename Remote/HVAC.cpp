@@ -138,7 +138,7 @@ uint8_t HVAC::getMode()
   return ee.Mode;
 }
 
-void HVAC::setHeatMode(uint8_t mode)
+void HVAC::setHeatMode(int mode)
 {
   m_setHeat = mode % 3;
   m_remoteTimer = 2;
@@ -160,7 +160,7 @@ int8_t HVAC::getSetMode()
 }
 
 // User:Set a new control mode
-void HVAC::setMode(int8_t mode)
+void HVAC::setMode(int mode)
 {
   m_setMode = mode & 3;
   m_remoteTimer = 2;
@@ -190,7 +190,7 @@ void HVAC::filterInc()
 {
 }
 
-int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
+int16_t HVAC::getSetTemp(int mode, int hl)
 {
   switch(mode)
   {
@@ -205,7 +205,7 @@ int16_t HVAC::getSetTemp(int8_t mode, int8_t hl)
 }
 
 // User:Set new control temp
-void HVAC::setTemp(int8_t mode, int16_t Temp, int8_t hl)
+void HVAC::setTemp(int mode, int16_t Temp, int hl)
 {
   if(mode == Mode_Auto)
   {
