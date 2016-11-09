@@ -21,29 +21,24 @@ union gflags
   {
     uint16_t fan:1;
     uint16_t state:3;
-    uint16_t res:12;
+    int16_t  rh:11;
+    uint16_t res:1;
   } b;
   uint16_t u;
 };
 
 struct gPoint{
   uint32_t time;
-  uint16_t temp;
-  uint16_t l;
-  uint16_t h;
-  uint16_t rh;
-  uint16_t ltemp;
+  int16_t temp;
+  int16_t l;
+  int16_t h;
   gflags bits;
 };
 
 class Display
 {
 public:
-  Display():
-    m_pointsIdx(0),
-    m_adjustMode(0),
-    m_backlightTimer(NEX_TIMEOUT),
-    m_temp_counter(10*60)
+  Display()
   {
   }
   void init(void);
@@ -74,13 +69,13 @@ private:
   void Lines(void);
   int tween(int8_t t1, int8_t t2, int m, int8_t h);
 
-  uint16_t m_backlightTimer;
+  uint16_t m_backlightTimer = NEX_TIMEOUT;
 #define GPTS 300 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
 public:
   uint16_t m_pointsIdx;
   int16_t m_updateFcst = 1;
-  uint16_t m_temp_counter = 60;
+  uint16_t m_temp_counter = 10*60;
   uint8_t m_adjustMode;
 };
 
