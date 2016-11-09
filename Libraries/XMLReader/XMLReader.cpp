@@ -9,7 +9,7 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize with a buffer, it's length, and a callback to iterate values in a list tag (item = tag#, idx = index in list, p = next value string)
-XMLReader::XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), XML_tag_t *pTags )
+XMLReader::XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), const XML_tag_t *pTags )
 {
   m_xml_callback = xml_callback;
   m_pTags = pTags;
@@ -102,7 +102,7 @@ void XMLReader::_onData(AsyncClient* client, char* data, size_t len)
 
     if(m_binValues) // if not in values, increment to next tag
     {
-      nextValue(m_pTags);
+      nextValue();
     }
     else if( combTag(m_pTags[m_tagIdx].pszTag, m_pTags[m_tagIdx].pszAttr, m_pTags[m_tagIdx].pszValue))   // scan for next tag
     {
@@ -196,7 +196,7 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
 }
 
 // Get next tag data
-bool XMLReader::nextValue(XML_tag_t *ptags)
+bool XMLReader::nextValue()
 {
   if(!tagStart())
     return true;	                	// Find start of tag
@@ -215,7 +215,7 @@ bool XMLReader::nextValue(XML_tag_t *ptags)
   if(*m_pPtr == '/')                      // an end tag
   {
     IncPtr();
-    if(tagCompare(m_pPtr, ptags[m_tagIdx].pszTag)) // end of value list
+    if(tagCompare(m_pPtr, m_pTags[m_tagIdx].pszTag)) // end of value list
     {
       m_tagIdx++;
       m_binValues = false;
@@ -243,7 +243,7 @@ bool XMLReader::nextValue(XML_tag_t *ptags)
 
   m_xml_callback(m_tagIdx, m_valIdx, ptr);
 
-  if(++m_valIdx >= ptags[m_tagIdx].valueCount)
+  if(++m_valIdx >= m_pTags[m_tagIdx].valueCount)
   {
       m_binValues = false;
       m_tagIdx++;
