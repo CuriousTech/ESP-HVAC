@@ -23,12 +23,12 @@ struct XML_tag_t
 class XMLReader
 {
 public:
-  XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), XML_tag_t *pTags);
+  XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), const XML_tag_t *pTags);
   bool  begin(const char *pHost, String path);
 
 private:
   bool  combTag(const char *pTagName, const char *pAttr, const char *pValue);
-  bool  nextValue(XML_tag_t *tags);
+  bool  nextValue(void);
   bool  fillBuffer(char* data, size_t len);
   void  emptyBuffer(void);
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue);
@@ -52,7 +52,7 @@ private:
   const char  *m_pHost;
   char m_buffer[257];
   String m_path;
-  XML_tag_t *m_pTags;
+  const XML_tag_t *m_pTags;
   char   *m_pPtr;
   char   *m_pEnd;
   char   *m_pIn;
