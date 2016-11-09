@@ -335,10 +335,10 @@ void Display::drawForecast(bool bRef)
     if(hvac.m_fcData[fcCnt].h == 255)
       break;
 
-  int8_t day = weekday()-1;              // current day
-  int16_t hrs = hvac.m_fcData[fcCnt-1].h - hvac.m_fcData[1].h; // normally 180ish hours
-  int16_t h;
-  int16_t day_x = 0;
+  int day = weekday()-1;              // current day
+  int hrs = hvac.m_fcData[fcCnt-1].h - hvac.m_fcData[1].h; // normally 180ish hours
+  int h;
+  int day_x = 0;
 
   if(hrs <= 0) return;                     // error
 
@@ -367,8 +367,8 @@ void Display::drawForecast(bool bRef)
   if((tmax-tmin) == 0 || hrs == 0) // divide by 0
     return;
 
-  int16_t y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].t - tmin) * (Fc_Height-2) / (tmax-tmin);
-  int16_t x2 = Fc_Left;
+  int y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].t - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int x2 = Fc_Left;
   for(i = 1; i < fcCnt; i++) // should be 41 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
@@ -396,9 +396,9 @@ void Display::displayOutTemp()
   if(hvac.m_fcData[1].h == 255) // no read yet
     return;
   
-  int8_t hd = hour() - hvac.m_fcData[1].h;      // hours past 1st value
-  int16_t outTempDelayed;
-  int16_t outTempReal;
+  int hd = hour() - hvac.m_fcData[1].h;      // hours past 1st value
+  int outTempDelayed;
+  int outTempReal;
 
   if(hd < 0)                                    // 1st value is top of next hour
   {
@@ -416,7 +416,8 @@ void Display::displayOutTemp()
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
 
-  hvac.updateOutdoorTemp(outTempDelayed);
+  // Summer/winter curve.  Summer is delayed 3 hours
+  hvac.updateOutdoorTemp((ee.Mode == Mode_Heat) ? outTempReal : outTempDelayed);
 }
 
 void Display::Note(char *cNote)
@@ -521,7 +522,7 @@ void Display::refreshAll()
   updateAdjMode(true);
 }
 
-// Analog clock
+// Analog clock   This code uses 6775 bytes
 void Display::updateClock()
 {
   if(nex.getPage() != Page_Clock)
@@ -772,8 +773,8 @@ void Display::addGraphPoints()
     m_points[m_pointsIdx].l = hvac.m_targetTemp;
     m_points[m_pointsIdx].h = hvac.m_targetTemp + ee.cycleThresh[1];
   }
-  m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
-  m_points[m_pointsIdx].rh = hvac.m_rh;
+//  m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
+  m_points[m_pointsIdx].bits.b.rh = hvac.m_rh;
   m_points[m_pointsIdx].bits.b.fan = hvac.getFanRunning();
   m_points[m_pointsIdx].bits.b.state = hvac.getState(); 
   m_points[m_pointsIdx].bits.b.res = 0; // just clear the extra
@@ -794,8 +795,8 @@ void Display::fillGraph()
   nex.text(292, 58, 2, textcolor, String(84));
   nex.text(292,  8, 2, textcolor, String(90));
 
-  int16_t x = 310 - (minute() / 5); // center over even hour, 5 mins per pixel
-  int8_t h = hourFormat12();
+  int x = 310 - (minute() / 5); // center over even hour, 5 mins per pixel
+  int h = hourFormat12();
 
   while(x > 10)
   {
@@ -808,10 +809,10 @@ void Display::fillGraph()
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
   drawPointsRh( rgb16(  0, 53,  0) ); // rh green
-  if(hvac.isRemote())
-  {
-    drawPoints(2, rgb16( 31, 0,  15) ); // remote temp
-  }
+//  if(hvac.isRemote())
+//  {
+//    drawPoints(2, rgb16( 31, 0,  15) ); // remote temp
+//  }
   drawPointsTemp(); // off/cool/heat colors
 }
 
@@ -826,7 +827,7 @@ void Display::drawPoints(int w, uint16_t color)
   {
     case 0: y2 = m_points[i].h; break;
     case 1: y2 = m_points[i].l; break;
-    case 2: y2 = m_points[i].ltemp; break;
+//    case 2: y2 = m_points[i].ltemp; break;
   }
   if(y2 == -1) return; // not enough data
 
@@ -842,7 +843,7 @@ void Display::drawPoints(int w, uint16_t color)
     {
       case 0: y = m_points[i].h; break;
       case 1: y = m_points[i].l; break;
-      case 2: y = m_points[i].ltemp; break;
+//      case 2: y = m_points[i].ltemp; break;
     }
 
     if(y == -1) return;
@@ -862,7 +863,7 @@ void Display::drawPointsRh(uint16_t color)
   int i = m_pointsIdx - 1;
   if(i < 0) i = GPTS-1;
   const int yOff = 240-10;
-  int y, y2 = m_points[i].rh;
+  int y, y2 = m_points[i].bits.b.rh;
   if(y2 == 255) return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
@@ -872,7 +873,7 @@ void Display::drawPointsRh(uint16_t color)
     if(--i < 0)
       i = GPTS-1;
 
-    y = m_points[i].rh;
+    y = m_points[i].bits.b.rh;
     if(y == 255) return;
     y = y * 55 / 250;
 
