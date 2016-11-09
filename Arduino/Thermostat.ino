@@ -22,7 +22,6 @@ SOFTWARE.
 */
 
 // Build with Arduino IDE 1.6.11 and esp8266 SDK 2.3.0
-
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -61,8 +60,8 @@ eeMem eemem;
 HVAC hvac;
 
 #ifdef SHT21_H
-SHT21 sht(SDA, SCL, 5);
-RunningMedian<int16_t,20> tempMedian; //median over 20 samples at 5s intervals
+SHT21 sht(SDA, SCL, 4);
+RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 4s intervals
 #endif
 #ifdef dht_h
 DHT dht;
@@ -79,7 +78,7 @@ OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
 #endif
 
-XML_tag_t Xtags[] =
+const XML_tag_t Xtags[] =
 {
   {"creation-date", NULL, NULL, 1},
   {"time-layout", "time-coordinate", "local", FC_CNT},
