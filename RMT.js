@@ -1,10 +1,9 @@
-// Remote thermostat stream listener
-interval = 10 * 60
-Url = 'http://192.168.0.198:80/events?int=' + interval + '&p=1'
+Url = 'http://192.168.0.103:86/events'
 if(!Http.Connected)
 	Http.Connect( 'event', Url )  // Start the event stream
 
 var last
+mute = false
 Pm.SetTimer(10*1000)
 heartbeat = 0
 // Handle published events
@@ -15,13 +14,17 @@ function OnCall(msg, event, data)
 		case 'HTTPDATA':
 			heartbeat = new Date()
 			if(data.length <= 2) break // keep-alive heartbeat
+			mute = false
 			lines = data.split('\n')
 			for(i = 0; i < lines.length; i++)
 				procLine(lines[i])
 			break
+		case 'HTTPSTATUS':
+			Pm.Echo('RMT Status ' + event)
+			break
 		case 'HTTPCLOSE':
-			Http.Connect( 'event', Url )  // Start the event stream
-			Pm.Echo('RMT stream closed')
+			Pm.Echo('RMT stream retry')
+//			Http.Connect( 'event', Url )  // Start the event stream
 			break
 	}
 }
@@ -29,12 +32,7 @@ function OnCall(msg, event, data)
 function procLine(data)
 {
 	if(data.length < 2) return
-	if(data == ':ok' )
-	{
-		Pm.Echo( 'RMT stream started')
-		return
-	}
-
+	data = data.replace(/\n|\r/g, "")
 	if( data.indexOf( 'event' ) >= 0 )
 	{
 		event = data.substring( data.indexOf(':') + 2)
@@ -68,31 +66,36 @@ function procLine(data)
 function OnTimer()
 {
 	time = (new Date()).valueOf()
-	if(time - heartbeat > 60*1000)
+	if(time - heartbeat > 120*1000)
 	{
 		if(!Http.Connected)
 		{
-			Pm.Echo('RMT timeout')
-			Http.Connect( 'event', Url )  // Start the event stream
+			if(!mute)
+			{
+				mute = true
+				Pm.Echo('RMT timeout')
+			}
+	//		Http.Connect( 'event', Url )  // Start the event stream
 		}
 	}
 }
 
-function 	LogRemote(str)
+function LogRemote(str)
 {
 	rmtJson = !(/[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(
 		str.replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + str + ')')
 
 	line = rmtJson.tempi + ',' + rmtJson.rhi
 
+//Pm.Echo(str)
 	if(line == last || +rmtJson.tempi == -1)
 		return
 	last = line
 
-	date = new Date()
+//	Pm.Echo( new Date(rmtJson.t * 1000) )
 	fso = new ActiveXObject( 'Scripting.FileSystemObject' )
 	tf = fso.OpenTextFile( 'Remote.log', 8, true)
-	tf.WriteLine( Math.floor(date.getTime() / 1000) + ',' + line )
+	tf.WriteLine( rmtJson.t + ',' + line )
 	tf.Close()
 	fso = null
 }
