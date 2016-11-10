@@ -17,6 +17,8 @@
 	if(Reg.overrideTemp == 0)
 		Reg.overrideTemp = -1.2
 
+	var coolTempH
+	var cycleThresh
 	var hvacJson
 	var mode
 	var last
@@ -27,9 +29,10 @@
 	Gdi.Width = 208 // resize drawing area
 	Gdi.Height = 250
 
-	Pm.SetTimer(60*1000)
+	if(!Http.Connected)
+		Http.Connect('HVAC', hvacUrl)
 
-	Http.Connect('HVAC', hvacUrl)
+	Pm.SetTimer(1000)
 
 // Handle published events
 function OnCall(msg, event, data, d2)
@@ -52,6 +55,7 @@ function OnCall(msg, event, data, d2)
 			if(data.length) procLine(data)
 			break
 		case 'HTTPCLOSE':
+			Pm.Echo( 'HvacRemote WS closed')
 			break
 
 		case 'BUTTON':
@@ -130,6 +134,13 @@ function OnCall(msg, event, data, d2)
 	}
 }
 
+function OnTimer()
+{
+	if(Http.Connected)
+		return
+	Http.Connect('HVAC', hvacUrl)
+}
+
 function SetVar(v, val)
 {
 	Http.Send( 'cmd;{key:' + password + ',' + v + ':' + val  )
@@ -186,7 +197,9 @@ function procLine(data)
 			LogTemps()
 			Pm.X10('STATTEMP', inTemp + '° ' + rh + '% > ' + targetTemp + '° ')
 			break
-
+		case 'alert':
+			Pm.Echo('HVAC Alert: ' + parts[1])
+			break
 		default:
 			Pm.Echo('HR Unknown event: ' + data)
 			break	
@@ -268,7 +281,7 @@ function Draw()
 
 	x = 5
 	y = 22
-	if(hvacJson == undefined)
+	if(hvacJson == undefined || coolTempH == undefined)
 		return
 
 	Gdi.Text('In: ' + inTemp + '°', x, y)
@@ -368,6 +381,8 @@ function ShadowText(str, x, y, clr)
 
 function LogTemps( )
 {
+	if(cycleThresh == undefined)
+		return
 	if(targetTemp == 0)
 		return
 
@@ -383,8 +398,22 @@ function LogTemps( )
 
 	fso = new ActiveXObject( 'Scripting.FileSystemObject' )
 
+	ttL = targetTemp
+	
+	ttH = targetTemp
+
+	if(Reg.hvacMode == 1)
+		    ttH -= cycleThresh // cool
+	else ttH += cycleThresh // heat
+
+	if(mode != Reg.hvacMode)
+	{
+		Reg.hvacMode = mode
+		Pm.Echo('mode change')
+	}
+
 	tf = fso.OpenTextFile( 'statTemp.log', 8, true)
-	tf.WriteLine( hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + targetTemp + ',' + rh)
+	tf.WriteLine( hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + ttL + ',' + ttH+ ',' + rh)
 	tf.Close()
 	fso = null
 }
