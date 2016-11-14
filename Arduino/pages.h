@@ -887,7 +887,7 @@ const char chart[] PROGMEM =
    "    if(data[i][3] != 'nan' && data[i][3] > max)\n"
    "      max = data[i][3]\n"
    "  }\n"
-   "  return Math.floor(max)+1\n"
+   "  return Math.floor(max)\n"
    "}\n"
    "\n"
    "function getMinY(){\n"
