@@ -89,15 +89,15 @@ public:
   uint8_t getHeatMode(void);      // heat mode
   int8_t  getAutoMode(void);      // get current auto heat/cool mode
   int8_t  getSetMode(void);       // get last requested mode
-  void    setMode(int8_t mode);   // request new mode; see enum Mode
-  void    setHeatMode(uint8_t mode); // heat mode
+  void    setMode(int mode);   // request new mode; see enum Mode
+  void    setHeatMode(int mode); // heat mode
   int8_t  getFan(void);           // fan mode
   bool    getHumidifierRunning(void);
   void    setFan(int8_t m);        // auto/on/s mode
   void    filterInc(void);
   bool    stateChange(void);      // change since last call = true
-  int16_t getSetTemp(int8_t mode, int8_t hl); // get temp set for a mode (cool/heat, hi/lo)
-  void    setTemp(int8_t mode, int16_t Temp, int8_t hl); // set temp for a mode
+  int16_t getSetTemp(int mode, int hl); // get temp set for a mode (cool/heat, hi/lo)
+  void    setTemp(int mode, int16_t Temp, int hl); // set temp for a mode
   void    enableRemote(void);
   bool    showLocalTemp(void);
   bool    isRemote(void);          // just indicate remote unit or not
@@ -137,9 +137,9 @@ private:
   void  fanSwitch(bool bOn);
   void  humidSwitch(bool bOn);
   void  tempCheck(void);
-  bool  preCalcCycle(int8_t mode);
-  void  calcTargetTemp(int8_t mode);
-  void  costAdd(int secs, int8_t mode, int8_t hm);
+  bool  preCalcCycle(int mode);
+  void  calcTargetTemp(int mode);
+  void  costAdd(int secs, int mode, int hm);
   int   CmdIdx(String s);
   void  sendCmd(const char *szName, int value);
 
