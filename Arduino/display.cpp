@@ -864,7 +864,7 @@ void Display::drawPointsRh(uint16_t color)
   if(i < 0) i = GPTS-1;
   const int yOff = 240-10;
   int y, y2 = m_points[i].bits.b.rh;
-  if(y2 == 255) return; // not enough data
+  if(y2 == -1) return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
 
@@ -874,7 +874,7 @@ void Display::drawPointsRh(uint16_t color)
       i = GPTS-1;
 
     y = m_points[i].bits.b.rh;
-    if(y == 255) return;
+    if(y == -1) return;
     y = y * 55 / 250;
 
     if(y != y2)
