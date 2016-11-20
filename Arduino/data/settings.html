@@ -38,8 +38,7 @@ var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
 function startEvents()
 {
-var loc = window.location
-ws = new WebSocket("ws://"+loc.host+"/ws")
+ws = new WebSocket("ws://"+window.location.host+"/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
@@ -194,11 +193,6 @@ function t2s(v)
 	a.hide.value='Show'
 	document.getElementById('myToken').value=myStorage1
  }
-  
- myStorage3 = localStorage.getItem('myStoredText3')
- if(myStorage3  != null){
-	document.getElementById('ovrtemp').value=myStorage3
- }
  startEvents()
 }">
 <strong><em>CuriousTech HVAC Settings</em></strong><br><br>
@@ -278,7 +272,7 @@ function t2s(v)
 <td></td>
 </tr>
 <tr>
-<td>PPWH</td>
+<td>PPKWH</td>
 <td><input type=text size=4 id="ppkwh"></td>
 <td><input type="button" value="Set" onClick="{setPPKWH()}"></td>
 <td></td>
