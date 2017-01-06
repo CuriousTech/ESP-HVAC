@@ -221,7 +221,7 @@ void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
   for(int i = 0; i < len; i++)
   {
     char c = data[i];
-    if(c != '\r')
+    if(c != '\r' && m_bufcnt < JC_BUF_SIZE)
       m_buffer[m_bufcnt++] = c;
     if(c == '\n')
     {
