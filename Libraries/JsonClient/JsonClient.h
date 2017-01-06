@@ -23,7 +23,7 @@ enum JC_Status
 
 #define RETRIES 6
 
-#define JC_BUF_SIZE 1024
+#define JC_BUF_SIZE 1500
 
 class JsonClient
 {
@@ -72,3 +72,4 @@ private:
 };
 
 #endif // JSONCLIENT_H
+
