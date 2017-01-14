@@ -3,7 +3,7 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
 
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
@@ -111,7 +111,7 @@ const char *jsonList3[] = { "alert", NULL };
 void startServer()
 {
   WiFi.hostname("HVAC");
-  wifi.autoConnect("HVAC"); // Tries all open APs, then starts softAP mode for config
+  wifi.autoConnect("HVAC", ee.password); // Tries configured AP, then starts softAP mode for config
 
   Serial.println("");
   if(wifi.isCfg() == false)
@@ -136,19 +136,18 @@ void startServer()
   // attach AsyncWebSocket
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
-  
+
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    parseParams(request);
     if(wifi.isCfg())
       request->send( 200, "text/html", wifi.page() );
-    else
-    {
+  });
+  server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    parseParams(request);
 #ifdef USE_SPIFFS
-      request->send(SPIFFS, "/index.html");
+    request->send(SPIFFS, "/index.html");
 #else
-      request->send_P(200, "text/html", page1);
+    request->send_P(200, "text/html", page1);
 #endif
-    }
   });
 
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -180,7 +179,7 @@ void startServer()
   server.on ( "/data", HTTP_GET, dataPage);
 
   server.onNotFound([](AsyncWebServerRequest *request){
-    request->send(404);
+//    request->send(404);
   });
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
   });
@@ -232,7 +231,7 @@ void dataPage(AsyncWebServerRequest *request)
       out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
       out += "\ndata=[\n";
     }
-    out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
+    out += "[";         // [seconds/10, temp, rh, high, low, state],
     out += (gpt.time - tb)/10;
     out += ",";
     out += gpt.temp;
