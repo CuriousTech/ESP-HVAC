@@ -3,7 +3,7 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
 
 #include <ESP8266mDNS.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -85,7 +85,7 @@ const char pageR[] PROGMEM =
 void startServer()
 {
   WiFi.hostname("HVACRemote");
-  wifi.autoConnect("HVACRemote");  // AP you'll see on your phone
+  wifi.autoConnect("HVACRemote", ee.password);  // AP you'll see on your phone
 
   Serial.println("");
   if(wifi.isCfg() == false)
@@ -115,6 +115,15 @@ void startServer()
       request->send_P( 200, "text/html", pageR );
   });
 
+  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // only used for config mode
+    if(wifi.isCfg())
+    {
+      request->send( 200, "text/html", "Restarting" );
+      delay(1000); // give it time to send
+      parseParams(request);
+    }
+  });
+
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     String s = hvac.settingsJson();
     request->send( 200, "text/json", s + "\n");
@@ -132,7 +141,7 @@ void startServer()
 
   server.onNotFound([](AsyncWebServerRequest *request){
     //Handle Unknown Request
-    request->send(404);
+//    request->send(404);
   });
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     //Handle upload
@@ -172,7 +181,7 @@ void dataPage(AsyncWebServerRequest *request)
       out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
       out += "\ndata=[\n";
     }
-    out += "[";         // [seconds/10, temp, rh, high, low, state, fan],
+    out += "[";         // [seconds/10, temp, rh, high, low, state],
     out += (gpt.time - tb)/10;
     out += ",";
     out += gpt.temp;
@@ -245,7 +254,7 @@ void parseParams(AsyncWebServerRequest *request)
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
     String s = wifi.urldecode(temp);
-//    Serial.println( i + " " + p->name() + ": " + s);
+    Serial.println( i + " " + p->name() + ": " + s);
     int val = s.toInt();
  
     switch( p->name().charAt(0)  )
