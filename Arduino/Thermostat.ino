@@ -184,6 +184,12 @@ bool EncoderCheck()
 
   hvac.setTemp(m, t, hilo);
 
+  if(hvac.m_bLink) // adjust both high and low
+  {
+    t = hvac.getSetTemp(m, hilo^1 ) + r; // adjust opposite hi/lo the same
+    hvac.setTemp(m, t, hilo^1);
+  }
+
   display.updateTemps();
   return true;
 }
