@@ -83,12 +83,14 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 7: // cool lo
             case 8: // heat hi
             case 9: // heat lo
+              hvac.m_bLink = (m_adjustMode == btn-6);
               m_adjustMode = btn-6;
               break;
             case 15: // cool hi
             case 16: // cool lo
             case 17: // heat hi
             case 18: // heat lo
+              hvac.m_bLink = (m_adjustMode == btn-15);
               m_adjustMode = btn-15;
               break;
 
@@ -605,12 +607,17 @@ void Display::updateModes() // update any displayed settings
 void Display::updateAdjMode(bool bRef)  // current adjust indicator of the 4 temp settings
 {
   static uint8_t am = 0;
-
-  if(nex.getPage() || (bRef == false && am == m_adjustMode) )
+  static bool bl = false;
+  // p0-p4
+  if(nex.getPage() || (bRef == false && am == m_adjustMode && bl == hvac.m_bLink) )
     return;
-  nex.visible("p" + String(am), 0);
+  nex.visible("p" + String(am), 0); // turn off both hi/lo of last
+  nex.visible("p" + String(am^1), 0);
   am = m_adjustMode;
   nex.visible("p" + String(am), 1);
+  if(hvac.m_bLink)
+    nex.visible("p" + String(am^1), 1); // turn on the opposite hi/lo
+  bl = hvac.m_bLink;
 }
 
 void Display::updateRSSI()
@@ -864,7 +871,7 @@ void Display::drawPointsRh(uint16_t color)
   if(i < 0) i = GPTS-1;
   const int yOff = 240-10;
   int y, y2 = m_points[i].bits.b.rh;
-  if(y2 == 255) return; // not enough data
+  if(y2 == -1) return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
 
@@ -874,7 +881,7 @@ void Display::drawPointsRh(uint16_t color)
       i = GPTS-1;
 
     y = m_points[i].bits.b.rh;
-    if(y == 255) return;
+    if(y == -1) return;
     y = y * 55 / 250;
 
     if(y != y2)
