@@ -514,7 +514,7 @@ const char page2[] PROGMEM =
    "function setAwayTemp(){setVar('awaydelta',(+a.awaytemp.value*10).toFixed())}\n"
    "function setPPKWH(){setVar('ppk',(+a.ppkwh.value*10000).toFixed())}\n"
    "function setCCF(){setVar('ccf',(+a.ccf.value*1000).toFixed())}\n"
-   "function rsttCost(){setVar('cost',0)}\n"
+   "function rstCost(){setVar('cost',0)}\n"
    "\n"
    "function setRmt(v)\n"
    "{\n"
