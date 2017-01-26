@@ -132,6 +132,7 @@ public:
   uint16_t m_fanPreElap = 60*10;
   float    m_fCostE;        // cost total (elec)
   float    m_fCostG;        // cost total (gas)
+  bool     m_bLink;         // link adjust mode
 
 private:
   void  fanSwitch(bool bOn);
