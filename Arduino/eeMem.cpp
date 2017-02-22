@@ -29,7 +29,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "41042",      // zipCode
   "password",  // password for controlling thermostat
   false,        // bLock
-  false,        // reserved
+  false,        // true = forecast not local
   14543,        // price per KWH in cents / 10000 (0.145)
     700,        // nat gas cost per cubic foot in cents / 100 (0.70)
   {0}
