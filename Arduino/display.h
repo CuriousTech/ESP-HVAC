@@ -56,7 +56,7 @@ private:
   void displayTime(void);
   void displayOutTemp(void);
   void updateModes(void); // update any displayed settings
-  void updateAdjMode(bool bRef);  // current adjust of the 4 temp settings
+  void updateAdjMode(bool bRef);  // current adjust indicator of the 4 temp settings
   void updateRSSI(void);
   void updateNotification(bool bRef);
   void updateRunIndicator(bool bForce); // run and fan running
@@ -67,16 +67,18 @@ private:
   void drawPointsTemp(void);
   uint16_t stateColor(gflags v);
   void Lines(void);
-  int tween(int8_t t1, int8_t t2, int m, int8_t h);
+  int tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
 #define GPTS 300 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
 public:
   uint16_t m_pointsIdx;
-  int16_t m_updateFcst = 1;
+//  int16_t  m_updateFcst = 1;
   uint16_t m_temp_counter = 10*60;
-  uint8_t m_adjustMode;
+  uint8_t  m_adjustMode; // which of 4 temps to adjust with rotary encoder
+  bool     m_bUpdateFcst;
+  bool     m_bUpdateFcstDone;
 };
 
 #endif // DISPLAY_H
