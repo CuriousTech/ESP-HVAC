@@ -14,8 +14,8 @@
 
 struct Forecast
 {
-  uint8_t h;   // hours ahead up to 255
-  int8_t t;   // integer temperature value
+  uint32_t tm;   // time
+  int8_t temp;   // integer temperature value
 };
 
 enum Mode
@@ -103,7 +103,6 @@ public:
   bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
-  void    updatePeaks(void);
   void    resetFilter(void);    // reset the filter hour count
   bool    checkFilter(void);
   void    resetTotal(void);
@@ -115,7 +114,7 @@ public:
   String  settingsJson(void); // get all settings in json format
   String  settingsJsonMod(void);
   String  getPushData(void);  // get states/temps/data in json
-#define FC_CNT 41
+#define FC_CNT 64
   Forecast m_fcData[FC_CNT];
   int16_t  m_outTemp;       // adjusted current temp *10
   int16_t  m_inTemp;        // current indoor temperature *10
