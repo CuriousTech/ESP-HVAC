@@ -20,6 +20,9 @@
 #include "eeMem.h"
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
 //switch WEBSOCKETS_NETWORK_TYPE to NETWORK_ESP8266_ASYNC in WebSockets.h
+#if (WEBSOCKETS_NETWORK_TYPE != NETWORK_ESP8266_ASYNC)
+#error "network type must be ESP8266 ASYNC!"
+#endif
 #ifdef USE_SPIFFS
 #include <FS.h>
 #include <SPIFFSEditor.h>
@@ -37,13 +40,13 @@ extern HVAC hvac;
 extern Display display;
 WiFiManager wifi;
 WebSocketsClient ws;
-
-void startListener(void);
-void dataPage(AsyncWebServerRequest *request);
+AsyncClient fc_client;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
-
+void startListener(void);
+void dataPage(AsyncWebServerRequest *request);
+void fcPage(AsyncWebServerRequest *request);
 int chartFiller(uint8_t *buffer, int maxLen, int index);
 
 void onEvents(AsyncEventSourceClient *client)
@@ -138,6 +141,7 @@ void startServer()
 #endif
   });
   server.on ( "/data", HTTP_GET, dataPage);
+  server.on ( "/forecast", HTTP_GET, fcPage);
 
   server.onNotFound([](AsyncWebServerRequest *request){
     //Handle Unknown Request
@@ -153,6 +157,14 @@ void startServer()
   server.begin();
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
+#ifdef OTA_ENABLE
+  ArduinoOTA.begin();
+#endif
+
+  fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
+  fc_client.onData([](void* obj, AsyncClient* c, void* data, size_t len){fc_onData(c, static_cast<char*>(data), len); });
+  fc_client.onDisconnect([](void* obj, AsyncClient* c) { fc_onDisconnect(c); });
+  fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
 }
 
 // Send the array formated chart data and any modified variables
@@ -200,9 +212,34 @@ void dataPage(AsyncWebServerRequest *request)
   request->send ( response );
 }
 
+// Send the comma delimited forecast data
+void fcPage(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
+
+  for(int i = 0; i < FC_CNT; i++)
+  {
+    if(hvac.m_fcData[i].tm == 0)
+      break;
+
+    String out = "";
+    out += hvac.m_fcData[i].tm;
+    out += ",";
+    out += hvac.m_fcData[i].temp;
+    out += "\r\n";
+    response->print(out);
+  }
+  request->send( response );
+}
+
 void handleServer()
 {
   MDNS.update();
+#ifdef OTA_ENABLE
+// Handle OTA server.
+  ArduinoOTA.handle();
+  yield();
+#endif
 }
 
 void WsSend(String s)
@@ -236,11 +273,24 @@ void secondsServer() // called once per second
   else
   {
     if(start)
-    {
       if(--start == 0)
-        startListener();
-    }
+          startListener();
   }
+
+  if(display.m_bUpdateFcst)
+  {
+     display.m_bUpdateFcst = false;
+
+   // Request forecast data from main unit
+     if(fc_client.connected() == false)
+     {
+       hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hour data
+       hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+       IPAddress ip(ee.hostIp);
+       fc_client.connect(ip, ee.hostPort);
+     }
+  }
+
 }
 
 void parseParams(AsyncWebServerRequest *request)
@@ -259,8 +309,11 @@ void parseParams(AsyncWebServerRequest *request)
  
     switch( p->name().charAt(0)  )
     {
-      case 'F': // temp offset
+      case 'T': // temp offset
           ee.adj = val;
+          break;
+      case 'f': // get forecast
+          display.m_bUpdateFcst = true;
           break;
       case 'H': // host  (from browser type: hTtp://thisip/?H=hostip&P=85)
           {
@@ -360,14 +413,59 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
 void startListener()
 {
   IPAddress ip(ee.hostIp);
-  ws.begin(ip.toString().c_str(), ee.hostPort, "/ws");
-/*  Serial.print("WS begin ");
-  Serial.print(ip.toString());
-  Serial.print(" ");
-  Serial.println(ee.hostPort);
-  */
-  ws.onEvent(webSocketEvent);
   remoteParse.addList(jsonList1);
   remoteParse.addList(jsonList2);
   remoteParse.addList(jsonList3);
+  ws.onEvent(webSocketEvent);
+  ws.begin(ip.toString().c_str(), ee.hostPort, "/ws");
+}
+
+int fcIdx;
+
+void fc_onConnect(AsyncClient* client)
+{
+  (void)client;
+
+  IPAddress ip(ee.hostIp);
+  String s = "GET /forecast HTTP/1.1\n"
+    "Host: ";
+  s += ip.toString();
+  s += "\nConnection: close\n"
+    "Accept: */*\n\n";
+
+  fc_client.add(s.c_str(), s.length());
+  fcIdx = 0;
+}
+
+// read data as comma delimited 'time,temp,rh' per line
+void fc_onData(AsyncClient* client, char* data, size_t len)
+{
+  while(fcIdx < FC_CNT-1 && *data)
+  {
+    uint32_t tm = atoi(data);
+    if(tm) // skip the headers
+    {
+      hvac.m_fcData[fcIdx].tm = tm;
+      while(*data && *data != ',') data ++;
+      if(*data == ',') data ++;
+      else return;
+      hvac.m_fcData[fcIdx].temp = atoi(data);
+      fcIdx++;
+    }
+    while(*data && *data != '\r' && *data != '\n') data ++;
+    while(*data == '\r' || *data == '\n') data ++;
+  }
+  hvac.m_fcData[fcIdx].tm = 0;
+  display.m_bUpdateFcstDone = true;
+  hvac.enable();
+}
+
+void fc_onDisconnect(AsyncClient* client)
+{
+  (void)client;
+}
+
+void fc_onTimeout(AsyncClient* client, uint32_t time)
+{
+  (void)client;
 }
