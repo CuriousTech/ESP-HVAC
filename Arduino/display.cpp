@@ -52,6 +52,13 @@ void Display::oneSec()
     lastFan = hvac.getFanRunning();
     m_temp_counter = 5*60;         // update every 5 minutes
   }
+  if(m_bUpdateFcstDone)
+  {
+    m_bUpdateFcstDone = false;
+    events.send("Forecast success", "print");
+    screen(true);
+    drawForecast(true);
+  }
 }
 
 void Display::checkNextion() // all the Nextion recieved commands
@@ -281,27 +288,41 @@ void Display::drawForecast(bool bRef)
 {
   int i;
 
-  if(hvac.m_fcData[1].h == 255) // no data yet
+  if(hvac.m_fcData[1].tm == 0) // no data yet
+  {
+    m_bUpdateFcst = true;
     return;
+  }
+
+  int fcCnt;
+  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (0 = end)
+    if(hvac.m_fcData[fcCnt].tm == 0)
+      break;
 
   if(bRef)
   {
-    if(hvac.m_fcData[0].h == 255) // first time only
+    // Update min/max
+    int8_t tmin = hvac.m_fcData[0].temp;
+    int8_t tmax = hvac.m_fcData[0].temp;
+
+    if(tmin == 0) // initial value
+      tmin = hvac.m_fcData[1].temp;
+
+    // Get min/max of current forecast
+    for(int i = 1; i < fcCnt; i++)
     {
-      hvac.m_fcData[0].h = hvac.m_fcData[1].h;
-      hvac.m_fcData[0].t = hvac.m_fcData[1].t;
+      int8_t t = hvac.m_fcData[i].temp;
+      if(tmin > t) tmin = t;
+      if(tmax < t) tmax = t;
     }
 
-    int8_t hrs = ( (hvac.m_fcData[1].h - hour() + 1) % 3 ) + 1 & 3;   // Set interval to 2, 5, 8, 11..20,23
-    int8_t mins = (60 - minute() + 53) % 60;   // mins to :52, retry will be :57
+    if(tmin == tmax) tmax++;   // div by 0 check
 
-    m_updateFcst = ((hrs * 60) + mins);
+    hvac.m_outMin = tmin;
+    hvac.m_outMax = tmax;
 
     m_temp_counter = 2; // Todo: just for first point
   }
-
-  if(m_updateFcst < 0) // An uncaught request timeout
-    m_updateFcst = 5;
 
   displayOutTemp(); // update temp for HVAC
 
@@ -332,89 +353,89 @@ void Display::drawForecast(bool bRef)
     t -= dec;
   }
 
-  int fcCnt;
-  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (255 = unused)
-    if(hvac.m_fcData[fcCnt].h == 255)
-      break;
+//  fcCnt = min(40, fcCnt); // 5 day limit
+  if(fcCnt > 40) fcCnt = 40;
 
-  int day = weekday()-1;              // current day
-  int hrs = hvac.m_fcData[fcCnt-1].h - hvac.m_fcData[1].h; // normally 180ish hours
-  int h;
+  int hrs = (hvac.m_fcData[fcCnt-1].tm - hvac.m_fcData[1].tm) / 3600; // normally 180ish hours
   int day_x = 0;
 
-  if(hrs <= 0) return;                     // error
-
-  for(i = 0, h = hvac.m_fcData[1].h; i < hrs; i++, h++)    // v-lines
-  {
-    x = Fc_Left + Fc_Width * i / hrs; // offset by hour
-    if( (h % 24) == 0) // midnight
-    {
-      nex.line(x, Fc_Top+1, x, Fc_Top+Fc_Height-2, rgb16(20, 41, 20) ); // (light gray)
-      if(x - 14 > Fc_Left) // fix 1st day too far left
-      {
-        nex.text(day_x = x - 27, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
-      }
-      if(++day > 6) day = 0;
-    }
-    if( (h % 24) == 12) // noon
-    {
-      nex.line(x, Fc_Top, x, Fc_Top+Fc_Height, rgb16(12, 25, 12) ); // gray
-    }
-  }
-
-  day_x += 28;
-  if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
-    nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
-
-  if((tmax-tmin) == 0 || hrs == 0) // divide by 0
+  if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].t - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
+  int hOld = 0;
+  int day = weekday()-1;              // current day
+
   for(i = 1; i < fcCnt; i++) // should be 41 data points
   {
-    int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].t - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int x1 = Fc_Left + (hvac.m_fcData[i].h - hvac.m_fcData[1].h) * (Fc_Width-1) / hrs;
+    int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+    int h = (hvac.m_fcData[i].tm - hvac.m_fcData[1].tm) / 3600;
+    int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
     if(x1 < Fc_Left) x1 = x2;  // todo: fix this
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
+
+    h = (hvac.m_fcData[i].tm / 3600) % 24; // current hour
+    if(hOld > h) // new day (draw line)
+    {
+      nex.line(x1, Fc_Top+1, x1, Fc_Top+Fc_Height-2, rgb16(20, 41, 20) ); // (light gray)
+      if(x1 - 14 > Fc_Left) // fix 1st day too far left
+      {
+        nex.text(day_x = x1 - 27, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
+      }
+      if(++day > 6) day = 0;
+    }
+    if( hOld < 12 && h >= 12) // noon (dark line)
+    {
+      nex.line(x1, Fc_Top, x1, Fc_Top+Fc_Height, rgb16(12, 25, 12) ); // gray
+    }
+    hOld = h;
     delay(5); // small glitch in drawing
     x2 = x1;
     y2 = y1;
   }
+  day_x += 28;
+  if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
+    nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
 }
 
 // get value at current minute between hours
-int Display::tween(int8_t t1, int8_t t2, int m, int8_t h)
+int Display::tween(int8_t t1, int8_t t2, int m, int r)
 {
-  if(h == 0) h = 1; // div by zero check
-  double t = (double)(t2 - t1) * (m * 100 / (60 * h)) / 100;
+  if(r == 0) r = 1; // div by zero check
+  double t = (double)(t2 - t1) * (m * 100 / r) / 100;
   return (int)((t + t1) * 10);
 }
 
 void Display::displayOutTemp()
 {
-  if(hvac.m_fcData[1].h == 255) // no read yet
+  if(hvac.m_fcData[1].tm == 0) // not read yet or time not set
     return;
-  
-  int hd = hour() - hvac.m_fcData[1].h;      // hours past 1st value
-  int outTempDelayed;
-  int outTempReal;
 
-  if(hd < 0)                                    // 1st value is top of next hour
+  int iH = 0;
+  int m = minute();
+  uint32_t tmNow = now() - (ee.tz*3600);
+  if( tmNow >= hvac.m_fcData[1].tm)
   {
-     outTempReal = hvac.m_fcData[1].t * 10;         // just use it
-     outTempDelayed = hvac.m_fcData[0].t * 10;
+    for(iH = 1; tmNow > hvac.m_fcData[iH].tm && hvac.m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
+    if(iH) iH--; // set iH to current 3 hour frame
+    m = (tmNow - hvac.m_fcData[iH].tm) / 60;  // offset = minutes past forecast
   }
-  else
-  {
-     int m = minute();              // offset = hours past + minutes of hour
 
-     if(hd) m += (hd * 60);              // add hours ahead (up to 2)
-     outTempReal = tween(hvac.m_fcData[1].t, hvac.m_fcData[2].t, m, hvac.m_fcData[2].h - hvac.m_fcData[1].h);
-     outTempDelayed = tween(hvac.m_fcData[0].t, hvac.m_fcData[1].t, m, hvac.m_fcData[1].h - hvac.m_fcData[0].h);
+  if(iH > 3) // if data more than 3*3 hours old, refresh
+    m_bUpdateFcst = true;
+
+  int r = (hvac.m_fcData[iH+1].tm - hvac.m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
+  int outTempReal = tween(hvac.m_fcData[iH].temp, hvac.m_fcData[iH+1].temp, m, r);
+  int outTempDelayed = outTempReal;
+  if(iH) // assume range = 3 hours for a -3 hour delay
+  {
+     r = (hvac.m_fcData[iH].tm - hvac.m_fcData[iH-1].tm) / 60;
+     outTempDelayed = tween(hvac.m_fcData[iH-1].temp, hvac.m_fcData[iH].temp, m, r);
   }
+
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
 
