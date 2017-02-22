@@ -17,14 +17,14 @@ struct XML_tag_t
   const char  *pszTag;
   const char  *pszAttr;
   const char  *pszValue;
-  int8_t      valueCount;
+  int16_t     valueCount;
 };
 
 class XMLReader
 {
 public:
-  XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), const XML_tag_t *pTags);
-  bool  begin(const char *pHost, String path);
+  XMLReader(void (*xml_callback)(int item, int idx, char *p, char *pTag), const XML_tag_t *pTags);
+  bool  begin(const char *pHost, int port, String path);
 
 private:
   bool  combTag(const char *pTagName, const char *pAttr, const char *pValue);
@@ -39,7 +39,7 @@ private:
   int   tagCnt(void);
   bool  tagEnd(void);
 
-  void  (*m_xml_callback)(int8_t item, int8_t idx, char *p);
+  void  (*m_xml_callback)(int item, int idx, char *p, char *pTag);
 
   AsyncClient m_client;
 
@@ -50,17 +50,18 @@ private:
   void _onData(AsyncClient* client, char* data, size_t len);
 
   const char  *m_pHost;
-  char m_buffer[257];
+  char m_buffer[512];
   String m_path;
   const XML_tag_t *m_pTags;
   char   *m_pPtr;
   char   *m_pEnd;
   char   *m_pIn;
+  char   *m_pTag;
   const char *m_pTagName;
   bool   m_binValues;
-  int8_t m_tagIdx;
+  int m_tagIdx;
+  int m_valIdx;
   int8_t m_tagState;
-  int8_t m_valIdx;
 };
 
 #endif // XMLREADER_H
