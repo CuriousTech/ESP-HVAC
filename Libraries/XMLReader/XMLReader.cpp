@@ -9,7 +9,7 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize with a buffer, it's length, and a callback to iterate values in a list tag (item = tag#, idx = index in list, p = next value string)
-XMLReader::XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), const XML_tag_t *pTags )
+XMLReader::XMLReader(void (*xml_callback)(int item, int idx, char *p, char *pTag), const XML_tag_t *pTags )
 {
   m_xml_callback = xml_callback;
   m_pTags = pTags;
@@ -23,14 +23,14 @@ XMLReader::XMLReader(void (*xml_callback)(int8_t item, int8_t idx, char *p), con
 }
 
 // begin with host and /path
-bool XMLReader::begin(const char *pHost, String path)
+bool XMLReader::begin(const char *pHost, int port, String path)
 {
   if(m_client.connected())
   {
     m_client.stop();
   }
  
-  if( !m_client.connect(pHost, 80) )
+  if( !m_client.connect(pHost, port) )
   {
     return false;
   }
@@ -52,12 +52,16 @@ void XMLReader::_onConnect(AsyncClient* client)
 
   m_client.add("GET ", 4);
   m_client.add(m_path.c_str(), m_path.length());
-  m_client.add(" HTTP/1.1", 9);
-  m_client.add("\n", 1);
+  m_client.add(" HTTP/1.1\n", 10);
 
   sendHeader("Host", m_pHost);
-  sendHeader("Connection", "close");
-  sendHeader("Accept", "*/*");
+  sendHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36");
+  sendHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+  sendHeader("Accept-Encoding", "gzip, deflate, sdch");
+  sendHeader("Accept-Language", "en-US,en;q=0.8");
+  sendHeader("Cache-Control", "max-age=0");
+  sendHeader("Connection", "keep-alive");
+
   m_client.add("\n", 1);
 }
 
@@ -86,6 +90,9 @@ void XMLReader::_onData(AsyncClient* client, char* data, size_t len)
 
   bool bDone = false;
 
+  if(!m_pTags[m_tagIdx].pszTag)  // already done
+      return;
+
   do{
     while(m_pIn < m_pEnd && data < dataEnd)
     {
@@ -96,7 +103,7 @@ void XMLReader::_onData(AsyncClient* client, char* data, size_t len)
 
     if(!m_pTags[m_tagIdx].pszTag)  // completed
     {
-      m_xml_callback(-1, XML_COMPLETED, NULL);
+      m_xml_callback(-1, XML_COMPLETED, NULL, NULL);
       return;
     }
 
@@ -161,7 +168,7 @@ bool XMLReader::combTag(const char *pTagName, const char *pAttr, const char *pVa
           char *p = m_pPtr; // start of data in tag
           tagStart(); // end of data
           *m_pPtr++ = 0;
-          m_xml_callback(m_tagIdx, m_valIdx, p);
+          m_xml_callback(m_tagIdx, m_valIdx, p, m_pTag);
           tagEnd(); // skip end tag
         }
         else while(*m_pPtr != '>' && m_pPtr < m_pEnd && !bFound) // find the correct attribute
@@ -201,6 +208,7 @@ bool XMLReader::nextValue()
   if(!tagStart())
     return true;	                	// Find start of tag
   IncPtr();
+  m_pTag = m_pPtr;
   if(m_pPtr >= m_pEnd)
    return false;
 
@@ -225,6 +233,7 @@ bool XMLReader::nextValue()
 
   if(!tagEnd())
     return true;    // end of start tag
+  *m_pPtr = 0;
   IncPtr();
   if(m_pPtr >= m_pEnd)
     return false;
@@ -241,7 +250,7 @@ bool XMLReader::nextValue()
   if(m_pPtr >= m_pEnd)
    return false;
 
-  m_xml_callback(m_tagIdx, m_valIdx, ptr);
+  m_xml_callback(m_tagIdx, m_valIdx, ptr, m_pTag);
 
   if(++m_valIdx >= m_pTags[m_tagIdx].valueCount)
   {
@@ -307,11 +316,11 @@ bool XMLReader::tagEnd()
 void XMLReader::_onDisconnect(AsyncClient* client)
 {
   (void)client;
-  m_xml_callback(-1, XML_DONE, NULL);
+  m_xml_callback(-1, XML_DONE, NULL, NULL);
 }
 
 void XMLReader::_onTimeout(AsyncClient* client, uint32_t time)
 {
   (void)client;
-  m_xml_callback(-1, XML_TIMEOUT, NULL);
+  m_xml_callback(-1, XML_TIMEOUT, NULL, NULL);
 }
