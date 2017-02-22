@@ -20,7 +20,6 @@ extern uint8_t serverPort;
 
 HVAC::HVAC()
 {
-  memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
 }
 
 void HVAC::init()
@@ -213,7 +212,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   }
 
   int8_t save;
-  m_remoteTimer = 2; // 3 second hold before transmit
+  m_remoteTimer = 2; // 2 second hold before transmit
 
   switch(mode)
   {
@@ -280,36 +279,6 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 void HVAC::updateOutdoorTemp(int16_t outTemp)
 {
   m_outTemp = outTemp;
-}
-
-// Update min/max for next 48 hrs + 60 past
-void HVAC::updatePeaks()
-{
-  int8_t tmin = m_fcData[0].t;
-  int8_t tmax = m_fcData[0].t;
-
-  if(tmin == -1) // initial value
-    tmin = m_fcData[1].t;
-
-  int fcCnt;
-  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (255 = unused)
-  {
-    if(m_fcData[fcCnt].h == 255)
-      break;
-  }
-
-  // Get min/max of current forecast
-  for(int i = 1; i < fcCnt; i++)
-  {
-    int8_t t = m_fcData[i].t;
-    if(tmin > t) tmin = t;
-    if(tmax < t) tmax = t;
-  }
-
-  if(tmin == tmax) tmax++;   // div by 0 check
-
-  m_outMin = tmin;
-  m_outMax = tmax;
 }
 
 void HVAC::resetFilter()
