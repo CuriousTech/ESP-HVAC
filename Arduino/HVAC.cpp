@@ -23,8 +23,6 @@ const float furnaceCFH = 1.0; // nat gas cubic feet per hour
 
 HVAC::HVAC()
 {
-  memset(m_fcData, -1, sizeof(m_fcData)); // invalidate forecast
-
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
   pinMode(P_REV, OUTPUT);
@@ -725,34 +723,6 @@ void HVAC::updateOutdoorTemp(int16_t outTemp)
   m_outTemp = outTemp;
 }
 
-// Update min/max for next 180 hrs + 60 past
-void HVAC::updatePeaks()
-{
-  int8_t tmin = m_fcData[0].t;
-  int8_t tmax = m_fcData[0].t;
-
-  if(tmin == -1) // initial value
-    tmin = m_fcData[1].t;
-
-  int fcCnt;
-  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (255 = unused)
-    if(m_fcData[fcCnt].h == 255)
-      break;
-
-  // Get min/max of current forecast
-  for(int i = 1; i < fcCnt; i++)
-  {
-    int8_t t = m_fcData[i].t;
-    if(tmin > t) tmin = t;
-    if(tmax < t) tmax = t;
-  }
-
-  if(tmin == tmax) tmax++;   // div by 0 check
-
-  m_outMin = tmin;
-  m_outMax = tmax;
-}
-
 void HVAC::resetFilter()
 {
   ee.filterMinutes = 0;
@@ -891,6 +861,7 @@ const char *cmdList[] = { "cmd",
   "ppk",
   "ccf",
   "cost",
+  "save",
   NULL
 };
 
@@ -1040,6 +1011,9 @@ void HVAC::setVar(String sCmd, int val)
     case 29: // cost in cents/100
       m_fCostE = val / 10000;
       m_fCostG = 0;
+      break;
+    case 30: // save
+      eemem.update();
       break;
   }
 }
