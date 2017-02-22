@@ -26,8 +26,8 @@ SOFTWARE.
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
+#include <UdpTime.h> // https://github.com/CuriousTech/ESP07_WiFiGarageDoor/tree/master/libraries/UdpTime
 #include "HVAC.h"
-#include <XMLReader.h>
 #include "Encoder.h"
 #include "WebHandler.h"
 #include "display.h"
@@ -78,89 +78,7 @@ OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
 #endif
 
-const XML_tag_t Xtags[] =
-{
-  {"creation-date", NULL, NULL, 1},
-  {"time-layout", "time-coordinate", "local", FC_CNT},
-  {"temperature", "type", "hourly", FC_CNT},
-  {NULL}
-};
-
-int xmlState;
-
-void xml_callback(int8_t item, int8_t idx, char *p)
-{
-  int8_t newtz;
-  int8_t h;
-  int8_t d;
-  static int8_t hO;
-  static int8_t lastd;
-  static tmElements_t t;
-
-  switch(item)
-  {
-    case -1: // done
-      xmlState = idx;
-      break;
-    case 0:
-      if(atoi(p) == 0) // todo: fix
-        break;
-      t.Year = CalendarYrToTm(atoi(p));
-      t.Month = atoi(p+5);
-      t.Day = atoi(p+8);
-      t.Hour = atoi(p+11);
-      t.Minute = atoi(p+14);
-      t.Second = atoi(p+17);
-      break;
-    case 1:            // valid time
-      if(idx == 0)     // first item isn't really data
-      {
-        hO = 0;        // reset hour offset
-        hvac.m_fcData[0].t = hvac.m_fcData[1].t; // keep a copy of first 3hour data
-        hvac.m_fcData[0].h = hvac.m_fcData[1].h;
-        break;
-      }
-
-      d = atoi(p + 8);  // 2014-mm-ddThh:00:00-tz:00
-      h = atoi(p + 11);
-
-      if(idx != 1 && d != lastd)
-        hO += 24; // change to hours offset
-      lastd = d;
-      hvac.m_fcData[idx].h = h + hO;
-
-      newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
-      if(p[19] == '-') // its negative
-        newtz = -newtz;
-
-      if(idx == 1)
-      {
-        time_t epoc = makeTime(t);
-        ee.tz = newtz;
-        epoc += ee.tz * 3600;
-        setTime(epoc);
-      }
-      break;
-    case 2:                  // temperature
-      if(idx == 0) break;    // 1st value is not temp
-      hvac.m_fcData[idx].t = atoi(p);
-      break;
-  }
-}
-
-XMLReader xml(xml_callback, Xtags);
-
-void GetForecast()
-{
-  String path = "/xml/sample_products/browser_interface/ndfdXMLclient.php?zipCodeList=";
-  path += ee.zipCode;
-  path += "&Unit=e&temp=temp&Submit=Submit";
-
-  if(!xml.begin("graphical.weather.gov", path))
-    events.send("Forecast failed", "alert");
-}
-
-//-----
+UdpTime utime;
 
 Encoder rot(ENC_B, ENC_A);
 
@@ -217,6 +135,7 @@ void setup()
   ds18lastreq = millis();
   ds18delay = 750 / (1 << (12 - ds18Resolution)); //delay based on resolution
 #endif
+  utime.start();
 }
 
 void loop()
@@ -228,12 +147,13 @@ void loop()
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
+  utime.check(ee.tz);
 #ifdef SHT21_H
   if(sht.service())
   {
     tempMedian.add(sht.getTemperatureF() * 10);
-    int16_t temp;
-    if (tempMedian.getMedian(temp) == tempMedian.OK) {
+    float temp;
+    if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
       hvac.updateIndoorTemp( temp, sht.getRh() * 10 );
     }
   }
@@ -254,26 +174,6 @@ void loop()
     ds18reqlastreq = ds18lastreq;
   }
 #endif
-  if(xmlState)
-  {
-      switch(xmlState)
-      {
-        case XML_COMPLETED:
-        case XML_DONE:
-          hvac.enable();
-          events.send("Forecast success", "print");
-          hvac.updatePeaks();
-          display.screen(true);
-          display.drawForecast(true);
-          break;
-        case XML_TIMEOUT:
-          events.send("Forcast timeout", "print");
-          hvac.disable();
-          hvac.m_notif = Note_Forecast;
-          break;
-      }
-      xmlState = 0;
-  }
   if(sec_save != second()) // only do stuff once per second
   {
     sec_save = second();
@@ -290,7 +190,7 @@ void loop()
       if(dht.getStatus() == DHT::ERROR_NONE)
       {
         tempMedian.add(temp);
-        if (tempMedian.getMedian(temp) == tempMedian.OK) {
+        if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
           hvac.updateIndoorTemp( temp, dht.getHumidity() * 10);
         }
       }
@@ -303,13 +203,10 @@ void loop()
       min_save = minute();
       if (hour_save != hour()) // update our IP and time daily (at 2AM for DST)
       {
+        hour_save = hour();
+        if(hour_save == 2)
+          utime.start(); // update time daily at DST change
         eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
-      }
-
-      if(--display.m_updateFcst <= 0 )  // usually every hour / 3 hours
-      {
-        display.m_updateFcst = 5;    // retry in 5 mins if anything fails
-        GetForecast();
       }
     }
 
