@@ -34,7 +34,7 @@ struct eeSet // EEPROM backed data
   char     zipCode[8];  // Your zipcode
   char     password[32];
   bool     bLock;
-  bool     bRes;
+  bool     bNotLocalFcst; // Use weather.gov server
   uint16_t ppkwh;
   uint16_t ccf;
   char     reserved[28];
