@@ -24,23 +24,31 @@
 #else
 #include "pages.h"
 #endif
+#include <XMLReader.h>
 
 //-----------------
 int serverPort = 85;            // Change to 80 for normal access
+
+IPAddress ipFcServer(192,168,0,100);    // local forecast server and port
+int nFcPort = 83;
 
 //-----------------
 AsyncWebServer server( serverPort );
 AsyncEventSource events("/events"); // event source (Server-Sent events)
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
-
-WiFiManager wifi;  // AP page:  192.168.4.1
 extern HVAC hvac;
 extern Display display;
+WiFiManager wifi;  // AP page:  192.168.4.1
+AsyncClient fc_client;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
 int chartFiller(uint8_t *buffer, int maxLen, int index);
 void dataPage(AsyncWebServerRequest *request);
+void fcPage(AsyncWebServerRequest *request);
+
+int xmlState;
+void GetForecast(void);
 
 int nWrongPass;
 uint32_t lastIP;
@@ -176,7 +184,8 @@ void startServer()
     request->send_P(200, "text/html", chart);
 #endif
   });
-  server.on ( "/data", HTTP_GET, dataPage);
+  server.on ( "/data", HTTP_GET, dataPage);  // history for chart
+  server.on ( "/forecast", HTTP_GET, fcPage); // forecast data for remote unit
 
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
@@ -203,6 +212,11 @@ void startServer()
 #ifdef OTA_ENABLE
   ArduinoOTA.begin();
 #endif
+
+  fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
+  fc_client.onData([](void* obj, AsyncClient* c, void* data, size_t len){fc_onData(c, static_cast<char*>(data), len); });
+  fc_client.onDisconnect([](void* obj, AsyncClient* c) { fc_onDisconnect(c); });
+  fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
 }
 
 // Send the array formated chart data and any modified variables
@@ -250,6 +264,26 @@ void dataPage(AsyncWebServerRequest *request)
   request->send ( response );
 }
 
+// Send the comma delimited forecast data
+void fcPage(AsyncWebServerRequest *request)
+{
+  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
+
+  for(int i = 0; i < FC_CNT; i++)
+  {
+    if(hvac.m_fcData[i].tm == 0)
+      break;
+
+    String out = "";
+    out += hvac.m_fcData[i].tm;
+    out += ",";
+    out += hvac.m_fcData[i].temp;
+    out += "\r\n";
+    response->print(out);
+  }
+  request->send( response );
+}
+
 void handleServer()
 {
   MDNS.update();
@@ -282,6 +316,40 @@ void secondsServer() // called once per second
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
     ws.printfAll("settings;%s", s.c_str()); // update anything changed
+
+  if(display.m_bUpdateFcst)
+  {
+    display.m_bUpdateFcst = false;
+
+    if(ee.bNotLocalFcst)
+      GetForecast();
+    else if(fc_client.connected() == false)    // get preformatted data from local server
+    {
+       hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hr data
+       hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+       fc_client.connect(ipFcServer, nFcPort);
+    }
+  }
+
+  if(xmlState)
+  {
+      switch(xmlState)
+      {
+        case XML_COMPLETED:
+        case XML_DONE:
+          hvac.enable();
+          events.send("Forecast success", "print");
+          display.screen(true);
+          display.drawForecast(true);
+          break;
+        case XML_TIMEOUT:
+          events.send("Forcast timeout", "print");
+          hvac.disable();
+          hvac.m_notif = Note_Forecast;
+          break;
+      }
+      xmlState = 0;
+  }
 }
 
 void parseParams(AsyncWebServerRequest *request)
@@ -339,6 +407,11 @@ void parseParams(AsyncWebServerRequest *request)
       s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
     else if(p->name() == "pass")
       wifi.setPass(s.c_str());
+    else if(p->name() == "fc")
+    {
+      ee.bNotLocalFcst = s.toInt() ? true:false;
+      display.m_bUpdateFcst = true;
+    }
     else
     {
       hvac.setVar(p->name(), s.toInt() );
@@ -406,4 +479,161 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       display.Note(psValue);
       break;
   }
+}
+
+// local server forecast retrieval 
+int fcIdx;
+
+void fc_onConnect(AsyncClient* client)
+{
+  (void)client;
+
+  String s = "GET /Forecast.log HTTP/1.1\n"
+    "Host: ";
+  s += ipFcServer.toString();
+  s += "\n"
+    "Connection: close\n"
+    "Accept: */*\n\n";
+
+  fc_client.add(s.c_str(), s.length());
+  fcIdx = 1; // 0 is reserved
+}
+
+// read data as comma delimited 'time,temp,rh' per line
+void fc_onData(AsyncClient* client, char* data, size_t len)
+{
+  while(fcIdx < FC_CNT-1 && *data)
+  {
+    uint32_t tm = atoi(data);
+    if(tm) // skip the headers
+    {
+      hvac.m_fcData[fcIdx].tm = tm;
+      while(*data && *data != ',') data ++;
+      if(*data == ',') data ++;
+      else return;
+      hvac.m_fcData[fcIdx].temp = atoi(data);
+      fcIdx++;
+    }
+    while(*data && *data != '\r' && *data != '\n') data ++;
+    while(*data == '\r' || *data == '\n') data ++;
+  }
+  hvac.m_fcData[fcIdx].tm = 0;
+  display.m_bUpdateFcstDone = true;
+  hvac.enable();
+}
+
+void fc_onDisconnect(AsyncClient* client)
+{
+  (void)client;
+}
+
+void fc_onTimeout(AsyncClient* client, uint32_t time)
+{
+  (void)client;
+}
+
+//---
+const XML_tag_t Xtags[] =
+{
+  {"creation-date", NULL, NULL, 1},
+  {"time-layout", "time-coordinate", "local", FC_CNT * 2 * 3}, // only 3rd value, start/end for each
+  {"temperature", "type", "hourly", FC_CNT * 3},
+  // "temperature", "type", "dewpoint"
+  // "temperature", "type", "wind chill"
+  // wind-speed type="sustained"
+  // cloud-amount type="total"
+  // probability-of-precipitation type="floating"
+  // humidity type="relative"
+  // direction type="wind"
+  // hourly-qpf type="floating"
+  // weather layout=
+  {NULL}
+};
+
+void xml_callback(int item, int idx, char *p, char *pTag)
+{
+  int8_t newtz;
+  static tmElements_t t, tm;
+  static int cnt;
+
+  switch(item)
+  {
+    case -1: // done
+      xmlState = idx;
+      break;
+    case 0: // the current local time
+      if(atoi(p) == 0) // todo: fix
+        break;
+      t.Year = CalendarYrToTm(atoi(p));
+      t.Month = atoi(p+5);
+      t.Day = atoi(p+8);
+      t.Hour = atoi(p+11);
+      t.Minute = atoi(p+14);
+      t.Second = atoi(p+17);
+      break;
+    case 1:            // valid time
+      if(idx == 0)     // first item isn't really data
+      {
+        cnt = 0;
+        break;
+      }
+//      if(pTag[0] != 's') // start only
+//        break;
+
+      if((idx % 6) != 1) // just skip all but <start-time> every 3 hours
+        break;
+
+      tm.Year = CalendarYrToTm(atoi(p)); // 2014-mm-ddThh:00:00-tz:00
+      tm.Month = atoi(p+5);
+      tm.Day = atoi(p+8);
+      tm.Hour = atoi(p+11);
+      tm.Minute = atoi(p+14);
+      tm.Second = atoi(p+17);
+
+      hvac.m_fcData[cnt].tm = makeTime(tm);
+      cnt++;
+      hvac.m_fcData[cnt].tm = 0; // end of data
+
+      newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
+      if(p[19] == '-') // its negative
+        newtz = -newtz;
+
+      if(idx == 1) // set current time and time zone
+      {
+        time_t epoc = makeTime(t);
+        ee.tz = newtz;
+        epoc += ee.tz * 3600;
+        setTime(epoc);
+      }
+      break;
+    case 2:                  // temperature
+      if(idx == 0)
+        cnt = 0;
+      if((idx % 3) != 0) // skip every 3 hours
+        break;
+
+      hvac.m_fcData[cnt++].temp = atoi(p);
+      break;
+  }
+}
+
+XMLReader xml(xml_callback, Xtags);
+
+void GetForecast()
+{
+  hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hour data
+  hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+
+  // Full 7 day hourly
+  //  Go here first:  http://www.weather.gov
+  // Enter City or Zip
+  // Click on "Hourly Weather Forecast"
+  // Scroll down, Click on "Tabular Forecast"
+  // Then click [XML] and copy that URL to the line below
+  // Then send "?key=<your key>&fc=1" to the thermostat to enable calls to this
+
+  String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
+
+  if(!xml.begin("forecast.weather.gov", 80, path))
+    events.send("Forecast failed", "alert");
 }
