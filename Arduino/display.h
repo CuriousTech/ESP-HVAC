@@ -35,6 +35,12 @@ struct gPoint{
   gflags bits;
 };
 
+struct Forecast
+{
+  uint32_t tm;   // time
+  int8_t temp;   // integer temperature value
+};
+
 class Display
 {
 public:
@@ -72,10 +78,11 @@ private:
   uint16_t m_backlightTimer = NEX_TIMEOUT;
 #define GPTS 300 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
-public:
   uint16_t m_pointsIdx;
-//  int16_t  m_updateFcst = 1;
   uint16_t m_temp_counter = 10*60;
+public:
+#define FC_CNT 64
+  Forecast m_fcData[FC_CNT];
   uint8_t  m_adjustMode; // which of 4 temps to adjust with rotary encoder
   bool     m_bUpdateFcst;
   bool     m_bUpdateFcstDone;
