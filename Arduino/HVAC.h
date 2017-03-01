@@ -12,12 +12,6 @@
 //-----------------
 #include <arduino.h>
 
-struct Forecast
-{
-  uint32_t tm;   // time
-  int8_t temp;   // integer temperature value
-};
-
 enum Mode
 {
   Mode_Off,
@@ -114,21 +108,19 @@ public:
   String  settingsJson(void); // get all settings in json format
   String  settingsJsonMod(void);
   String  getPushData(void);  // get states/temps/data in json
-#define FC_CNT 64
-  Forecast m_fcData[FC_CNT];
+
   int16_t  m_outTemp;       // adjusted current temp *10
   int16_t  m_inTemp;        // current indoor temperature *10
   int16_t  m_rh;
   int16_t  m_localTemp;     // this device's temperature *10
   int16_t  m_localRh;
   uint16_t m_targetTemp;    // end temp for cycle
+
   uint8_t  m_notif;
   bool     m_bRemoteStream; // remote is streaming temp/rh
   bool     m_bRemoteDisconnect;
   bool     m_bLocalTempDisplay;
-  uint8_t  m_RemoteFlags = RF_RL|RF_RH;
   int8_t   m_outMin, m_outMax;
-  uint16_t m_fanPreElap = 60*10;
   float    m_fCostE;        // cost total (elec)
   float    m_fCostG;        // cost total (gas)
   bool     m_bLink;         // link adjust mode
@@ -156,6 +148,8 @@ private:
   bool    m_bRecheck;       // recalculate target now
   bool    m_bEnabled;       // enables system
   bool    m_bAway;
+  uint8_t  m_RemoteFlags = RF_RL|RF_RH;
+  uint16_t m_fanPreElap = 60*10;
   uint16_t m_runTotal;      // time HVAC has been running total since reset
   uint16_t m_fanOnTimer;    // time fan is running
   uint16_t m_cycleTimer;    // time HVAC has been running
@@ -166,8 +160,8 @@ private:
   int8_t   m_ovrTemp;       // override delta of target
   uint16_t m_remoteTimeout; // timeout for remote sensor
   uint16_t m_remoteTimer;   // in seconds
-  int8_t   m_furnaceFan;    // fake fan timer
   uint16_t m_humidTimer;    // timer for humidifier cost
+  int8_t   m_furnaceFan;    // fake fan timer
 };
 
 #endif
