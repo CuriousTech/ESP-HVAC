@@ -288,7 +288,7 @@ void Display::drawForecast(bool bRef)
 {
   int i;
 
-  if(hvac.m_fcData[1].tm == 0) // no data yet
+  if(m_fcData[1].tm == 0) // no data yet
   {
     m_bUpdateFcst = true;
     return;
@@ -296,22 +296,25 @@ void Display::drawForecast(bool bRef)
 
   int fcCnt;
   for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (0 = end)
-    if(hvac.m_fcData[fcCnt].tm == 0)
+    if(m_fcData[fcCnt].tm == 0)
       break;
+
+//  fcCnt = min(40, fcCnt); // 5 day limit
+  if(fcCnt > 40) fcCnt = 40;
 
   if(bRef)
   {
     // Update min/max
-    int8_t tmin = hvac.m_fcData[0].temp;
-    int8_t tmax = hvac.m_fcData[0].temp;
+    int8_t tmin = m_fcData[0].temp;
+    int8_t tmax = m_fcData[0].temp;
 
     if(tmin == 0) // initial value
-      tmin = hvac.m_fcData[1].temp;
+      tmin = m_fcData[1].temp;
 
     // Get min/max of current forecast
     for(int i = 1; i < fcCnt; i++)
     {
-      int8_t t = hvac.m_fcData[i].temp;
+      int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
       if(tmax < t) tmax = t;
     }
@@ -353,31 +356,28 @@ void Display::drawForecast(bool bRef)
     t -= dec;
   }
 
-//  fcCnt = min(40, fcCnt); // 5 day limit
-  if(fcCnt > 40) fcCnt = 40;
-
-  int hrs = (hvac.m_fcData[fcCnt-1].tm - hvac.m_fcData[1].tm) / 3600; // normally 180ish hours
+  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[1].tm) / 3600; // normally 180ish hours
   int day_x = 0;
 
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[1].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[1].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
   int day = weekday()-1;              // current day
 
   for(i = 1; i < fcCnt; i++) // should be 41 data points
   {
-    int y1 = Fc_Top+Fc_Height - 1 - (hvac.m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int h = (hvac.m_fcData[i].tm - hvac.m_fcData[1].tm) / 3600;
+    int y1 = Fc_Top+Fc_Height - 1 - (m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+    int h = (m_fcData[i].tm - m_fcData[1].tm) / 3600;
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
     if(x1 < Fc_Left) x1 = x2;  // todo: fix this
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
 
-    h = (hvac.m_fcData[i].tm / 3600) % 24; // current hour
+    h = (m_fcData[i].tm / 3600) % 24; // current hour
     if(hOld > h) // new day (draw line)
     {
       nex.line(x1, Fc_Top+1, x1, Fc_Top+Fc_Height-2, rgb16(20, 41, 20) ); // (light gray)
@@ -411,29 +411,29 @@ int Display::tween(int8_t t1, int8_t t2, int m, int r)
 
 void Display::displayOutTemp()
 {
-  if(hvac.m_fcData[1].tm == 0) // not read yet or time not set
+  if(m_fcData[1].tm == 0) // not read yet or time not set
     return;
 
   int iH = 0;
   int m = minute();
   uint32_t tmNow = now() - (ee.tz*3600);
-  if( tmNow >= hvac.m_fcData[1].tm)
+  if( tmNow >= m_fcData[1].tm)
   {
-    for(iH = 1; tmNow > hvac.m_fcData[iH].tm && hvac.m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
+    for(iH = 1; tmNow > m_fcData[iH].tm && m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
     if(iH) iH--; // set iH to current 3 hour frame
-    m = (tmNow - hvac.m_fcData[iH].tm) / 60;  // offset = minutes past forecast
+    m = (tmNow - m_fcData[iH].tm) / 60;  // offset = minutes past forecast
   }
 
-  if(iH > 3) // if data more than 3*3 hours old, refresh
+  if(iH > 2) // if data more than 3*2 hours old, refresh
     m_bUpdateFcst = true;
 
-  int r = (hvac.m_fcData[iH+1].tm - hvac.m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
-  int outTempReal = tween(hvac.m_fcData[iH].temp, hvac.m_fcData[iH+1].temp, m, r);
+  int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
+  int outTempReal = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
   int outTempDelayed = outTempReal;
   if(iH) // assume range = 3 hours for a -3 hour delay
   {
-     r = (hvac.m_fcData[iH].tm - hvac.m_fcData[iH-1].tm) / 60;
-     outTempDelayed = tween(hvac.m_fcData[iH-1].temp, hvac.m_fcData[iH].temp, m, r);
+     r = (m_fcData[iH].tm - m_fcData[iH-1].tm) / 60;
+     outTempDelayed = tween(m_fcData[iH-1].temp, m_fcData[iH].temp, m, r);
   }
 
   if(nex.getPage() == Page_Thermostat)
