@@ -156,10 +156,10 @@ void HVAC::service()
   {
     if(m_bRunning)                     // cycleTimer is already > 20s here
       m_bStop = true;
-    else if(m_idleTimer >= 5)
+    else if(m_idleTimer >= 5)          // User may be cycling through modes (give 5s)
     {
       ee.heatMode = m_setHeat;
-      ee.Mode = m_setMode;           // User may be cycling through modes (give 5s)
+      ee.Mode = m_setMode;
       calcTargetTemp(ee.Mode);
     }
   }
@@ -178,7 +178,7 @@ void HVAC::service()
         if(digitalRead(P_REV) != HIGH)
         {
           digitalWrite(P_REV, HIGH);  // set heatpump to cool (if heats, reverse this)
-          delay(3000);               //    if no heatpump, remove
+          delay(2000);                //   if no heatpump, remove
         }
         digitalWrite(P_COOL, HIGH);
         break;
@@ -193,7 +193,7 @@ void HVAC::service()
           if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if cools, reverse this)
           {
             digitalWrite(P_REV, LOW);
-            delay(3000);
+            delay(2000);
           }
           digitalWrite(P_COOL, HIGH);
         }
