@@ -3,7 +3,7 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
 
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
@@ -210,6 +210,34 @@ void startServer()
   remoteParse.addList(jsonList3);
 
 #ifdef OTA_ENABLE
+  ArduinoOTA.setPassword( ee.password ); // remove if port 8266 is firewalled
+  ArduinoOTA.onStart([]()
+  {
+    String sType = "Begin ";
+    sType += (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS";
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    events.send(sType.c_str(), "OTA");
+    ws.printfAll("OTA;Begin %s", (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS");
+  });
+  ArduinoOTA.onEnd([]()
+  {
+    events.send("End", "OTA");
+    ws.printfAll("OTA;End");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+  {
+  });
+  ArduinoOTA.onError([](ota_error_t error)
+  {
+    events.send("Error " + error, "OTA");
+    ws.printfAll("OTA;Error %u", error);
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
   ArduinoOTA.begin();
 #endif
 
@@ -271,13 +299,13 @@ void fcPage(AsyncWebServerRequest *request)
 
   for(int i = 0; i < FC_CNT; i++)
   {
-    if(hvac.m_fcData[i].tm == 0)
+    if(display.m_fcData[i].tm == 0)
       break;
 
     String out = "";
-    out += hvac.m_fcData[i].tm;
+    out += display.m_fcData[i].tm;
     out += ",";
-    out += hvac.m_fcData[i].temp;
+    out += display.m_fcData[i].temp;
     out += "\r\n";
     response->print(out);
   }
@@ -325,8 +353,8 @@ void secondsServer() // called once per second
       GetForecast();
     else if(fc_client.connected() == false)    // get preformatted data from local server
     {
-       hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hr data
-       hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+       display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hr data
+       display.m_fcData[0].tm = display.m_fcData[1].tm;
        fc_client.connect(ipFcServer, nFcPort);
     }
   }
@@ -507,17 +535,17 @@ void fc_onData(AsyncClient* client, char* data, size_t len)
     uint32_t tm = atoi(data);
     if(tm) // skip the headers
     {
-      hvac.m_fcData[fcIdx].tm = tm;
+      display.m_fcData[fcIdx].tm = tm;
       while(*data && *data != ',') data ++;
       if(*data == ',') data ++;
       else return;
-      hvac.m_fcData[fcIdx].temp = atoi(data);
+      display.m_fcData[fcIdx].temp = atoi(data);
       fcIdx++;
     }
     while(*data && *data != '\r' && *data != '\n') data ++;
     while(*data == '\r' || *data == '\n') data ++;
   }
-  hvac.m_fcData[fcIdx].tm = 0;
+  display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
   hvac.enable();
 }
@@ -590,9 +618,9 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       tm.Minute = atoi(p+14);
       tm.Second = atoi(p+17);
 
-      hvac.m_fcData[cnt].tm = makeTime(tm);
+      display.m_fcData[cnt].tm = makeTime(tm);
       cnt++;
-      hvac.m_fcData[cnt].tm = 0; // end of data
+      display.m_fcData[cnt].tm = 0; // end of data
 
       newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
       if(p[19] == '-') // its negative
@@ -612,7 +640,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       if((idx % 3) != 0) // skip every 3 hours
         break;
 
-      hvac.m_fcData[cnt++].temp = atoi(p);
+      display.m_fcData[cnt++].temp = atoi(p);
       break;
   }
 }
@@ -621,8 +649,8 @@ XMLReader xml(xml_callback, Xtags);
 
 void GetForecast()
 {
-  hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hour data
-  hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+  display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hour data
+  display.m_fcData[0].tm = display.m_fcData[1].tm;
 
   // Full 7 day hourly
   //  Go here first:  http://www.weather.gov
