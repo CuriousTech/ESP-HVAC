@@ -3,7 +3,7 @@
 //uncomment to enable Arduino IDE Over The Air update code
 //#define OTA_ENABLE
 
-#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic (at 64K)
 
 #include <ESP8266mDNS.h>
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -48,6 +48,9 @@ void startListener(void);
 void dataPage(AsyncWebServerRequest *request);
 void fcPage(AsyncWebServerRequest *request);
 int chartFiller(uint8_t *buffer, int maxLen, int index);
+
+int xmlState;
+void GetForecast(void);
 
 void onEvents(AsyncEventSourceClient *client)
 {
@@ -158,6 +161,33 @@ void startServer()
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 #ifdef OTA_ENABLE
+  ArduinoOTA.setPassword( ee.password ); // remove if port 8266 is firewalled
+  ArduinoOTA.onStart([]()
+  {
+    String sType = "Begin ";
+    sType += (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS";
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    events.send(sType.c_str(), "OTA");
+  });
+  ArduinoOTA.onEnd([]()
+  {
+    events.send("End", "OTA");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+  {
+  });
+  ArduinoOTA.onError([](ota_error_t error)
+  {
+    events.send("Error " + error, "OTA");
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    delay(200);
+    ESP.restart();
+  });
   ArduinoOTA.begin();
 #endif
 
@@ -219,13 +249,13 @@ void fcPage(AsyncWebServerRequest *request)
 
   for(int i = 0; i < FC_CNT; i++)
   {
-    if(hvac.m_fcData[i].tm == 0)
+    if(display.m_fcData[i].tm == 0)
       break;
 
     String out = "";
-    out += hvac.m_fcData[i].tm;
+    out += display.m_fcData[i].tm;
     out += ",";
-    out += hvac.m_fcData[i].temp;
+    out += display.m_fcData[i].temp;
     out += "\r\n";
     response->print(out);
   }
@@ -281,16 +311,15 @@ void secondsServer() // called once per second
   {
      display.m_bUpdateFcst = false;
 
-   // Request forecast data from main unit
+     // Request data from main unit
      if(fc_client.connected() == false)
      {
-       hvac.m_fcData[0].temp = hvac.m_fcData[1].temp; // keep a copy of first 3hour data
-       hvac.m_fcData[0].tm = hvac.m_fcData[1].tm;
+       display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hour data
+       display.m_fcData[0].tm = display.m_fcData[1].tm;
        IPAddress ip(ee.hostIp);
        fc_client.connect(ip, ee.hostPort);
      }
   }
-
 }
 
 void parseParams(AsyncWebServerRequest *request)
@@ -434,7 +463,7 @@ void fc_onConnect(AsyncClient* client)
     "Accept: */*\n\n";
 
   fc_client.add(s.c_str(), s.length());
-  fcIdx = 0;
+  fcIdx = 0; // 0 is reserved
 }
 
 // read data as comma delimited 'time,temp,rh' per line
@@ -445,17 +474,17 @@ void fc_onData(AsyncClient* client, char* data, size_t len)
     uint32_t tm = atoi(data);
     if(tm) // skip the headers
     {
-      hvac.m_fcData[fcIdx].tm = tm;
+      display.m_fcData[fcIdx].tm = tm;
       while(*data && *data != ',') data ++;
       if(*data == ',') data ++;
       else return;
-      hvac.m_fcData[fcIdx].temp = atoi(data);
+      display.m_fcData[fcIdx].temp = atoi(data);
       fcIdx++;
     }
     while(*data && *data != '\r' && *data != '\n') data ++;
     while(*data == '\r' || *data == '\n') data ++;
   }
-  hvac.m_fcData[fcIdx].tm = 0;
+  display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
   hvac.enable();
 }
