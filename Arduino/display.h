@@ -85,7 +85,7 @@ public:
   Forecast m_fcData[FC_CNT];
   uint8_t  m_adjustMode; // which of 4 temps to adjust with rotary encoder
   bool     m_bUpdateFcst;
-  bool     m_bUpdateFcstDone;
+  bool     m_bUpdateFcstDone = true;
 };
 
 #endif // DISPLAY_H
