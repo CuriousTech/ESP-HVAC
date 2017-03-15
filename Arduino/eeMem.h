@@ -37,7 +37,9 @@ struct eeSet // EEPROM backed data
   bool     bNotLocalFcst; // Use weather.gov server
   uint16_t ppkwh;
   uint16_t ccf;
-  char     reserved[28];
+  uint8_t  fcRange; // number in forecasts (3 hours)
+  uint8_t  fcDisplay; // number in forecasts (3 hours)
+  char     reserved[26];
 };
 
 extern eeSet ee;
