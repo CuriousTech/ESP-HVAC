@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.6.11 and esp8266 SDK 2.3.0
+// Build with Arduino IDE 1.8.1 and esp8266 SDK 2.3.0 1M (64K SPIFFS)
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -52,7 +52,7 @@ SOFTWARE.
 #define ENC_B    4
 //------------------------
 
-extern AsyncEventSource events; // event source (Server-Sent events)
+//extern AsyncEventSource events; // event source (Server-Sent events)
 
 Display display;
 eeMem eemem;
@@ -147,7 +147,8 @@ void loop()
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
-  utime.check(ee.tz);
+  if(utime.check(ee.tz))
+    hvac.m_DST = utime.getDST();
 #ifdef SHT21_H
   if(sht.service())
   {
