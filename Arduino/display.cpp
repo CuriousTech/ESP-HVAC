@@ -9,8 +9,8 @@
 
 Nextion nex;
 extern HVAC hvac;
-extern AsyncEventSource events;
 extern WiFiManager wifi;
+extern void WsSend(char *,const char *);
 
 void Display::init()
 {
@@ -22,6 +22,11 @@ void Display::init()
   screen( true ); // brighten the screen if it just reset
   refreshAll();
   nex.itemPic(9, ee.bLock ? 20:21);
+  if(ee.fcRange == 0) // EEMEM change hack
+  {
+    ee.fcRange = 46;
+    ee.fcDisplay = 46;
+  }
 }
 
 // called each second
@@ -54,10 +59,10 @@ void Display::oneSec()
   }
   if(m_bUpdateFcstDone)
   {
-    m_bUpdateFcstDone = false;
-    events.send("Forecast success", "print");
+    WsSend("Forecast success", "print");
     screen(true);
     drawForecast(true);
+    m_bUpdateFcstDone = false;
   }
 }
 
@@ -290,7 +295,8 @@ void Display::drawForecast(bool bRef)
 
   if(m_fcData[1].tm == 0) // no data yet
   {
-    m_bUpdateFcst = true;
+    if(m_bUpdateFcstDone)
+      m_bUpdateFcst = true;
     return;
   }
 
@@ -311,8 +317,11 @@ void Display::drawForecast(bool bRef)
     if(tmin == 0) // initial value
       tmin = m_fcData[1].temp;
 
+    int rng = fcCnt;
+    if(rng > ee.fcRange) rng = ee.fcRange;
+  
     // Get min/max of current forecast
-    for(int i = 1; i < fcCnt; i++)
+    for(int i = 1; i < rng; i++)
     {
       int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
@@ -340,8 +349,26 @@ void Display::drawForecast(bool bRef)
     delay(5);
   }
 
-  int8_t tmin = hvac.m_outMin;
-  int8_t tmax = hvac.m_outMax;
+    // Update min/max
+    int8_t tmin = m_fcData[0].temp;
+    int8_t tmax = m_fcData[0].temp;
+
+    if(tmin == 0) // initial value
+      tmin = m_fcData[1].temp;
+
+    int rng = fcCnt;
+    if(rng > ee.fcDisplay) rng = ee.fcDisplay;
+
+    // Get min/max of current forecast
+    for(int i = 1; i < rng; i++)
+    {
+      int8_t t = m_fcData[i].temp;
+      if(tmin > t) tmin = t;
+      if(tmax < t) tmax = t;
+    }
+
+    if(tmin == tmax) tmax++;   // div by 0 check
+   
   int16_t y = Fc_Top+1;
   int16_t incy = (Fc_Height-4) / 3;
   int16_t dec = (tmax - tmin)/3;
@@ -416,7 +443,7 @@ void Display::displayOutTemp()
 
   int iH = 0;
   int m = minute();
-  uint32_t tmNow = now() - (ee.tz*3600);
+  uint32_t tmNow = now() - ((ee.tz+hvac.m_DST)*3600);
   if( tmNow >= m_fcData[1].tm)
   {
     for(iH = 1; tmNow > m_fcData[iH].tm && m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
@@ -424,8 +451,12 @@ void Display::displayOutTemp()
     m = (tmNow - m_fcData[iH].tm) / 60;  // offset = minutes past forecast
   }
 
-  if(iH > 2) // if data more than 3*2 hours old, refresh
-    m_bUpdateFcst = true;
+  if(iH > 3 && m_bUpdateFcstDone) // if data more than 3*2 hours old, refresh
+  {
+    String s = String("iH=") + String(iH);
+    WsSend((char*)s.c_str(), "alert");
+//    m_bUpdateFcst = true;
+  }
 
   int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
   int outTempReal = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
@@ -447,7 +478,7 @@ void Display::Note(char *cNote)
 {
   screen(true);
   nex.itemText(12, cNote);
-  events.send(cNote, "alert");
+  WsSend(cNote, "alert");
 }
 
 // update the notification text box
@@ -484,7 +515,9 @@ void Display::updateNotification(bool bRef)
   }
   nex.itemText(12, s);
   if(s != "" && bRef == false) // refresh shouldn't be resent
-    events.send(s.c_str(), "alert");
+  {
+    WsSend((char*)s.c_str(), "alert");
+  }
 }
 
 // true: set screen backlight to bright plus switch to thermostat
@@ -788,7 +821,7 @@ void Display::addGraphPoints()
 {
   if( hvac.m_inTemp == 0 || hvac.m_targetTemp == 0)
     return;
-  m_points[m_pointsIdx].time = now() - (ee.tz*3600);
+  m_points[m_pointsIdx].time = now() - ((ee.tz+hvac.m_DST)*3600);
 
   m_points[m_pointsIdx].temp = hvac.m_inTemp; // 66~90 scale to 0~220
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
