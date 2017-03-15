@@ -12,7 +12,7 @@ void parseParams(AsyncWebServerRequest *request);
 String sDec(int t); // just 123 to 12.3 string
 String timeFmt(void);
 String dataJson(void);
-void WsSend(String s);
+void WsSend(char *txt, const char *type);
 void fc_onConnect(AsyncClient* client);
 void fc_onData(AsyncClient* client, char* data, size_t len);
 void fc_onDisconnect(AsyncClient* client);
