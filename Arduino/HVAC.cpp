@@ -800,7 +800,7 @@ String HVAC::settingsJsonMod()
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"t\":";  s += now() - (ee.tz * 3600);
+  s += "\"t\":";  s += now() - ((ee.tz+m_DST) * 3600);
   s += ",\"r\":" ;  s += m_bRunning;
   s += ",\"fr\":";  s += getFanRunning();
   s += ",\"s\":" ;  s += getState();
@@ -861,7 +861,10 @@ const char *cmdList[] = { "cmd",
   "ppk",
   "ccf",
   "cost",
+  "fcrange",
+  "fcdisp",
   "save",
+  "tz",
   NULL
 };
 
@@ -1012,8 +1015,17 @@ void HVAC::setVar(String sCmd, int val)
       m_fCostE = val / 10000;
       m_fCostG = 0;
       break;
-    case 30: // save
+    case 30: // fcrange
+      ee.fcRange = val;
+      break;
+    case 31: // fcdisp
+      ee.fcRange = val;
+      break;
+    case 32: // save
       eemem.update();
+      break;
+    case 33: // TZ
+      ee.tz = val;
       break;
   }
 }
