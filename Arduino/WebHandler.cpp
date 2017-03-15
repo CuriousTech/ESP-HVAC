@@ -1,9 +1,9 @@
 // Do all the web stuff here
 
 //uncomment to enable Arduino IDE Over The Air update code
-//#define OTA_ENABLE
+#define OTA_ENABLE
 
-//#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
 
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
@@ -187,6 +187,9 @@ void startServer()
   server.on ( "/data", HTTP_GET, dataPage);  // history for chart
   server.on ( "/forecast", HTTP_GET, fcPage); // forecast data for remote unit
 
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(404);
+  });
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
   });
@@ -210,34 +213,6 @@ void startServer()
   remoteParse.addList(jsonList3);
 
 #ifdef OTA_ENABLE
-  ArduinoOTA.setPassword( ee.password ); // remove if port 8266 is firewalled
-  ArduinoOTA.onStart([]()
-  {
-    String sType = "Begin ";
-    sType += (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS";
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    events.send(sType.c_str(), "OTA");
-    ws.printfAll("OTA;Begin %s", (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS");
-  });
-  ArduinoOTA.onEnd([]()
-  {
-    events.send("End", "OTA");
-    ws.printfAll("OTA;End");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-  {
-  });
-  ArduinoOTA.onError([](ota_error_t error)
-  {
-    events.send("Error " + error, "OTA");
-    ws.printfAll("OTA;Error %u", error);
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
   ArduinoOTA.begin();
 #endif
 
@@ -322,6 +297,12 @@ void handleServer()
 #endif
 }
 
+void WsSend(char *txt, const char *type)
+{
+  events.send(txt, type);
+  ws.printfAll("%s;%s", type, txt);
+}
+
 void secondsServer() // called once per second
 {
   if(nWrongPass)
@@ -330,9 +311,7 @@ void secondsServer() // called once per second
   static int n = 10;
   if(hvac.stateChange() || hvac.tempChange())
   {
-    events.send(dataJson().c_str(), "state" );
-    // push to all WebSockets
-    ws.printfAll("state;%s", dataJson().c_str());
+    WsSend((char*)dataJson().c_str(), "state" );
     n = 10;
   }
   else if(--n == 0)
@@ -345,10 +324,9 @@ void secondsServer() // called once per second
   if(s.length() > 2)
     ws.printfAll("settings;%s", s.c_str()); // update anything changed
 
-  if(display.m_bUpdateFcst)
+  if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == false)
   {
     display.m_bUpdateFcst = false;
-
     if(ee.bNotLocalFcst)
       GetForecast();
     else if(fc_client.connected() == false)    // get preformatted data from local server
@@ -366,14 +344,16 @@ void secondsServer() // called once per second
         case XML_COMPLETED:
         case XML_DONE:
           hvac.enable();
-          events.send("Forecast success", "print");
+          WsSend("Forecast success", "print");
           display.screen(true);
           display.drawForecast(true);
+          display.m_bUpdateFcstDone = true;
           break;
         case XML_TIMEOUT:
-          events.send("Forcast timeout", "print");
+          WsSend("Forcast timeout", "print");
           hvac.disable();
           hvac.m_notif = Note_Forecast;
+          display.m_bUpdateFcstDone = true;
           break;
       }
       xmlState = 0;
@@ -415,7 +395,7 @@ void parseParams(AsyncWebServerRequest *request)
     data += "\",\"pass\":\"";
     data += password; // bug - String object adds a NULL
     data += "\"}";
-    events.send(data.c_str(), "hack"); // log attempts
+    WsSend((char*)data.c_str(), "hack"); // log attempts
     lastIP = ip;
     return;
   }
@@ -580,8 +560,7 @@ const XML_tag_t Xtags[] =
 
 void xml_callback(int item, int idx, char *p, char *pTag)
 {
-  int8_t newtz;
-  static tmElements_t t, tm;
+  static tmElements_t tm;
   static int cnt;
 
   switch(item)
@@ -590,14 +569,6 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       xmlState = idx;
       break;
     case 0: // the current local time
-      if(atoi(p) == 0) // todo: fix
-        break;
-      t.Year = CalendarYrToTm(atoi(p));
-      t.Month = atoi(p+5);
-      t.Day = atoi(p+8);
-      t.Hour = atoi(p+11);
-      t.Minute = atoi(p+14);
-      t.Second = atoi(p+17);
       break;
     case 1:            // valid time
       if(idx == 0)     // first item isn't really data
@@ -621,18 +592,6 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       display.m_fcData[cnt].tm = makeTime(tm);
       cnt++;
       display.m_fcData[cnt].tm = 0; // end of data
-
-      newtz = atoi(p + 20); // tz minutes = atoi(p+23) but uncommon
-      if(p[19] == '-') // its negative
-        newtz = -newtz;
-
-      if(idx == 1) // set current time and time zone
-      {
-        time_t epoc = makeTime(t);
-        ee.tz = newtz;
-        epoc += ee.tz * 3600;
-        setTime(epoc);
-      }
       break;
     case 2:                  // temperature
       if(idx == 0)
@@ -663,5 +622,5 @@ void GetForecast()
   String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
 
   if(!xml.begin("forecast.weather.gov", 80, path))
-    events.send("Forecast failed", "alert");
+    WsSend("Forecast failed", "alert");
 }
