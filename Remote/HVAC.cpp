@@ -58,7 +58,7 @@ void HVAC::service()
 // send a command as JSON: cmd {key:password, command:value}
 void HVAC::sendCmd(const char *szName, int value)
 {
-  String s = "cmd;{\"key\":\"";
+  String s = "{\"key\":\"";
   s += ee.password;
   s += "\",\"";
   s += szName;
@@ -66,7 +66,7 @@ void HVAC::sendCmd(const char *szName, int value)
   s += value;
   s += "}";
 
-  WsSend(s);
+  WsSend((char*)s.c_str(), "cmd");
 }
 
 void HVAC::enableRemote()
@@ -433,7 +433,7 @@ String HVAC::settingsJson()
 String HVAC::getPushData()
 {
   String s = "{";
-  s += "\"t\":";  s += now() - (ee.tz * 3600);
+  s += "\"t\":";  s += now() - ((ee.tz+m_DST) * 3600);
   s += ",\"tempi\":"; s += m_localTemp;
   s += ",\"rhi\":"; s += m_localRh;
   s += ",\"rmt\":"; s += m_bRemoteStream;
