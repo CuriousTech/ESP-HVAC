@@ -1,7 +1,7 @@
 // Do all the web stuff here (Remote unit)
 
 //uncomment to enable Arduino IDE Over The Air update code
-//#define OTA_ENABLE
+#define OTA_ENABLE
 
 //#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic (at 64K)
 
@@ -150,6 +150,9 @@ void startServer()
     //Handle Unknown Request
 //    request->send(404);
   });
+  server.on( "/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(404);
+  });
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     //Handle upload
   });
@@ -161,7 +164,6 @@ void startServer()
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 #ifdef OTA_ENABLE
-  ArduinoOTA.setPassword( ee.password ); // remove if port 8266 is firewalled
   ArduinoOTA.onStart([]()
   {
     String sType = "Begin ";
@@ -272,8 +274,11 @@ void handleServer()
 #endif
 }
 
-void WsSend(String s)
+void WsSend(char *txt, const char *type)
 {
+  String s = type;
+  s += ";";
+  s += txt;
   ws.sendTXT(s);
 }
 
@@ -290,8 +295,7 @@ void secondsServer() // called once per second
   if(hvac.tempChange())
   {
     events.send(dataJson().c_str(), "state");
-    String s = "state;" + dataJson();
-    ws.sendTXT("state;" + dataJson());
+    WsSend((char*)dataJson().c_str(), "state");
     timer = 10;
   }
 
@@ -364,6 +368,9 @@ void parseParams(AsyncWebServerRequest *request)
             if(hvac.m_bRemoteStream == true)
               hvac.enableRemote(); // disable
           }
+          break;
+      case 'Z': // Timezone
+          ee.tz = val;
           break;
       case 'P': // host port
           ee.hostPort = s.toInt();
