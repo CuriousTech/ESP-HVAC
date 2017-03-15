@@ -124,7 +124,7 @@ public:
   float    m_fCostE;        // cost total (elec)
   float    m_fCostG;        // cost total (gas)
   bool     m_bLink;         // link adjust mode
-
+  uint8_t  m_DST;
 private:
   void  fanSwitch(bool bOn);
   void  humidSwitch(bool bOn);
