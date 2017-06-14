@@ -15,6 +15,9 @@ background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
 background-image: linear-gradient(top, #ffffff, #50a0ff);
 background-clip: padding-box;
 }
+input{
+text-align: right;
+}
 .style1 {border-width: 0;}
 .style2 {text-align: right;}
 .style5 {
@@ -38,11 +41,13 @@ var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
 function startEvents()
 {
-ws = new WebSocket("ws://"+window.location.host+"/ws")
+var loc = window.location
+ws = new WebSocket("ws://"+loc.host+"/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
 ws.onmessage = function(evt) {
+ console.log(evt.data)
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
@@ -99,9 +104,24 @@ a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')
 a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
 }
 
-function setHT(){setVar('eheatthresh',+a.heatthr.value)}
-function setHumidHi(){setVar('humidh',(+a.humidh.value*10).toFixed())}
-function setHumidLo(){setVar('humidl',(+a.humidl.value*10).toFixed())}
+function setVars()
+{
+ s='cmd;{"key":"'+a.myToken.value+'"'
+ s+=',"cyclethresh":'+(+a.thresh.value*10).toFixed()
+ s+=',"eheatthresh":'+a.heatthr.value
+ s+=',"humidh":'+(+a.humidh.value*10).toFixed()
+ s+=',"humidl":'+(+a.humidl.value*10).toFixed()
+ s+=',"fanpostdelay":'+t2s(a.fandelay.value)
+ s+=',"fanpretime":'+t2s(a.fanpre.value)
+ s+=',"idlemin":'+t2s(a.idlemin.value)
+ s+=',"cyclemin":'+t2s(a.cycmin.value)
+ s+=',"cyclemax":'+t2s(a.cycmax.value)
+ s+=',"awaytime":'+t2s(a.awaytime.value)
+ s+=',"ppk":'+(+a.ppkwh.value*10000).toFixed()
+ s+=',"ccf":'+(+a.ccf.value*1000).toFixed()
+ s+='}'
+ ws.send(s)
+}
 
 function incHumid(n)
 {
@@ -112,20 +132,6 @@ setVar('humidh',(+a.humidh.value*10).toFixed())
 setVar('humidl',(+a.humidl.value*10).toFixed())
 }
 
-function setThresh(){setVar('cyclethresh',(+a.thresh.value*10).toFixed())}
-function setFanDelay(){setVar('fanpostdelay',t2s(a.fandelay.value))}
-function setFanPre(){setVar('fanpretime',t2s(a.fanpre.value))}
-function setIdleMin(){setVar('idlemin',t2s(a.idlemin.value))}
-function setCycMin(){setVar('cyclemin',t2s(a.cycmin.value))}
-function setCycMax(){setVar('cyclemax',t2s(a.cycmax.value))}
-function setOvrTime(){setVar('overridetime',t2s(a.ovrtime.value))}
-function setOvrTemp(){setVar('override',(+a.ovrtemp.value*10).toFixed())}
-function cancelOvr(){setVar('override',0)}
-function setFanTime(){setVar('fantime',t2s(a.fantime.value))}
-function setAwayTime(){setVar('awaytime',t2s(a.awaytime.value))}
-function setAwayTemp(){	setVar('awaydelta',(+a.awaytemp.value*10).toFixed())}
-function setPPKWH(){setVar('ppk',(+a.ppkwh.value*10000).toFixed())}
-function setCCF(){setVar('ccf',(+a.ccf.value*1000).toFixed())}
 function rsttCost(){setVar('cost',0)}
 
 function setRmt(v)
@@ -193,6 +199,11 @@ function t2s(v)
 	a.hide.value='Show'
 	document.getElementById('myToken').value=myStorage1
  }
+  
+ myStorage3 = localStorage.getItem('myStoredText3')
+ if(myStorage3  != null){
+	document.getElementById('ovrtemp').value=myStorage3
+ }
  startEvents()
 }">
 <strong><em>CuriousTech HVAC Settings</em></strong><br><br>
@@ -200,97 +211,35 @@ function t2s(v)
 <tr>
 <td style="width: 81px">Threshold</td>
 <td style="width: 44px"><input type=text size=4 id="thresh"></td>
-<td style="width: 140px"><input type="button" value="Set" onClick="{setThresh()}"></td>
+<td style="width: 140px"></td>
 <td>
-<input type="submit" value="Main" onClick="window.location='/';">
+<input type="submit" value="Main" onClick="window.location='/iot';">
 </td>
 </tr>
-<tr>
-<td>Heat Thr</td>
-<td><input type=text size=4 id="heatthr"></td>
-<td><input type="button" value="Set" onClick="{setHT()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Humid Hi</td>
-<td><input type=text size=4 id="humidh"></td>
-<td><input type="button" value="Set" onClick="{setHumidHi()}"><input type="button" value="+1" onClick="{incHumid(1)}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Humid Lo</td>
-<td><input type=text size=4 id="humidl"></td>
-<td><input type="button" value="Set" onClick="{setHumidLo()}"><input type="button" value=" -1" onClick="{incHumid(-1)}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Pre Fan</td>
+<tr><td>Heat Thr</td><td><input type=text size=4 id="heatthr"></td><td></td><td></td></tr>
+<tr><td>Humid Hi</td><td><input type=text size=4 id="humidh"></td><td><input type="button" value="+1" onClick="{incHumid(1)}"></td><td></td></tr>
+<tr><td>Humid Lo</td><td><input type=text size=4 id="humidl"></td><td><input type="button" value=" -1" onClick="{incHumid(-1)}"></td><td></td></tr>
+<tr><td>Pre Fan</td>
 <td><input type=text size=4 id="fanpre"></td>
-<td><input type="button" value="Set" onClick="{setFanPre()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Post Fan</td>
-<td><input type=text size=4 id="fandelay"></td>
-<td><input type="button" value="Set" onClick="{setFanDelay()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Idle Min</td>
-<td><input type=text size=4 id="idlemin"></td>
-<td><input type="button" value="Set" onClick="{setIdleMin()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>cycle Min</td>
-<td><input type=text size=4 id="cycmin"></td>
-<td><input type="button" value="Set" onClick="{setCycMin()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>cycle Max</td>
-<td><input type=text size=4 id="cycmax"></td>
-<td><input type="button" value="Set" onClick="{setCycMax()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Away Lmt</td>
-<td><input type=text size=4 id="awaytime"></td>
-<td><input type="button" value="Set" onClick="{setAwayTime()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Remote Hi</td>
-<td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
+<td></td><td></td></tr>
+<tr><td>Post Fan</td><td><input type=text size=4 id="fandelay"></td><td></td><td></td></tr>
+<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin"></td><td></td><td></td></tr>
+<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td></td><td></td></tr>
+<tr><td>cycle Max</td><td><input type=text size=4 id="cycmax"></td><td></td><td></td></tr>
+<tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td></td><td></td></tr>
+<tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td></td></tr>
+<tr><td>CCF</td><td><input type=text size=4 id="ccf"></td><td></td><td></td></tr>
+<tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
 <td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}"></td>
-<td></td>
-</tr>
-<tr>
-<td>Remote Lo</td>
-<td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
+<td><input type="button" id ="cost" value="0" onClick="{rstCost()}"></td></tr>
+<tr><td>Remote Lo</td><td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
 <td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"><input type="button" value="Main" name="rmtl3" onClick="{setRmt(6)}"></td>
-<td></td>
-</tr>
-<tr>
-<td>PPKWH</td>
-<td><input type=text size=4 id="ppkwh"></td>
-<td><input type="button" value="Set" onClick="{setPPKWH()}"></td>
-<td></td>
-</tr>
-<tr>
-<td>CCF</td>
-<td><input type=text size=4 id="ccf"></td>
-<td><input type="button" value="Set" onClick="{setCCF()}"></td>
-<td><input type="button" id ="cost" value="0" onClick="{rstCost()}"></td>
-</tr>
+<td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
 </table>
 <p>
 <table style="width: 350px">
-<tr>
-<td>Password</td>
-<td>
-<input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 150px">
-<input type="button" value="Save" onClick="{
+<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 150px">
+<input type="button" value="Set" onClick="{
  localStorage.setItem('myStoredText1', a.myToken.value)
  alert(a.myToken.value+' Has been stored')
 }">
