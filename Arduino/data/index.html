@@ -29,9 +29,7 @@ background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
-<script type="text/javascript">
-<!--
-
+<script type="text/javascript"><!--
 var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
@@ -39,8 +37,7 @@ var ws
 var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
-var loc = window.location
-ws = new WebSocket("ws://"+loc.host+"/ws")
+ws = new WebSocket("ws://"+window.location.host+"/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
@@ -48,9 +45,9 @@ ws.onmessage = function(evt) {
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
- Json=JSON.parse(data)
  if(event == 'settings')
  {
+	Json=JSON.parse(data)
    	mode= +Json.m
 	autoMode= +Json.am
 	heatMode= +Json.hm
@@ -70,6 +67,7 @@ ws.onmessage = function(evt) {
  }
  else if(event == 'state')
  {
+	Json=JSON.parse(data)
 	running= +Json.r
 	fan= +Json.fr
 	rh= +Json.h
@@ -169,16 +167,6 @@ a.hmAuto2.setAttribute('class',humidMode==4?'style5':'')
 a.away.setAttribute('class',away?'style5':'')
 }
 
-function setCoolHi()
-{
-setVar('cooltemph',(+a.coolh.value*10).toFixed())
-}
-
-function setCoolLo()
-{
-setVar('cooltempl',(+a.cooll.value*10).toFixed())
-}
-
 function incCool(n)
 {
 a.coolh.value= +a.coolh.value+n
@@ -186,16 +174,6 @@ a.cooll.value= +a.cooll.value+n
 
 setVar('cooltemph',(+a.coolh.value*10).toFixed())
 setVar('cooltempl',(+a.cooll.value*10).toFixed())
-}
-
-function setHeatHi()
-{
-setVar('heattemph',(+a.heath.value*10).toFixed())
-}
-
-function setHeatLo()
-{
-setVar('heattempl',(+a.heatl.value*10).toFixed())
 }
 
 function incHeat(n)
@@ -207,9 +185,9 @@ setVar('heattemph',(+a.heath.value*10).toFixed())
 setVar('heattempl',(+a.heatl.value*10).toFixed())
 }
 
-function setOvrTime()
+function setOvrTemp()
 {
-	setVar('overridetime',t2s(a.ovrtime.value))
+	setVar('override',(+a.ovrtemp.value*10).toFixed())
 }
 
 function setOvrTemp()
@@ -222,14 +200,18 @@ function cancelOvr()
 	setVar('override',0)
 }
 
-function setFanTime()
+function setVars()
 {
-	setVar('fancycletime',t2s(a.fantime.value))
-}
-
-function setAwayTemp()
-{
-	setVar('awaydelta',(+a.awaytemp.value*10).toFixed())
+ s='cmd;{"key":"'+myToken+'"'
+ s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()
+ s+=',"cooltempl":'+(+a.cooll.value*10).toFixed()
+ s+=',"heattemph":'+(+a.heath.value*10).toFixed()
+ s+=',"heattempl":'+(+a.heatl.value*10).toFixed()
+ s+=',"overridetime":'+t2s(a.ovrtime.value)
+ s+=',"fancycletime":'+t2s(a.fantime.value)
+ s+=',"awaydelta":'+(+a.awaytemp.value*10).toFixed()
+ s+='}'
+ ws.send(s)
 }
 
 function secsToTime( elap )
@@ -316,25 +298,25 @@ function t2s(v)
 <tr>
 <td>Cool Hi</td>
 <td><input type=text size=3 id="coolh"></td>
-<td><input type="button" value="Set" onClick="{setCoolHi()}"><input type="button" value="+1" onClick="{incCool(1)}"></td>
+<td><input type="button" value="+1" onClick="{incCool(1)}"></td>
 <td></td>
 </tr>
 <tr>
 <td style="width: 81px">Cool Lo</td>
 <td style="width: 44px"><input type=text size=3 id="cooll"></td>
-<td style="width: 200px"><input type="button" value="Set" onClick="{setCoolLo()}"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
+<td style="width: 200px"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
 <td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="Gas " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="Auto" name="hAuto" onClick="{setHeatMode(2)}"></td>
 </tr>
 <tr>
 <td>Heat Hi</td>
 <td><input type=text size=3 id="heath"></td>
-<td><input type="button" value="Set" onClick="{setHeatHi()}"><input type="button" value="+1" onClick="{incHeat(1)}"></td>
+<td><input type="button" value="+1" onClick="{incHeat(1)}"></td>
 <td></td>
 </tr>
 <tr>
 <td>Heat Lo</td>
 <td><input type=text size=3 id="heatl"></td>
-<td><input type="button" value="Set" onClick="{setHeatLo()}"><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
+<td><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
 <td id="hmCell"><div id="hm">Humidifier Off</div></td>
 </tr>
 <tr>
@@ -345,9 +327,7 @@ function t2s(v)
 <input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}"><input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"></td>
 </tr>
 <tr>
-<td>ovr Time</td>
-<td><input type=text size=3 id="ovrtime"></td>
-<td><input type="button" value="Set" onClick="{setOvrTime()}"></td>
+<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td></td>
 <td>
 <input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}"></td>
 </tr>
@@ -362,14 +342,12 @@ function t2s(v)
 <tr>
 <td>Freshen</td>
 <td><input type=text size=3 id="fantime"></td>
-<td><input type="button" value="Set" onClick="{setFanTime()}"><input type="button" value=" Go  " onClick="{setfan(3)}"></td>
+<td><input type="button" value=" Go  " onClick="{setfan(3)}"></td>
 <td></td>
 </tr>
 <tr>
-<td>Away &Delta;</td>
-<td><input type=text size=3 id="awaytemp"></td>
-<td><input type="button" value="Set" onClick="{setAwayTemp()}"></td>
-<td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
+<td>Away &Delta;</td><td><input type=text size=3 id="awaytemp"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
+<td><input type="button" value="Save" onClick="{setVars()}"></td>
 </tr>
 </table><br/>
 <table style="width: 350px">
