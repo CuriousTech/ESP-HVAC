@@ -4,7 +4,7 @@
 
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
 
-  1024 byte limit for data received
+  Default 1024 byte limit for data received
   8 lists max per instance
 */
 #include "JsonClient.h"
@@ -12,7 +12,7 @@
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
-JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue) )
+JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize )
 {
   m_callback = callback;
   m_Status = JC_IDLE;
@@ -31,6 +31,8 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
 //  m_ac.onPoll([](void* obj, AsyncClient* c) { (static_cast<JsonClient*>(obj))->_onPoll(c); }, this);
 
   m_ac.setRxTimeout(TIMEOUT);
+  m_pBuffer = new char[nSize];
+  m_nBufSize = nSize;
 }
 
 // add a json list {"event name", "valname1", "valname2", "valname3", NULL}
@@ -38,7 +40,7 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
 // If second string is "" or NULL, the event name is expected, but the "data:" string is assumed non-JSON
 bool JsonClient::addList(const char **pList)
 {
-  if(m_jsonCnt >= 8)
+  if(m_jsonCnt >= LIST_CNT)
     return false;
   m_jsonList[m_jsonCnt++] = pList;
   return true;
@@ -73,16 +75,16 @@ void JsonClient::process(char *event, char *data)
 {
   m_event = 0;
 
-  strcpy(m_buffer, "event:");
-  strcat(m_buffer, event);
-  strcat(m_buffer, "\r\n");
-  m_bufcnt = strlen(m_buffer);
+  strcpy(m_pBuffer, "event:");
+  strcat(m_pBuffer, event);
+  strcat(m_pBuffer, "\r\n");
+  m_bufcnt = strlen(m_pBuffer);
   processLine();
 
-  strcpy(m_buffer, "data:");
-  strcat(m_buffer, data);
-  strcat(m_buffer, "\r\n");
-  m_bufcnt = strlen(m_buffer);
+  strcpy(m_pBuffer, "data:");
+  strcat(m_pBuffer, data);
+  strcat(m_pBuffer, "\r\n");
+  m_bufcnt = strlen(m_pBuffer);
   processLine();
 }
 
@@ -159,9 +161,10 @@ void JsonClient::_onDisconnect(AsyncClient* client)
     m_Status = JC_DONE;
     if(m_bufcnt) // no LF at end?
     {
-        m_buffer[m_bufcnt] = '\0';
+        m_pBuffer[m_bufcnt] = '\0';
         processLine();
     }
+	m_callback(-1, m_Status, m_nPort, m_szHost);
     return;
   }
   connect();
@@ -217,17 +220,19 @@ void JsonClient::_onConnect(AsyncClient* client)
 void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
 {
   (void)client;
+  if(m_pBuffer == NULL)
+	return;
 
   for(int i = 0; i < len; i++)
   {
     char c = data[i];
-    if(c != '\r' && m_bufcnt < JC_BUF_SIZE)
-      m_buffer[m_bufcnt++] = c;
+    if(c != '\r' && m_bufcnt < m_nBufSize)
+      m_pBuffer[m_bufcnt++] = c;
     if(c == '\n')
     {
       if(m_bufcnt > 1) // ignore keepalive
       {
-        m_buffer[m_bufcnt-1] = '\0';
+        m_pBuffer[m_bufcnt-1] = '\0';
         processLine();
       }
       m_bufcnt = 0;
@@ -243,7 +248,7 @@ void JsonClient::processLine()
 
   char *pPair[2]; // param:data pair
 
-  char *p = m_buffer;
+  char *p = m_pBuffer;
 
   while(*p)
   {
