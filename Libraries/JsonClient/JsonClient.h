@@ -23,12 +23,10 @@ enum JC_Status
 
 #define RETRIES 6
 
-#define JC_BUF_SIZE 1500
-
 class JsonClient
 {
 public:
-  JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue));
+  JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize = 1024);
   bool  addList(const char **pList);
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
   bool  service(void);
@@ -55,13 +53,14 @@ private:
   char m_szHost[64];
   char m_szPath[64];
   char m_szData[256];
-#define LIST_CNT
-  const char **m_jsonList[8];
+#define LIST_CNT 8
+  const char **m_jsonList[LIST_CNT];
   const char **m_pHeaders;
   uint16_t m_bufcnt;
   uint16_t m_event;
   uint16_t m_nPort;
-  char     m_buffer[JC_BUF_SIZE];
+  uint16_t m_nBufSize;
+  char     *m_pBuffer;
   unsigned long m_timeOut;
   int16_t m_brace;
   int16_t m_retryCnt;
