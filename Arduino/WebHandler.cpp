@@ -300,7 +300,7 @@ void handleServer()
 void WsSend(char *txt, const char *type)
 {
   events.send(txt, type);
-  ws.printfAll("%s;%s", type, txt);
+  ws.textAll(String(type) + String(";") + String(txt));
 }
 
 void secondsServer() // called once per second
@@ -322,7 +322,7 @@ void secondsServer() // called once per second
 
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
-    ws.printfAll("settings;%s", s.c_str()); // update anything changed
+    ws.textAll(String("settings;") + s); // update anything changed
 
   if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == false)
   {
@@ -344,9 +344,6 @@ void secondsServer() // called once per second
         case XML_COMPLETED:
         case XML_DONE:
           hvac.enable();
-          WsSend("Forecast success", "print");
-          display.screen(true);
-          display.drawForecast(true);
           display.m_bUpdateFcstDone = true;
           break;
         case XML_TIMEOUT:
@@ -538,6 +535,7 @@ void fc_onDisconnect(AsyncClient* client)
 void fc_onTimeout(AsyncClient* client, uint32_t time)
 {
   (void)client;
+  WsSend("Error getting local server forecast", "print");
 }
 
 //---
