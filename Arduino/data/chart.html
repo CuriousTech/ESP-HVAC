@@ -2,14 +2,83 @@
 <html>
 <head>
 <title>HVAC Chart</title>
+<style type="text/css">
+div,table,input{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-clip: padding-box;
+}
+body{background:silver;width:800px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
+</style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
-<script type="text/javascript" src="data"></script>
-<script>
+<script type="text/javascript">
 var graph;
 xPadding=30
-yPadding=100
+yPadding=50
 var yRange
-$(document).ready(function(){
+var Json
+var a=document.all
+var ws
+$(document).ready(function()
+{
+ myStorage1 = localStorage.getItem('myStoredText1')
+ if(myStorage1  != null) myToken=myStorage1
+ ws = new WebSocket("ws://"+window.location.host+"/ws")
+ ws.onopen = function(evt){ws.send('cmd;{sum:0}')}
+ ws.onclose = function(evt){alert("Connection closed.")}
+ ws.onmessage = function(evt){
+	console.log(evt.data)
+	lines = evt.data.split(';')
+	event=lines[0]
+	data=lines[1]
+	Json=JSON.parse(data)
+	switch(event)
+	{
+		case 'settings':
+			//	a.ppkwh.value= +Json.ppk / 10000
+			//	a.ccf.value= +Json.ccf / 1000
+			break
+		case 'state':
+			a.today.innerHTML='Today  E $'+Json.ce+' G $'+Json.cg
+			break
+		case 'alert':
+			alert(data)
+			break
+		case 'sum':
+			ws.send('cmd;{data:0}')
+			mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+			for(i=0;i<12;i++)
+			{
+				div=document.getElementById("m"+i)
+				div.innerHTML=mname[i]+' E $'+Json.mon[i][0]+' G $'+Json.mon[i][1]
+			}
+			for(i=0;i<31;i++)
+			{
+				div=document.getElementById("d"+i)
+				div.innerHTML=(i+1)+' E $'+Json.day[i][0]+' G $'+Json.day[i][1]
+			}
+			break
+		case 'data':
+			arr=Json.d
+			tb=Json.tb
+			break
+		case 'data2':
+			arr=arr.concat(Json.d)
+			break
+		case 'draw':
+			draw()
+			break
+	}
+ }
+ setInterval(function(){ ws.send('cmd;{data:0}'); }, 60000);
+});
+
+function draw(){
   graph = $('#graph')
   c=graph[0].getContext('2d')
 
@@ -17,6 +86,9 @@ $(document).ready(function(){
   tipCtx=tipCanvas.getContext("2d")
   tipDiv=document.getElementById("popup")
 
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  c.clearRect(0, 0, graph.width(), graph.height())
   canvasOffset=graph.offset()
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
@@ -34,15 +106,15 @@ $(document).ready(function(){
 
   c.lineWidth = 1
   // dates
-  step = Math.floor(data.length / 15)
+  step = Math.floor(arr.length / 15)
   if(step == 0) step = 1
-  for(var i=0; i<data.length-1; i+=step){
-    c.save()
-    c.translate(getXPixel(i), graph.height() - yPadding + 5)
-    c.rotate(0.9)
-    date = new Date((data[i][0]*10+tb)*1000)
-    c.fillText(date.toLocaleTimeString(),0,0)
-    c.restore()
+  for(var i=0; i<arr.length-1; i+=step){
+	c.save()
+	c.translate(getXPixel(i), graph.height()-yPadding+5)
+	c.rotate(0.9)
+	date = new Date((arr[i][0]*10+tb)*1000)
+	c.fillText(date.toLocaleTimeString(),0,0)
+	c.restore()
   }
 
   yRange = getMaxY() - getMinY()
@@ -50,65 +122,62 @@ $(document).ready(function(){
   c.textAlign = "right"
   c.textBaseline = "middle"
 
-  for(var i = getMinY(); i < getMaxY(); i += (yRange / 8) ) {
-    c.fillText((i/10).toFixed(1), xPadding - 6, getYPixel(i))
+  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) ) {
+    c.fillText((i/10).toFixed(1), xPadding-6, getYPixel(i))
   }
 
-  c.fillText('Temp', xPadding-4, 4 )
+  c.fillText('Temp', xPadding-4, 6)
   c.fillStyle = "green"
-  c.fillText('Rh', graph.width()-14, 4 )
+  c.fillText('Rh', graph.width()-14, 6)
 
   // rh scale
-  for(i = 0; i < 10; i +=2 ) {
+  for(i = 0; i < 10; i++){
     pos = graph.height()-8-( ((graph.height()-yPadding) / 10) * i )-yPadding
-    c.fillText(i*10, graph.width() - 14, pos )
+    c.fillText(i*10, graph.width() - 14, pos)
   }
 
   //threshold
-  c.fillStyle = 'rgba(200,200,200,0.25)'
+  c.fillStyle = 'rgba(200,100,200,0.25)'
   c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(data[0][3]))
+  c.moveTo(getXPixel(0), getYPixel(arr[0][3]))
 
-  for(i = 1; i < data.length-1; i ++)
-    c.lineTo(getXPixel(i), getYPixel(data[i][3]))
-  for(i = data.length - 2; i >= 0; i--)
-    c.lineTo(getXPixel(i), getYPixel(data[i][4]))
+  for(i = 1; i < arr.length-1; i ++)
+    c.lineTo(getXPixel(i), getYPixel(arr[i][3]))
+  for(i = arr.length - 2; i >= 0; i--)
+    c.lineTo(getXPixel(i), getYPixel(arr[i][4]))
   c.closePath()
   c.fill()
 
   // temp lines
-  for(i = 1; i < data.length; i++){
-	c.strokeStyle = stateColor(data[i][5])
+  for(i = 1; i < arr.length; i++){
+	c.strokeStyle = stateColor(arr[i][5])
 	c.beginPath()
-	c.moveTo(getXPixel(i), getYPixel(data[i][1]))
-	c.lineTo(getXPixel(i-1), getYPixel(data[i-1][1]))
+	c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
+	c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
 	c.stroke()
   }
 
   // rh lines
   c.strokeStyle = '#0f0'
   c.beginPath()
-  c.moveTo(getXPixel(0), getRHPixel(data[0][2]))
+  c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))
 
-  for(var i = 1; i < data.length-1; i ++)
-	c.lineTo(getXPixel(i), getRHPixel(data[i][2]))
+  for(var i = 1; i < arr.length-1; i ++)
+	c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))
   c.stroke()
 
-  noteDiv=document.getElementById("note")
-  noteDiv.innerHTML='Cost: $'+cost
-
   var dots = []
-	for(i = 0; i < data.length; i ++) {
-		date = new Date((data[i][0]*10+tb)*1000)
+	for(i = 0; i < arr.length; i ++) {
+		date = new Date((arr[i][0]*10+tb)*1000)
 		dots.push({
 			x: getXPixel(i),
-			y: getYPixel(data[i][1]),
+			y: getYPixel(arr[i][1]),
 			r: 4,
 			rXr: 16,
 			color: "red",
-			tip: data[i][1]/10,
-			tip2: data[i][2]/10,
-			tip3: date.toLocaleTimeString()
+			tip: arr[i][1]/10,
+			tip2: arr[i][2]/10,
+			tip3: date.toLocaleTimeString()+' '
 		})
 	}
 
@@ -127,23 +196,13 @@ $(document).ready(function(){
 			dx = mouseX - dot.x
 			dy = mouseY - dot.y
 			if (dx * dx + dy * dy < dot.rXr) {
-				tipCtx.fillStyle = "#C0C0C0"
-				tipCtx.fillRect(0, 0, tipCanvas.width, tipCanvas.height)
-				
+				tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
 				tipCtx.lineWidth = 2
 				tipCtx.fillStyle = "#000000"
 				tipCtx.strokeStyle = '#333'
 				tipCtx.font = 'italic 8pt sans-serif'
 				tipCtx.textAlign = "left"
-				
-				tipCtx.beginPath() // borders
-				tipCtx.moveTo(0,0)
-				tipCtx.lineTo(0,50)
-				tipCtx.lineTo(60,50)
-				tipCtx.lineTo(60,0)
-				tipCtx.lineTo(0,0)
-				tipCtx.stroke()
-				
+
 				tipCtx.fillText( dot.tip + '°F', 4, 15)
 				tipCtx.fillText( dot.tip2 + '%', 4, 29)
 				tipCtx.fillText( dot.tip3, 4, 44)
@@ -155,40 +214,42 @@ $(document).ready(function(){
 		}
 		if (!hit) { popup.style.left = "-200px" }
 	}
-});
+}
 
 function getMaxY(){
 	var max = 0
 	
-	for(i = 0; i < data.length-1; i ++)
+	for(i = 0; i < arr.length-1; i ++)
 	{
-		if(data[i][1] > max)
-		  max = data[i][1]
-		if(data[i][3] > max)
-		  max = data[i][3]
+		if(arr[i][1] > max)
+		  max = arr[i][1]
+		if(arr[i][3] > max)
+		  max = arr[i][3]
 	}
-	return Math.floor(max)
+	return Math.ceil(max)
 }
 
 function getMinY(){
 	var min = 1500
 
-	for(i = 0; i < data.length; i ++)
+	for(i = 0; i < arr.length; i ++)
 	{
-		if(data[i][1] < min)
-		  min = data[i][1]
-		if(data[i][4] < min)
-		  min = data[i][4]
+		if(arr[i][1] < min)
+		  min = arr[i][1]
+		if(arr[i][4] < min)
+		  min = arr[i][4]
 	}
-	return Math.floor(min)-2
+	return Math.floor(min)
 }
  
 function getXPixel(val) {
-	return (graph.width()-xPadding)-((graph.width()-26-xPadding) / data.length) * val
+	x=(graph.width()-xPadding)-((graph.width()-26-xPadding) / arr.length) * val
+	return x.toFixed()
 }
 
 function getYPixel(val) {
-	return graph.height()-6-( ((graph.height() - yPadding) / yRange) * ( val-getMinY() )) - yPadding
+	y=graph.height()-( ((graph.height() - yPadding) / yRange) * ( val-getMinY() )) - yPadding
+	return y.toFixed()
 }
 
 function getRHPixel(val) {
@@ -200,6 +261,11 @@ function stateColor(s)
   sts=Array('gray','blue','red','red')
   if(s==1) return 'cyan'
   return sts[s>>1]
+}
+
+function setVar(varName, value)
+{
+ ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 </script>
@@ -217,20 +283,37 @@ function stateColor(s)
   left: 0;
 }
 #popup {
-  width: 60;
-  height: 50;
   position: absolute;
   top: 150px;
-  left: 150px;
+  left: -150px;
   z-index: 10;
+}
+.style1 {
+	border-style: solid;
+	border-width: 1px;
 }
 </style>
 </head>
 <body>
 <div id="wrapper">
 <canvas id="graph" width="800" height="400"></canvas>
-<div id="popup" width="60" height="50"><canvas id="tip" width="60" height="50"></canvas></div>
+<div id="popup"><canvas id="tip" width="70" height="45"></canvas></div>
 </div>
-<div id='note'></div>
+<div id="today"></div>
+<table cellspacing=1 width=800>
+<tr><td><div id='d0'></div></td><td><div id='d1'></div></td><td><div id='d2'></div></td><td><div id='d3'></div></td></tr>
+<tr><td><div id='d4'></div></td><td><div id='d5'></div></td><td><div id='d6'></div></td><td><div id='d7'></div></td></tr>
+<tr><td><div id='d8'></div></td><td><div id='d9'></div></td><td><div id='d10'></div></td><td><div id='d11'></div></td></tr>
+<tr><td><div id='d12'></div></td><td><div id='d13'></div></td><td><div id='d14'></div></td><td><div id='d15'></div></td></tr>
+<tr><td><div id='d16'></div></td><td><div id='d17'></div></td><td><div id='d18'></div></td><td><div id='d19'></div></td></tr>
+<tr><td><div id='d20'></div></td><td><div id='d21'></div></td><td><div id='d22'></div></td><td><div id='d23'></div></td></tr>
+<tr><td><div id='d24'></div></td><td><div id='d25'></div></td><td><div id='d26'></div></td><td><div id='d27'></div></td></tr>
+<tr><td><div id='d28'></div></td><td><div id='d29'></div></td><td><div id='d30'></div></td><td></td></tr>
+</table>
+<table cellspacing=1 width=800>
+<tr><td><div id='m0'></div></td><td><div id='m1'></div></td><td><div id='m2'></div></td><td><div id='m3'></div></td></tr>
+<tr><td><div id='m4'></div></td><td><div id='m5'></div></td><td><div id='m6'></div></td><td><div id='m7'></div></td></tr>
+<tr><td><div id='m8'></div></td><td><div id='m9'></div></td><td><div id='m10'></div></td><td><div id='m11'></div></td></tr>
+</table>
 </body>
 </html>
