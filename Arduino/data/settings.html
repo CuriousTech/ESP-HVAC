@@ -41,13 +41,11 @@ var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
 function startEvents()
 {
-var loc = window.location
-ws = new WebSocket("ws://"+loc.host+"/ws")
+ws = new WebSocket("ws://"+window.location.host+"/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
 ws.onmessage = function(evt) {
- console.log(evt.data)
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
@@ -72,7 +70,6 @@ ws.onmessage = function(evt) {
  else if(event == 'state')
  {
 	away=+Json.aw
-	a.cost.value='$'+Json.c
 	setAtt()
  }
  else if(event == 'alert')
@@ -131,8 +128,6 @@ a.humidl.value= +a.humidl.value+n
 setVar('humidh',(+a.humidh.value*10).toFixed())
 setVar('humidl',(+a.humidl.value*10).toFixed())
 }
-
-function rsttCost(){setVar('cost',0)}
 
 function setRmt(v)
 {
@@ -195,23 +190,16 @@ function t2s(v)
 <body onload="{
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null){
-	a.myToken.style.visibility = 'hidden'
-	a.hide.value='Show'
 	document.getElementById('myToken').value=myStorage1
- }
-  
- myStorage3 = localStorage.getItem('myStoredText3')
- if(myStorage3  != null){
-	document.getElementById('ovrtemp').value=myStorage3
  }
  startEvents()
 }">
 <strong><em>CuriousTech HVAC Settings</em></strong><br><br>
-<table style="width: 350px" cellspacing="0" cellpadding="0">
+<table style="width: 240px" cellspacing="0" cellpadding="0">
 <tr>
 <td style="width: 81px">Threshold</td>
 <td style="width: 44px"><input type=text size=4 id="thresh"></td>
-<td style="width: 140px"></td>
+<td style="width: 10px"></td>
 <td>
 <input type="submit" value="Main" onClick="window.location='/iot';">
 </td>
@@ -227,30 +215,21 @@ function t2s(v)
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td></td><td></td></tr>
 <tr><td>cycle Max</td><td><input type=text size=4 id="cycmax"></td><td></td><td></td></tr>
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td></td><td></td></tr>
-<tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td></td></tr>
+<tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
 <tr><td>CCF</td><td><input type=text size=4 id="ccf"></td><td></td><td></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
-<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}"></td>
-<td><input type="button" id ="cost" value="0" onClick="{rstCost()}"></td></tr>
+<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}">
+</td></tr>
 <tr><td>Remote Lo</td><td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
-<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"><input type="button" value="Main" name="rmtl3" onClick="{setRmt(6)}"></td>
-<td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
+<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"></td><td><input type="button" value="Main" name="rmtl3" onClick="{setRmt(6)}">
+</td></tr>
 </table>
 <p>
-<table style="width: 350px">
-<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 150px">
+<table style="width: 240px">
+<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 110px">
 <input type="button" value="Set" onClick="{
  localStorage.setItem('myStoredText1', a.myToken.value)
  alert(a.myToken.value+' Has been stored')
-}">
-<input type="button" value="Hide" name="hide" onClick="{
-if(a.myToken.style.visibility == 'hidden'){
- a.myToken.style.visibility = 'visible'
- a.hide.value='Hide'
- }else{
- a.myToken.style.visibility = 'hidden'
- a.hide.value='Show'
-}
 }">
 </td>
 </tr>
