@@ -21,6 +21,8 @@ const int furnaceWatts = 100;
 const int humidWatts = 150;
 const float furnaceCFH = 1.0; // nat gas cubic feet per hour
 
+extern void WsSend(char *txt, const char *type);
+
 HVAC::HVAC()
 {
   pinMode(P_FAN, OUTPUT);
@@ -41,6 +43,7 @@ void HVAC::init()
   m_setMode = ee.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
   m_setHeat = ee.heatMode;
+  m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
 }
 
 // Switch the fan on/off
@@ -86,7 +89,7 @@ void HVAC::filterInc()
   nSecs ++;  // add last run time to total counter
   if(nSecs >= 60)    // increment filter minutes
   {
-    ee.filterMinutes++;
+    m_filterMinutes++;
     nSecs -= 60;     // and subtract a minute
   }
 }
@@ -264,7 +267,7 @@ void HVAC::costAdd(int secs, int mode, int hm)
       watts = humidWatts;
       break;
   }
-  m_fCostE += (float)ee.ppkwh / 100000.0 * secs * watts / 3600000.0;
+  m_fCostE += (float)ee.ppkwh / 100000.0 * secs * watts / 360000.0;
 }
 
 bool HVAC::stateChange()
@@ -421,6 +424,9 @@ bool HVAC::preCalcCycle(int mode)
   // Standard triggers for now
   switch(mode)
   {
+    case Mode_Off: // 
+      calcTargetTemp(Mode_Off);
+      break;
     case Mode_Cool:
       calcTargetTemp(Mode_Cool);
       bRet = (tempH >= m_targetTemp);    // has reached threshold above desired temp
@@ -469,6 +475,7 @@ void HVAC::calcTargetTemp(int mode)
 
   switch(mode)
   {
+    case Mode_Off:
     case Mode_Cool:
       m_targetTemp  = (m_outTemp-L) * (ee.coolTemp[1]-ee.coolTemp[0]) / (H-L) + ee.coolTemp[0];
       m_targetTemp = constrain(m_targetTemp, ee.coolTemp[0], ee.coolTemp[1]); // just for safety
@@ -483,8 +490,9 @@ void HVAC::calcTargetTemp(int mode)
 
   switch(mode)
   {
+    case Mode_Off:
     case Mode_Cool:
-      m_targetTemp = constrain(m_targetTemp, 650, 990); // more safety (after override/away of up to +/-15)
+      m_targetTemp = constrain(m_targetTemp, 650, 999); // more safety (after override/away of up to +/-15)
       break;
     case Mode_Heat:
       m_targetTemp = constrain(m_targetTemp, 590, 860);
@@ -606,8 +614,12 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
 
   switch(mode)
   {
+    case Mode_Off:        // keep a value at least
+      calcTargetTemp(ee.Mode);
+      break;
+ 
     case Mode_Cool:
-      if(Temp < 650 || Temp > 900)    // ensure sane values
+      if(Temp < 650 || Temp > 950)    // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -725,7 +737,7 @@ void HVAC::updateOutdoorTemp(int16_t outTemp)
 
 void HVAC::resetFilter()
 {
-  ee.filterMinutes = 0;
+  m_filterMinutes = 0;
   if(m_notif == Note_Filter)
     m_notif = Note_None;
 }
@@ -733,7 +745,7 @@ void HVAC::resetFilter()
 // returns filter over 200 hours
 bool HVAC::checkFilter(void)
 {
-  return (ee.filterMinutes >= 60*200);
+  return (m_filterMinutes >= 60*200);
 }
 
 void HVAC::resetTotal()
@@ -809,16 +821,17 @@ String HVAC::getPushData()
   s += ",\"lt\":";  s += m_localTemp; // always local
   s += ",\"lh\":";  s += m_localRh;
   s += ",\"tt\":";  s += m_targetTemp;
-  s += ",\"fm\":";  s += ee.filterMinutes;
+  s += ",\"fm\":";  s += m_filterMinutes;
   s += ",\"ot\":";  s += m_outTemp;
   s += ",\"ol\":";  s += m_outMin;
   s += ",\"oh\":";  s += m_outMax;
   s += ",\"ct\":";  s += m_cycleTimer;
   s += ",\"ft\":";  s += m_fanOnTimer;
   s += ",\"rt\":";  s += m_runTotal;
-  s += ",\"h\":";  s += m_bHumidRunning;
+  s += ",\"h\":";   s += m_bHumidRunning;
   s += ",\"aw\":";  s += m_bAway;
-  s += ",\"c\":\"";  s += m_fCostE + m_fCostG;  s += "\"";
+  s += ",\"ce\":\""; s += m_fCostE;  s += "\"";
+  s += ",\"cg\":\"";  s += m_fCostG;  s += "\"";
   if(m_bRemoteDisconnect)
   {
     s += ",\"rmt\":0";
@@ -831,6 +844,9 @@ String HVAC::getPushData()
 
 const char *cmdList[] = { "cmd",
   "key",
+  "data",
+  "sum",
+
   "fanmode",
   "mode",
   "heatmode",
@@ -860,7 +876,8 @@ const char *cmdList[] = { "cmd",
   "away",
   "ppk",
   "ccf",
-  "cost",
+  "ce",
+  "cg",
   "fcrange",
   "fcdisp",
   "save",
@@ -871,13 +888,13 @@ const char *cmdList[] = { "cmd",
 int HVAC::CmdIdx(String s )
 {
   int iCmd;
-  // skip the top 2 (event, key)
-  for(iCmd = 2; cmdList[iCmd]; iCmd++)
+  // skip the top 4 (event, key, data)
+  for(iCmd = 4; cmdList[iCmd]; iCmd++)
   {
     if( s.equalsIgnoreCase( String(cmdList[iCmd]) ) )
       break;
   }
-  return iCmd - 2;
+  return iCmd - 4;
 }
 
 // POST set params as "fanmode=1"
@@ -951,7 +968,7 @@ void HVAC::setVar(String sCmd, int val)
       }
       else
       {
-        m_ovrTemp = constrain(val, -90, 90); // Limit to -9.0 to +9.0 degrees F
+        m_ovrTemp = constrain(val, -99, 99); // Limit to +/-9.9 degrees F
         m_overrideTimer = ee.overrideTime;
       }
       m_bRecheck = true;
@@ -972,7 +989,7 @@ void HVAC::setVar(String sCmd, int val)
       ee.adj = constrain(val, -30, 30); // calibrate can only be +/-3.0
       break;
     case 21:     // fanPretime
-      ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
+      ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
       break;
     case 22: // fancycletime
       ee.fanCycleTime = val;
@@ -1011,20 +1028,22 @@ void HVAC::setVar(String sCmd, int val)
     case 28:
       ee.ccf = val;
       break;
-    case 29: // cost in cents/100
+    case 29: // ce cost in cents/100
       m_fCostE = val / 10000;
-      m_fCostG = 0;
       break;
-    case 30: // fcrange
+    case 30: // cg cost in cents/100
+      m_fCostG = val / 10000;
+      break;
+    case 31: // fcrange
       ee.fcRange = val;
       break;
-    case 31: // fcdisp
+    case 32: // fcdisp
       ee.fcRange = val;
       break;
-    case 32: // save
+    case 33: // save
       eemem.update();
       break;
-    case 33: // TZ
+    case 34: // TZ
       ee.tz = val;
       break;
   }
