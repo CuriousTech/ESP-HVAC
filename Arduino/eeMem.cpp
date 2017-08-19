@@ -4,7 +4,7 @@
 eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
-  {820, 850},   // 79.0, 82.0 default cool temps
+  {870, 900},   // 87.0, 90.0 default cool temps
   {730, 750},   // default heat temps
   {30, 17},     // cycleThresh (cool 3.0, heat 1.7)
   0,            // Mode
@@ -30,10 +30,14 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "password",  // password for controlling thermostat
   false,        // bLock
   false,        // bNotLocal
-  14543,        // price per KWH in cents / 10000 (0.145)
-    700,        // nat gas cost per cubic foot in cents / 100 (0.70)
+  1454,         // price per KWH in cents / 10000 (0.145)
+   700,         // nat gas cost per cubic foot in cents / 100 (0.70)
   46,           // forecast range for in mapping to out mix/max (5, but 3 can be better)
   46,           // forecast range for display (5 of 7 day max)
+  {0.0f},       // fCostE month costs
+  {0.0f},       // fCostG
+  {0},          // fCostDay day costs
+  {0},          // ulRes
   {0}
 };
 
