@@ -39,7 +39,11 @@ struct eeSet // EEPROM backed data
   uint16_t ccf;
   uint8_t  fcRange; // number in forecasts (3 hours)
   uint8_t  fcDisplay; // number in forecasts (3 hours)
-  char     reserved[26];
+  float    fCostE[12];        // cost total (elec) per month
+  float    fCostG[12];        // cost total (gas)
+  float    fCostDay[32][2];   // cost total day (e,g)
+  uint32_t ulRes[32];
+  char     reserved2[44]; // 600 bytes
 };
 
 extern eeSet ee;
