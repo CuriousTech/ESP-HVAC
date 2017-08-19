@@ -115,7 +115,7 @@ public:
   int16_t  m_localTemp;     // this device's temperature *10
   int16_t  m_localRh;
   uint16_t m_targetTemp;    // end temp for cycle
-
+  uint16_t m_filterMinutes;
   uint8_t  m_notif;
   bool     m_bRemoteStream; // remote is streaming temp/rh
   bool     m_bRemoteDisconnect;
