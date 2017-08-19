@@ -43,8 +43,6 @@ AsyncClient fc_client;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
-int chartFiller(uint8_t *buffer, int maxLen, int index);
-void dataPage(AsyncWebServerRequest *request);
 void fcPage(AsyncWebServerRequest *request);
 
 int xmlState;
@@ -181,10 +179,9 @@ void startServer()
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/chart.html");
 #else
-    request->send_P(200, "text/html", chart);
+    request->send_P(200, "text/html", page_chart);
 #endif
   });
-  server.on ( "/data", HTTP_GET, dataPage);  // history for chart
   server.on ( "/forecast", HTTP_GET, fcPage); // forecast data for remote unit
 
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -220,51 +217,6 @@ void startServer()
   fc_client.onData([](void* obj, AsyncClient* c, void* data, size_t len){fc_onData(c, static_cast<char*>(data), len); });
   fc_client.onDisconnect([](void* obj, AsyncClient* c) { fc_onDisconnect(c); });
   fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
-}
-
-// Send the array formated chart data and any modified variables
-void dataPage(AsyncWebServerRequest *request)
-{
-  int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
-
-  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
-
-  for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
-  {
-    gPoint gpt;
-    if( display.getGrapthPoints(&gpt, entryIdx) == false)
-      break;
-   
-    if(gpt.time == 0)
-      continue; // some glitch?
-
-    String out = "";
-    if(tb == 0) // first entry found
-    {
-      tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
-      out += "tb=";      // first data opening statements
-      out += tb;
-      out += "\ncost=";
-      out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
-      out += "\ndata=[\n";
-    }
-    out += "[";         // [seconds/10, temp, rh, high, low, state],
-    out += (gpt.time - tb)/10;
-    out += ",";
-    out += gpt.temp;
-    out += ",";
-    out += gpt.bits.b.rh;
-    out += ",";
-    out += gpt.h;
-    out += ",";
-    out += gpt.l;
-    out += ",";
-    out += gpt.bits.u & 7;
-    out += "],";
-    response->print(out);
-  }
-  response->print("]\n");
-  request->send ( response );
 }
 
 // Send the comma delimited forecast data
@@ -474,10 +426,88 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         if(!strcmp(psValue, ee.password)) // first item must be key
           bKeyGood = true;
       }
+      else if(iName == 1) // 1 = data
+      {
+        String out = String("data;{\"tb\":");
+        int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
+        bool bC = false;
+
+        for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
+        {
+          gPoint gpt;
+          if( display.getGrapthPoints(&gpt, entryIdx) == false)
+            break;
+
+          if(gpt.time == 0)
+            continue; // some glitch?
+      
+          if(tb == 0) // first entry found
+          {
+            tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
+            out += tb;
+            out += ",\"d\":[";
+          }
+          if(bC) out += ",";
+          bC = true;
+          out += "[";         // [seconds/10, temp, rh, high, low, state],
+          out += (gpt.time - tb)/10;
+          out += ",";
+          out += gpt.temp;
+          out += ",";
+          out += gpt.bits.b.rh;
+          out += ",";
+          out += gpt.h;
+          out += ",";
+          out += gpt.l;
+          out += ",";
+          out += gpt.bits.u & 7;
+          out += "]";
+
+          if(out.length() > 1250) // send first part (48 entries), data2 part(s) (49) will be arr=arr.concat(d)
+          {
+            out += "]}";
+            ws.text(WsClientID, out);
+            out = String("data2;{\"d\":[");
+            bC = false;
+          }
+        }
+        if(out.length() > 15) // don't send blank
+        {
+          out += "]}";
+          ws.text(WsClientID, out);
+        }
+        ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+      }
+      else if(iName == 2) // 2 = summary
+      {
+        String out = String("sum;{\"mon\":[");
+
+        for(int i = 0; i < 12; i++)
+        {
+          if(i) out += ",";
+          out += "[";
+          out += ee.fCostE[i];
+          out += ",";
+          out += ee.fCostG[i];
+          out += "]";
+        }
+        out += "],\"day\":[";
+        for(int i = 0; i < 31; i++)
+        {
+          if(i) out += ",";
+          out += "[";
+          out += ee.fCostDay[i][0];
+          out += ",";
+          out += ee.fCostDay[i][1];
+          out += "]";
+        }
+        out += "]}";
+        ws.text(WsClientID, out);
+      }
       else
       {
         if(bKeyGood)
-          hvac.setVar(cmdList[iName+1], iValue); // 1 is "fanmode"
+          hvac.setVar(cmdList[iName+1], iValue); // 4 is "fanmode"
       }
       break;
     case 2: // alert
@@ -525,6 +555,12 @@ void fc_onData(AsyncClient* client, char* data, size_t len)
   display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
   hvac.enable();
+
+  if(display.m_fcData[0].tm == 0) // initial read
+  {
+    display.m_fcData[0].temp = display.m_fcData[1].temp;
+    display.m_fcData[0].tm = display.m_fcData[1].tm;
+  }
 }
 
 void fc_onDisconnect(AsyncClient* client)
