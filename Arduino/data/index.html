@@ -72,10 +72,11 @@ ws.onmessage = function(evt) {
 	fan= +Json.fr
 	rh= +Json.h
 	away=+Json.aw
-	a.intemp.innerHTML= +Json.it/10
-	a.rh.innerHTML= +Json.rh/10
-	a.target.innerHTML= +Json.tt/10
-	a.outtemp.innerHTML= +Json.ot/10
+	a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
+	a.intemp.innerHTML= (+Json.it/10).toFixed(1)
+	a.rh.innerHTML= (+Json.rh/10).toFixed(1)
+	a.target.innerHTML= (+Json.tt/10).toFixed(1)
+	a.outtemp.innerHTML= (+Json.ot/10).toFixed(1)
 	a.cyctimer.innerHTML=secsToTime(+Json.ct)
 	a.runtotal.value=secsToTime(+Json.rt)
 	a.filter.value=s2t(+Json.fm)
@@ -299,7 +300,7 @@ function t2s(v)
 <td>Cool Hi</td>
 <td><input type=text size=3 id="coolh"></td>
 <td><input type="button" value="+1" onClick="{incCool(1)}"></td>
-<td></td>
+<td><div id="time"></div></td>
 </tr>
 <tr>
 <td style="width: 81px">Cool Lo</td>
@@ -327,14 +328,14 @@ function t2s(v)
 <input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}"><input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"></td>
 </tr>
 <tr>
-<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td></td>
+<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="Go " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
 <td>
 <input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}"></td>
 </tr>
 <tr>
 <td id="ovrCell">Overrd &Delta;</td>
 <td><input type=text size=3 id="ovrtemp"></td>
-<td><input type="button" value="Go " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"><input type="button" value="Stop" onClick="{cancelOvr()}">
+<td><input type="button" value="Stop" onClick="{cancelOvr()}">
 </td>
 <td>
 <input type="button" value=" A1 " name="hmAuto1" onClick="{setHumidMode(3)}"><input type="button" value=" A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
@@ -347,7 +348,7 @@ function t2s(v)
 </tr>
 <tr>
 <td>Away &Delta;</td><td><input type=text size=3 id="awaytemp"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
-<td><input type="button" value="Save" onClick="{setVars()}"></td>
+<td align="right"><input type="button" value="Save" onClick="{setVars()}"></td>
 </tr>
 </table><br/>
 <table style="width: 350px">
