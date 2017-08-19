@@ -43,7 +43,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
 
 eeMem::eeMem()
 {
-  EEPROM.begin(512);
+  EEPROM.begin(1024);
 
   uint8_t data[sizeof(eeSet)];
   uint16_t *pwTemp = (uint16_t *)data;
