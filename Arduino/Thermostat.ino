@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.1 and esp8266 SDK 2.3.0 1M (64K SPIFFS)
+// Build with Arduino IDE 1.8.3 and esp8266 SDK 2.3.0 1M (64K SPIFFS)
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -207,6 +207,29 @@ void loop()
         hour_save = hour();
         if(hour_save == 2)
           utime.start(); // update time daily at DST change
+        if(hour_save == 0)
+        {
+          int d = day() - 1;
+          ee.fCostDay[d][0] = hvac.m_fCostE;
+          ee.fCostDay[d][1] = hvac.m_fCostG;
+          hvac.m_fCostE = 0;
+          hvac.m_fCostG = 0;
+          if(d == 0) // new month
+          {
+            int m = (month() + 11) % 12; // Jan = 1
+            float e = 0;
+            float g = 0;
+            for(int i = 0; i < 31; i++)
+            {
+              e += ee.fCostDay[i][0];
+              g += ee.fCostDay[i][1];
+            }
+            ee.fCostE[m] = e;
+            ee.fCostG[m] = g;
+            memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
+          }
+        }
+        ee.filterMinutes = hvac.m_filterMinutes;
         eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
       }
     }
