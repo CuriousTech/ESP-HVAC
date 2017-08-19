@@ -143,12 +143,17 @@ void loop()
   static uint8_t hour_save, min_save = 255, sec_save;
   static int8_t lastSec;
   static int8_t lastHour;
+  static int8_t lastDay = -1;
 
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
   handleServer(); // handles mDNS, web
   if(utime.check(ee.tz))
+  {
     hvac.m_DST = utime.getDST();
+    if(lastDay == -1)
+      lastDay = day() - 1;
+  }
 #ifdef SHT21_H
   if(sht.service())
   {
@@ -202,19 +207,23 @@ void loop()
     if(min_save != minute()) // only do stuff once per minute
     {
       min_save = minute();
-      if (hour_save != hour()) // update our IP and time daily (at 2AM for DST)
+
+      if(hour_save != hour()) // update our IP and time daily (at 2AM for DST)
       {
         hour_save = hour();
         if(hour_save == 2)
           utime.start(); // update time daily at DST change
         if(hour_save == 0)
         {
-          int d = day() - 1;
-          ee.fCostDay[d][0] = hvac.m_fCostE;
-          ee.fCostDay[d][1] = hvac.m_fCostG;
-          hvac.m_fCostE = 0;
-          hvac.m_fCostG = 0;
-          if(d == 0) // new month
+          if(lastDay != -1)
+          {
+            ee.fCostDay[lastDay][0] = hvac.m_fCostE;
+            ee.fCostDay[lastDay][1] = hvac.m_fCostG;
+            hvac.m_fCostE = 0;
+            hvac.m_fCostG = 0;
+          }
+          lastDay = day() - 1;
+          if(lastDay == 0) // new month
           {
             int m = (month() + 11) % 12; // Jan = 1
             float e = 0;
