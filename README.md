@@ -55,9 +55,9 @@ Away time and temperature delta offset:
 The away time is in hours:minutes unlike the rest of the timers, but uses the override timer.  It can be turned on and off with the button, but will also turn off with the timer.  There are 2 temp values.  One for heat and one for cool, like the pre/post fan.
 Like any setting, it can be automated with something like Tasker.  To turn on would be <b>http://ip:85?key=password&away=1</b>  
 
-![remotepage](http://www.curioustech.net/images/hvacweb3.png)  
+![remotepage](http://www.curioustech.net/images/hvacweb.png)  
 
 The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, rh is green, the target/threshold is at 3.0, and probably adjusted in the middle.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit.  The daily/monthly cost summary will be changed to a chart.  
-![chartpage](http://www.curioustech.net/images/hvacchart.png)  
+![chartpage](http://www.curioustech.net/images/hvacchart1.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
