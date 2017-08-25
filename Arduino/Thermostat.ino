@@ -216,30 +216,19 @@ void loop()
         if(hour_save == 0)
         {
           if(lastDay != -1)
-          {
-            ee.fCostDay[lastDay][0] = hvac.m_fCostE;
-            ee.fCostDay[lastDay][1] = hvac.m_fCostG;
-            hvac.m_fCostE = 0;
-            hvac.m_fCostG = 0;
-          }
+            hvac.dayTotals(lastDay);
           lastDay = day() - 1;
           if(lastDay == 0) // new month
           {
             int m = (month() + 11) % 12; // Jan = 1
-            float e = 0;
-            float g = 0;
-            for(int i = 0; i < 31; i++)
-            {
-              e += ee.fCostDay[i][0];
-              g += ee.fCostDay[i][1];
-            }
-            ee.fCostE[m] = e;
-            ee.fCostG[m] = g;
-            memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
+            hvac.monthTotal(m);
           }
         }
-        ee.filterMinutes = hvac.m_filterMinutes;
-        eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+        if(eemem.check())
+        {
+          ee.filterMinutes = hvac.m_filterMinutes;
+          eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+        }
       }
     }
 
