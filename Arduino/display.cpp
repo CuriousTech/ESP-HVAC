@@ -22,11 +22,6 @@ void Display::init()
   screen( true ); // brighten the screen if it just reset
   refreshAll();
   nex.itemPic(9, ee.bLock ? 20:21);
-  if(ee.fcRange == 0) // EEMEM change hack
-  {
-    ee.fcRange = 46;
-    ee.fcDisplay = 46;
-  }
 }
 
 // called each second
@@ -55,7 +50,6 @@ void Display::oneSec()
     addGraphPoints();
     lastState = hvac.getState();
     lastFan = hvac.getFanRunning();
-    m_temp_counter = 5*60;         // update every 5 minutes
   }
   if(m_bUpdateFcstDone)
   {
@@ -332,8 +326,6 @@ void Display::drawForecast(bool bRef)
 
     hvac.m_outMin = tmin;
     hvac.m_outMax = tmax;
-
-    m_temp_counter = 2; // Todo: just for first point
   }
 
   displayOutTemp(); // update temp for HVAC
@@ -821,24 +813,26 @@ void Display::addGraphPoints()
 {
   if( hvac.m_inTemp == 0 || hvac.m_targetTemp == 0)
     return;
-  m_points[m_pointsIdx].time = now() - ((ee.tz+hvac.m_DST)*3600);
+  m_temp_counter = 5*60;         // update every 5 minutes
+  gPoint *p = &m_points[m_pointsIdx];
+  p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
-  m_points[m_pointsIdx].temp = hvac.m_inTemp; // 66~90 scale to 0~220
+  p->temp = hvac.m_inTemp; // 66~90 scale to 0~220
   if(hvac.getMode() == Mode_Cool) // Todo: could be auto
   {
-    m_points[m_pointsIdx].h = hvac.m_targetTemp;
-    m_points[m_pointsIdx].l = hvac.m_targetTemp - ee.cycleThresh[0];
+    p->h = hvac.m_targetTemp;
+    p->l = hvac.m_targetTemp - ee.cycleThresh[0];
   }
   else // heat
   {
-    m_points[m_pointsIdx].l = hvac.m_targetTemp;
-    m_points[m_pointsIdx].h = hvac.m_targetTemp + ee.cycleThresh[1];
+    p->h = hvac.m_targetTemp + ee.cycleThresh[1];
+    p->l = hvac.m_targetTemp;
   }
 //  m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
-  m_points[m_pointsIdx].bits.b.rh = hvac.m_rh;
-  m_points[m_pointsIdx].bits.b.fan = hvac.getFanRunning();
-  m_points[m_pointsIdx].bits.b.state = hvac.getState(); 
-  m_points[m_pointsIdx].bits.b.res = 0; // just clear the extra
+  p->bits.b.rh = hvac.m_rh;
+  p->bits.b.fan = hvac.getFanRunning();
+  p->bits.b.state = hvac.getState(); 
+  p->bits.b.res = 0; // just clear the extra
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
 }
@@ -888,7 +882,6 @@ void Display::drawPoints(int w, uint16_t color)
   {
     case 0: y2 = m_points[i].h; break;
     case 1: y2 = m_points[i].l; break;
-//    case 2: y2 = m_points[i].ltemp; break;
   }
   if(y2 == -1) return; // not enough data
 
@@ -904,7 +897,6 @@ void Display::drawPoints(int w, uint16_t color)
     {
       case 0: y = m_points[i].h; break;
       case 1: y = m_points[i].l; break;
-//      case 2: y = m_points[i].ltemp; break;
     }
 
     if(y == -1) return;
@@ -913,6 +905,7 @@ void Display::drawPoints(int w, uint16_t color)
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
+      delay(1);
       y2 = y;
       x2 = x;
     }
@@ -941,6 +934,7 @@ void Display::drawPointsRh(uint16_t color)
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
+      delay(1);
       y2 = y;
       x2 = x;
     }
@@ -969,6 +963,7 @@ void Display::drawPointsTemp()
     if(y != y2)
     {
       nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
+      delay(1);
       y2 = y;
       x2 = x;
     }
@@ -1000,7 +995,7 @@ uint16_t Display::stateColor(gflags v) // return a color based on run state
 
 bool Display::getGrapthPoints(gPoint *pts, int n)
 {
-  if(n < 0 || n > GPTS-1) // convert 0-299 to reverse index circular buffer
+  if(n < 0 || n > GPTS-1) // convert 0-(GPTS-1) to reverse index circular buffer
     return false;
   int idx = m_pointsIdx - 1 - n; // 0 = last entry
   if(idx < 0) idx += GPTS;
