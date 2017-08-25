@@ -64,11 +64,7 @@ eeMem::eeMem()
 
 void eeMem::update() // write the settings if changed
 {
-  uint16_t old_sum = ee.sum;
-  ee.sum = 0;
-  ee.sum = Fletcher16((uint8_t*)&ee, sizeof(eeSet));
-
-  if(old_sum == ee.sum)
+  if(check() == false)
     return; // Nothing has changed?
 
   uint16_t addr = 0;
@@ -78,6 +74,15 @@ void eeMem::update() // write the settings if changed
     EEPROM.write(addr, pData[i] );
   }
   EEPROM.commit();
+}
+
+bool eeMem::check()
+{
+  uint16_t old_sum = ee.sum;
+  ee.sum = 0;
+  ee.sum = Fletcher16((uint8_t*)&ee, sizeof(eeSet));
+
+  return (old_sum == ee.sum) ? false:true;
 }
 
 uint16_t eeMem::Fletcher16( uint8_t* data, int count)
