@@ -13,6 +13,15 @@ background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
 background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);background-image: linear-gradient(top, #ffffff, #50a0ff);
 background-clip: padding-box;
 }
+.style5 {
+border-radius: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
+background-image: linear-gradient(top, #ff00ff, #ffa0ff);
+}
 body{background:silver;width:800px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
@@ -29,6 +38,7 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws = new WebSocket("ws://"+window.location.host+"/ws")
+// ws = new WebSocket("ws://192.168.0.105:85/ws")
  ws.onopen = function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose = function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -40,8 +50,8 @@ $(document).ready(function()
 	switch(event)
 	{
 		case 'settings':
-			//	a.ppkwh.value= +Json.ppk / 10000
-			//	a.ccf.value= +Json.ccf / 1000
+			ppkwh= +Json.ppk/10000
+			ccf= +Json.ccf/1000
 			break
 		case 'state':
 			a.today.innerHTML='Today  E $'+Json.ce+' G $'+Json.cg
@@ -52,20 +62,24 @@ $(document).ready(function()
 		case 'sum':
 			ws.send('cmd;{data:0}')
 			mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+			date=new Date()
 			for(i=0;i<12;i++)
 			{
 				div=document.getElementById("m"+i)
 				div.innerHTML=mname[i]+' E $'+Json.mon[i][0]+' G $'+Json.mon[i][1]
+				if(date.getMonth()==i) div.setAttribute('class','style5')
 			}
 			for(i=0;i<31;i++)
 			{
 				div=document.getElementById("d"+i)
 				div.innerHTML=(i+1)+' E $'+Json.day[i][0]+' G $'+Json.day[i][1]
+				if(date.getDate()-1==i) div.setAttribute('class','style5')
 			}
 			break
 		case 'data':
-			arr=Json.d
 			tb=Json.tb
+			th=Json.th
+			arr=Json.d
 			break
 		case 'data2':
 			arr=arr.concat(Json.d)
@@ -112,7 +126,7 @@ function draw(){
 	c.save()
 	c.translate(getXPixel(i), graph.height()-yPadding+5)
 	c.rotate(0.9)
-	date = new Date((arr[i][0]*10+tb)*1000)
+	date = new Date((tb-arr[i][0]*10)*1000)
 	c.fillText(date.toLocaleTimeString(),0,0)
 	c.restore()
   }
@@ -139,22 +153,34 @@ function draw(){
   //threshold
   c.fillStyle = 'rgba(200,100,200,0.25)'
   c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(arr[0][3]))
+  c.moveTo(getXPixel(0), getYPixel(arr[0][3]+th))
 
-  for(i = 1; i < arr.length-1; i ++)
+  for(i=1; i<arr.length-1; i++)
+    c.lineTo(getXPixel(i), getYPixel(arr[i][3]+th))
+  for(i=arr.length-2; i>=0; i--)
     c.lineTo(getXPixel(i), getYPixel(arr[i][3]))
-  for(i = arr.length - 2; i >= 0; i--)
-    c.lineTo(getXPixel(i), getYPixel(arr[i][4]))
   c.closePath()
   c.fill()
 
   // temp lines
+  date = new Date((tb-arr[0][0]*10)*1000)
+  dt = date.getDate()
   for(i = 1; i < arr.length; i++){
-	c.strokeStyle = stateColor(arr[i][5])
+	c.strokeStyle = stateColor(arr[i][4])
 	c.beginPath()
 	c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
 	c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
 	c.stroke()
+	date = new Date((tb-arr[i][0]*10)*1000)
+	if(dt != date.getDate())
+	{
+	  dt = date.getDate()
+	  c.strokeStyle = '#000'
+	  c.beginPath() // borders
+	  c.moveTo(getXPixel(i),0)
+	  c.lineTo(getXPixel(i),graph.height()-yPadding)
+	  c.stroke()
+	}
   }
 
   // rh lines
@@ -168,7 +194,7 @@ function draw(){
 
   var dots = []
 	for(i = 0; i < arr.length; i ++) {
-		date = new Date((arr[i][0]*10+tb)*1000)
+		date = new Date((tb-arr[i][0]*10)*1000)
 		dots.push({
 			x: getXPixel(i),
 			y: getYPixel(arr[i][1]),
@@ -219,12 +245,12 @@ function draw(){
 function getMaxY(){
 	var max = 0
 	
-	for(i = 0; i < arr.length-1; i ++)
+	for(i=0; i<arr.length-1; i++)
 	{
 		if(arr[i][1] > max)
-		  max = arr[i][1]
-		if(arr[i][3] > max)
-		  max = arr[i][3]
+		  max=arr[i][1]
+		if(arr[i][3]+th>max)
+		  max=arr[i][3]+th
 	}
 	return Math.ceil(max)
 }
@@ -232,28 +258,28 @@ function getMaxY(){
 function getMinY(){
 	var min = 1500
 
-	for(i = 0; i < arr.length; i ++)
+	for(i=0; i<arr.length; i++)
 	{
-		if(arr[i][1] < min)
-		  min = arr[i][1]
-		if(arr[i][4] < min)
-		  min = arr[i][4]
+		if(arr[i][1]<min)
+		  min=arr[i][1]
+		if(arr[i][3]<min)
+		  min=arr[i][3]
 	}
 	return Math.floor(min)
 }
  
-function getXPixel(val) {
-	x=(graph.width()-xPadding)-((graph.width()-26-xPadding) / arr.length) * val
+function getXPixel(val){
+	x=(graph.width()-xPadding)-((graph.width()-26-xPadding)/arr.length)*val
 	return x.toFixed()
 }
 
 function getYPixel(val) {
-	y=graph.height()-( ((graph.height() - yPadding) / yRange) * ( val-getMinY() )) - yPadding
+	y=graph.height()-( ((graph.height()-yPadding)/yRange)*(val-getMinY()))-yPadding
 	return y.toFixed()
 }
 
 function getRHPixel(val) {
-  return graph.height() - (((graph.height() - yPadding) / 1000) * val) - yPadding
+  return graph.height()-(((graph.height()-yPadding)/1000)*val)-yPadding
 }
 
 function stateColor(s)
