@@ -108,6 +108,8 @@ public:
   String  settingsJson(void); // get all settings in json format
   String  settingsJsonMod(void);
   String  getPushData(void);  // get states/temps/data in json
+  void    dayTotals(int d);
+  void    monthTotal(int m);
 
   int16_t  m_outTemp;       // adjusted current temp *10
   int16_t  m_inTemp;        // current indoor temperature *10
@@ -125,6 +127,7 @@ public:
   float    m_fCostG;        // cost total (gas)
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
+
 private:
   void  fanSwitch(bool bOn);
   void  humidSwitch(bool bOn);
