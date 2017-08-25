@@ -444,7 +444,6 @@ bool HVAC::preCalcCycle(int mode)
       }
       else if(tempL <= ee.heatTemp[1])
       {
-//      Serial.println("Auto heat");
         m_AutoMode = Mode_Heat;
         calcTargetTemp(Mode_Heat);
         if(ee.heatMode == Heat_Auto)
@@ -498,9 +497,6 @@ void HVAC::calcTargetTemp(int mode)
       m_targetTemp = constrain(m_targetTemp, 590, 860);
       break;
   }
-
-// Serial.print(" target=");
-// Serial.println(m_targetTemp);
 }
 
 uint8_t HVAC::getState()
@@ -1047,6 +1043,28 @@ void HVAC::setVar(String sCmd, int val)
       ee.tz = val;
       break;
   }
+}
+
+void HVAC::dayTotals(int d)
+{
+  ee.fCostDay[d][0] = m_fCostE;
+  ee.fCostDay[d][1] = m_fCostG;
+  m_fCostE = 0;
+  m_fCostG = 0;
+}
+
+void HVAC::monthTotal(int m)
+{
+  float e = 0;
+  float g = 0;
+  for(int i = 0; i < 31; i++)
+  {
+    e += ee.fCostDay[i][0];
+    g += ee.fCostDay[i][1];
+  }
+  ee.fCostE[m] = e;
+  ee.fCostG[m] = g;
+  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
 }
 
 void HVAC::updateVar(int iName, int iValue)// host values
