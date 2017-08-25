@@ -21,8 +21,8 @@ union gflags
   {
     uint16_t fan:1;
     uint16_t state:3;
-    int16_t  rh:11;
-    uint16_t res:1;
+    uint16_t res:2;
+    uint16_t rh:10;
   } b;
   uint16_t u;
 };
@@ -76,10 +76,10 @@ private:
   int tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
-#define GPTS 300 // 320 px width - (10+10) padding
+#define GPTS 400 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
   uint16_t m_pointsIdx;
-  uint16_t m_temp_counter = 10*60;
+  uint16_t m_temp_counter = 2*60;
 public:
 #define FC_CNT 64
   Forecast m_fcData[FC_CNT];
