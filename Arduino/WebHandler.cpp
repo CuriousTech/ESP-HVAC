@@ -428,42 +428,43 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       }
       else if(iName == 1) // 1 = data
       {
-        String out = String("data;{\"tb\":");
-        int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
-        bool bC = false;
+        gPoint gpt;
 
-        for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
+        if( display.getGrapthPoints(&gpt, 0) == false)
+          return;
+
+        int32_t tb = gpt.time; // latest entry
+        String out = String("data;{\"tb\":");
+
+        out += tb;
+        out += ",\"th\":";
+        out += gpt.h - gpt.l; // threshold
+        out += ",\"d\":[";
+
+        bool bC = false;
+        for(int entryIdx = 0; entryIdx < GPTS - 1; entryIdx++)
         {
-          gPoint gpt;
           if( display.getGrapthPoints(&gpt, entryIdx) == false)
             break;
 
           if(gpt.time == 0)
             continue; // some glitch?
-      
-          if(tb == 0) // first entry found
-          {
-            tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
-            out += tb;
-            out += ",\"d\":[";
-          }
+
           if(bC) out += ",";
           bC = true;
-          out += "[";         // [seconds/10, temp, rh, high, low, state],
-          out += (gpt.time - tb)/10;
+          out += "[";         // [seconds/10, temp, rh, low, state],
+          out += (tb - (int32_t)gpt.time) / 10;
           out += ",";
           out += gpt.temp;
           out += ",";
           out += gpt.bits.b.rh;
-          out += ",";
-          out += gpt.h;
           out += ",";
           out += gpt.l;
           out += ",";
           out += gpt.bits.u & 7;
           out += "]";
 
-          if(out.length() > 1250) // send first part (48 entries), data2 part(s) (49) will be arr=arr.concat(d)
+          if(out.length() >= 1300) // send first part (61 entries), data2 part(s) (62) will be arr=arr.concat(d)
           {
             out += "]}";
             ws.text(WsClientID, out);
