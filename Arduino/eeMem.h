@@ -53,6 +53,7 @@ class eeMem
 public:
   eeMem();
   void update(void);
+  bool check(void);
 private:
   uint16_t Fletcher16( uint8_t* data, int count);
 };
