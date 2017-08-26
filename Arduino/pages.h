@@ -604,7 +604,7 @@ const char page2[] PROGMEM =
    "</body>\n"
    "</html>\n";
 
-const char page_chart[] PROGMEM
+const char page_chart[] PROGMEM =
    "<!DOCTYPE html>\n"
    "<html>\n"
    "<head>\n"
