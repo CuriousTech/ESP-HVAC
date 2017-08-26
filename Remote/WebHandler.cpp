@@ -140,11 +140,16 @@ void startServer()
 #ifdef USE_SPIFFS
       request->send(SPIFFS, "/chart.html");
 #else
-      request->send_P(200, "text/html", chart);
+      request->send_P(200, "text/html", page_chart);
 #endif
   });
   server.on ( "/data", HTTP_GET, dataPage);
   server.on ( "/forecast", HTTP_GET, fcPage);
+
+  // respond to GET requests on URL /heap
+  server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", String(ESP.getFreeHeap()));
+  });
 
   server.onNotFound([](AsyncWebServerRequest *request){
     //Handle Unknown Request
@@ -164,32 +169,6 @@ void startServer()
   // Add service to MDNS-SD
   MDNS.addService("http", "tcp", serverPort);
 #ifdef OTA_ENABLE
-  ArduinoOTA.onStart([]()
-  {
-    String sType = "Begin ";
-    sType += (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "SPIFFS";
-    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-    events.send(sType.c_str(), "OTA");
-  });
-  ArduinoOTA.onEnd([]()
-  {
-    events.send("End", "OTA");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
-  {
-  });
-  ArduinoOTA.onError([](ota_error_t error)
-  {
-    events.send("Error " + error, "OTA");
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    delay(200);
-    ESP.restart();
-  });
   ArduinoOTA.begin();
 #endif
 
