@@ -27,6 +27,7 @@ void HVAC::init()
   m_setMode = ee.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
   m_setHeat = ee.heatMode;
+  m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
 }
 
 // Failsafe: shut everything off
@@ -217,7 +218,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   switch(mode)
   {
     case Mode_Cool:
-      if(Temp < 650 || Temp > 900)    // ensure sane values
+      if(Temp < 650 || Temp > 950)    // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -439,4 +440,26 @@ String HVAC::getPushData()
   s += ",\"rmt\":"; s += m_bRemoteStream;
   s += "}";
   return s;
+}
+
+void HVAC::dayTotals(int d)
+{
+  ee.fCostDay[d][0] = m_fCostE;
+  ee.fCostDay[d][1] = m_fCostG;
+  m_fCostE = 0;
+  m_fCostG = 0;
+}
+
+void HVAC::monthTotal(int m)
+{
+  float e = 0;
+  float g = 0;
+  for(int i = 0; i < 31; i++)
+  {
+    e += ee.fCostDay[i][0];
+    g += ee.fCostDay[i][1];
+  }
+  ee.fCostE[m] = e;
+  ee.fCostG[m] = g;
+  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
 }
