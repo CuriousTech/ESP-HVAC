@@ -220,7 +220,7 @@ void loop()
           lastDay = day() - 1;
           if(lastDay == 0) // new month
           {
-            int m = (month() + 11) % 12; // Jan = 1
+            int m = (month() + 10) % 12; // last month: Dec = 10, Jan = 11, Feb = 0
             hvac.monthTotal(m);
           }
         }
