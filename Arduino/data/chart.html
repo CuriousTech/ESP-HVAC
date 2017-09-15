@@ -57,7 +57,9 @@ $(document).ready(function()
 			date=new Date()
 			i=date.getDate()-1;
 			div=document.getElementById("d"+i)
-			div.innerHTML=(i+1)+' E $'+Json.ce+' G $'+Json.cg
+			ce=+Json.ce
+			cg=+Json.cg
+			div.innerHTML=(i+1)+' $'+Json.ce+' $'+Json.cg
 			break
 		case 'alert':
 			alert(data)
@@ -66,23 +68,26 @@ $(document).ready(function()
 			ws.send('cmd;{data:0}')
 			mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
 			date=new Date()
-			tE=0
-			tG=0
-			for(i=0;i<31;i++)
+			tE=ce
+			tG=cg
+			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate());i++)
 			{
 				div=document.getElementById("d"+i)
-				if(date.getDate()-1==i) div.setAttribute('class','style5')
-				else div.innerHTML=(i+1)+' E $'+Json.day[i][0].toFixed(2)+' G $'+Json.day[i][1].toFixed(2)
-				tE+=Json.day[i][0]
-				tG+=Json.day[i][1]
+				if(date.getDate()==i+1) div.setAttribute('class','style5')
+				else div.innerHTML=(i+1)+' $'+Json.day[i][0].toFixed(2)+' $'+Json.day[i][1].toFixed(2)
+				if(i<date.getDate())
+				{
+					tE+=Json.day[i][0]
+					tG+=Json.day[i][1]
+				}
 			}
 			for(i=0;i<12;i++)
 			{
 				div=document.getElementById("m"+i)
-				div.innerHTML=mname[i]+' E $'+Json.mon[i][0].toFixed(2)+' G $'+Json.mon[i][1].toFixed(2)
+				div.innerHTML=mname[i]+' $'+Json.mon[i][0].toFixed(2)+' $'+Json.mon[i][1].toFixed(2)
 				if(date.getMonth()==i){
 					div.setAttribute('class','style5')
-					div.innerHTML=mname[i]+' E $'+tE.toFixed(2)+' G $'+tG.toFixed(2)
+					div.innerHTML=mname[i]+' $'+tE.toFixed(2)+' $'+tG.toFixed(2)
 				}
 			}
 			break
