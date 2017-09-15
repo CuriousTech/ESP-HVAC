@@ -15,7 +15,7 @@
 
 #define FF_DELAY 120            // internal furnace fan post-run delay
 
-const int compressorWatts = 6000;
+const int compressorWatts = 5000;
 const int fanWatts = 350;
 const int furnaceWatts = 100;
 const int humidWatts = 150;
@@ -779,6 +779,8 @@ String HVAC::settingsJson()
   s += ",\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat];
   s += ",\"ppk\":";  s += ee.ppkwh;
   s += ",\"ccf\":";  s += ee.ccf;
+  s += ",\"fcr\":";  s += ee.fcRange;
+  s += ",\"fcd\":";  s += ee.fcDisplay;
   s += "}";
   return s;
 }
@@ -1031,16 +1033,16 @@ void HVAC::setVar(String sCmd, int val)
       m_fCostG = val / 10000;
       break;
     case 31: // fcrange
-      ee.fcRange = val;
+      ee.fcRange = constrain(val, 1, 46);
       break;
     case 32: // fcdisp
-      ee.fcRange = val;
+      ee.fcDisplay = constrain(val, 1, 46);
       break;
     case 33: // save
       eemem.update();
       break;
     case 34: // TZ
-      ee.tz = val;
+      ee.tz = constrain(val, -12, 12);
       break;
   }
 }
@@ -1053,18 +1055,26 @@ void HVAC::dayTotals(int d)
   m_fCostG = 0;
 }
 
+static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+
 void HVAC::monthTotal(int m)
 {
   float e = 0;
   float g = 0;
-  for(int i = 0; i < 31; i++)
+  int i;
+  for(i = 0; i < monthDays[m]; i++) // Todo: leap year
   {
     e += ee.fCostDay[i][0];
     g += ee.fCostDay[i][1];
   }
   ee.fCostE[m] = e;
   ee.fCostG[m] = g;
-  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
+  for(;i < 31; i++)
+  {
+    ee.fCostDay[i][0] = 0;
+    ee.fCostDay[i][1] = 0;
+  }
+//  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
 }
 
 void HVAC::updateVar(int iName, int iValue)// host values
