@@ -42,9 +42,8 @@ struct eeSet // EEPROM backed data
   float    fCostE[12];        // cost total (elec) per month
   float    fCostG[12];        // cost total (gas)
   float    fCostDay[32][2];   // cost total day (e,g)
-  uint32_t ulRes[32];
   char     reserved2[44]; // 600 bytes
-};
+}; // 728
 
 extern eeSet ee;
 
