@@ -38,7 +38,6 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws = new WebSocket("ws://"+window.location.host+"/ws")
-// ws = new WebSocket("ws://192.168.0.105:85/ws")
  ws.onopen = function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose = function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -59,7 +58,7 @@ $(document).ready(function()
 			div=document.getElementById("d"+i)
 			ce=+Json.ce
 			cg=+Json.cg
-			div.innerHTML=(i+1)+' $'+Json.ce+' $'+Json.cg
+			div.innerHTML=(i+1)+'&emsp; $'+Json.ce+'&emsp; $'+Json.cg
 			break
 		case 'alert':
 			alert(data)
@@ -74,7 +73,7 @@ $(document).ready(function()
 			{
 				div=document.getElementById("d"+i)
 				if(date.getDate()==i+1) div.setAttribute('class','style5')
-				else div.innerHTML=(i+1)+' $'+Json.day[i][0].toFixed(2)+' $'+Json.day[i][1].toFixed(2)
+				else div.innerHTML=(i+1)+'&emsp; $'+Json.day[i][0].toFixed(2)+'&emsp; $'+Json.day[i][1].toFixed(2)
 				if(i<date.getDate())
 				{
 					tE+=Json.day[i][0]
@@ -84,10 +83,10 @@ $(document).ready(function()
 			for(i=0;i<12;i++)
 			{
 				div=document.getElementById("m"+i)
-				div.innerHTML=mname[i]+' $'+Json.mon[i][0].toFixed(2)+' $'+Json.mon[i][1].toFixed(2)
+				div.innerHTML=mname[i]+'&emsp; $'+Json.mon[i][0].toFixed(2)+'&emsp; $'+Json.mon[i][1].toFixed(2)
 				if(date.getMonth()==i){
 					div.setAttribute('class','style5')
-					div.innerHTML=mname[i]+' $'+tE.toFixed(2)+' $'+tG.toFixed(2)
+					div.innerHTML=mname[i]+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
 				}
 			}
 			break
