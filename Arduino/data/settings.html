@@ -64,6 +64,8 @@ ws.onmessage = function(evt) {
 	a.heatthr.value= +Json.ht
 	a.ppkwh.value= +Json.ppk / 10000
 	a.ccf.value= +Json.ccf / 1000
+	a.fcr.value= +Json.fcr
+	a.fcd.value= +Json.fcd
 	rmtMode=+Json.ar
 	setAtt()
  }
@@ -116,6 +118,8 @@ function setVars()
  s+=',"awaytime":'+t2s(a.awaytime.value)
  s+=',"ppk":'+(+a.ppkwh.value*10000).toFixed()
  s+=',"ccf":'+(+a.ccf.value*1000).toFixed()
+ s+=',"fcrange":'+(+a.fcr.value)
+ s+=',"fcdisp":'+(+a.fcd.value)
  s+='}'
  ws.send(s)
 }
@@ -217,6 +221,8 @@ function t2s(v)
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td></td><td></td></tr>
 <tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
 <tr><td>CCF</td><td><input type=text size=4 id="ccf"></td><td></td><td></td></tr>
+<tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td></td><td></td></tr>
+<tr><td>Display</td><td><input type=text size=4 id="fcd"></td><td></td><td></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
 <td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}">
 </td></tr>
