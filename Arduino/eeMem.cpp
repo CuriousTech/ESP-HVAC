@@ -6,7 +6,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "", // router password
   {870, 900},   // 87.0, 90.0 default cool temps
   {730, 750},   // default heat temps
-  {30, 17},     // cycleThresh (cool 3.0, heat 1.7)
+  {30, 10},     // cycleThresh (cool 3.0, heat 1.0)
   0,            // Mode
   30,           // heatThresh (under 30F is gas)
   60*2,         // 2 mins minimum for a cycle
@@ -37,7 +37,6 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   {0.0f},       // fCostE month costs
   {0.0f},       // fCostG
   {0},          // fCostDay day costs
-  {0},          // ulRes
   {0}
 };
 
