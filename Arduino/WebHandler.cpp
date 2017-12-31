@@ -185,7 +185,8 @@ void startServer()
   server.on ( "/forecast", HTTP_GET, fcPage); // forecast data for remote unit
 
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(404);
+    request->send(SPIFFS, "/favicon.ico");
+//    request->send(404);
   });
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
@@ -654,7 +655,7 @@ void GetForecast()
   // Then click [XML] and copy that URL to the line below
   // Then send "?key=<your key>&fc=1" to the thermostat to enable calls to this
 
-  String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
+  String path = "/MapClick.php?latx.x=&lon=x.x&FcstType=digitalDWML";
 
   if(!xml.begin("forecast.weather.gov", 80, path))
     WsSend("Forecast failed", "alert");
