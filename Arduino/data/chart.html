@@ -69,7 +69,7 @@ $(document).ready(function()
 			date=new Date()
 			tE=ce
 			tG=cg
-			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate());i++)
+			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate())-1;i++)
 			{
 				div=document.getElementById("d"+i)
 				if(date.getDate()==i+1) div.setAttribute('class','style5')
