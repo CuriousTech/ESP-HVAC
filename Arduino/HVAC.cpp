@@ -13,14 +13,6 @@
 #include <TimeLib.h>
 #include "eeMem.h"
 
-#define FF_DELAY 120            // internal furnace fan post-run delay
-
-const int compressorWatts = 5000;
-const int fanWatts = 350;
-const int furnaceWatts = 100;
-const int humidWatts = 150;
-const float furnaceCFH = 1.0; // nat gas cubic feet per hour
-
 extern void WsSend(char *txt, const char *type);
 
 HVAC::HVAC()
@@ -229,7 +221,7 @@ void HVAC::service()
   
     if(mode == Mode_Heat && hm)   // count run time as fan time in winter
     {                             // furnace post fan is 120 seconds
-      m_furnaceFan = FF_DELAY;
+      m_furnaceFan = ee.furnacePost;
     }
 
     m_bRunning = false;
@@ -246,25 +238,25 @@ void HVAC::costAdd(int secs, int mode, int hm)
   switch(mode)
   {
     case Mode_Cool:
-      watts = compressorWatts;
+      watts = ee.compressorWatts;
       break;
     case Mode_Heat:
       switch(hm)
       {
         case Heat_HP:
-          watts = compressorWatts;
+          watts = ee.compressorWatts;
           break;
         case Heat_NG:
-          watts = furnaceWatts;
-          m_fCostG += (float)ee.ccf * secs * furnaceCFH / 3600000.0;
+          watts = ee.furnaceWatts; // cost / 1000 = $, /1000CF = $ per cubic foot, cfm/1000=float cfm, /60=cfs
+          m_fCostG += ((float)ee.ccf/100000) * secs * ((float)ee.cfm/1000/60);
           break;
       }
       break;
     case Mode_Fan:
-      watts = fanWatts;
+      watts = ee.fanWatts;
       break;
     case Mode_Humid:
-      watts = humidWatts;
+      watts = ee.humidWatts;
       break;
   }
   m_fCostE += (float)ee.ppkwh / 100000.0 * secs * watts / 360000.0;
@@ -779,8 +771,14 @@ String HVAC::settingsJson()
   s += ",\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat];
   s += ",\"ppk\":";  s += ee.ppkwh;
   s += ",\"ccf\":";  s += ee.ccf;
+  s += ",\"cfm\":";  s += ee.cfm;
   s += ",\"fcr\":";  s += ee.fcRange;
   s += ",\"fcd\":";  s += ee.fcDisplay;
+  s += ",\"cw\":";  s += ee.compressorWatts;
+  s += ",\"fw\":";  s += ee.fanWatts;
+  s += ",\"frnw\":";  s += ee.furnaceWatts;
+  s += ",\"hfw\":";  s += ee.humidWatts;
+  s += ",\"ffp\":";  s += ee.furnacePost;
   s += "}";
   return s;
 }
@@ -874,12 +872,18 @@ const char *cmdList[] = { "cmd",
   "away",
   "ppk",
   "ccf",
+  "cfm",
   "ce",
   "cg",
   "fcrange",
   "fcdisp",
   "save",
   "tz",
+  "cw",
+  "fw",
+  "frnw",
+  "hfw",
+  "ffp",
   NULL
 };
 
@@ -1026,23 +1030,41 @@ void HVAC::setVar(String sCmd, int val)
     case 28:
       ee.ccf = val;
       break;
-    case 29: // ce cost in cents/100
+    case 29:
+      ee.cfm = val; // CFM / 1000
+      break;
+    case 30: // ce cost in cents/100
       m_fCostE = val / 10000;
       break;
-    case 30: // cg cost in cents/100
+    case 31: // cg cost in cents/100
       m_fCostG = val / 10000;
       break;
-    case 31: // fcrange
+    case 32: // fcrange
       ee.fcRange = constrain(val, 1, 46);
       break;
-    case 32: // fcdisp
+    case 33: // fcdisp
       ee.fcDisplay = constrain(val, 1, 46);
       break;
-    case 33: // save
+    case 34: // force save
       eemem.update();
       break;
-    case 34: // TZ
+    case 35: // TZ
       ee.tz = constrain(val, -12, 12);
+      break;
+    case 36:
+      ee.compressorWatts = val;
+      break;
+    case 37:
+      ee.fanWatts = val;
+      break;
+    case 38:
+      ee.furnaceWatts = val;
+      break;
+    case 39:
+      ee.humidWatts = val;
+      break;
+    case 40:
+      ee.furnacePost = val;
       break;
   }
 }
