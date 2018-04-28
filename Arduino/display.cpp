@@ -389,7 +389,9 @@ void Display::drawForecast(bool bRef)
   for(i = 1; i < fcCnt; i++) // should be 41 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int h = (m_fcData[i].tm - m_fcData[1].tm) / 3600;
+    int h = m_fcData[i].tm;
+    if(h < m_fcData[i-1].tm) h = m_fcData[i-1].tm; // Todo: temp fix (end of month?)
+    h = (h - m_fcData[1].tm) / 3600;
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
@@ -570,7 +572,7 @@ void Display::refreshAll()
   updateAdjMode(true);
 }
 
-// Analog clock   This code uses 6775 bytes
+// Analog clock
 void Display::updateClock()
 {
   if(nex.getPage() != Page_Clock)
@@ -580,32 +582,33 @@ void Display::updateClock()
   delay(8); // 8 works, 5 does not
   const float x = 159; // center
   const float y = 120;
+  float x2,y2,x3,y3;
 
-  float size = 80;
-  float angle = minute() * 6;
-  float ang =  M_PI * (180-angle) / 180;
-  float x2 = x + size * sin(ang);
-  float y2 = y + size * cos(ang);
-  nex.line(x, y, x2, y2, rgb16(0, 0, 31) ); // (blue) minute
+  cspoint(x2, y2, x, y, minute() * 6, 80);
+  cspoint(x3, y3, x, y, (minute()+5) * 6, 10);
+  nex.line(x3, y3, x2, y2, rgb16(0, 0, 31) ); // (blue) minute
+  cspoint(x3, y3, x, y, (minute()-5) * 6, 10);
+  nex.line(x3, y3, x2, y2, rgb16(0, 0, 31) ); // (blue) minute
 
-  size = 64;
-  angle = (hour() + (minute() * 0.00833) ) * 30;
-  ang =  M_PI * (180-angle) / 180;
-  x2 = x + size * sin(ang);
-  y2 = y + size * cos(ang);
-  nex.line(x, y, x2, y2, rgb16(0, 63, 31) ); // (cyan) hour
+  float a = (hour() + (minute() * 0.00833) ) * 30;
+  cspoint(x2, y2, x, y, a, 64);
+  a = (hour() + (minute() * 0.00833)+2 ) * 30;
+  cspoint(x3, y3, x, y, a, 10);
+  nex.line(x3, y3, x2, y2, rgb16(0, 63, 31) ); // (cyan) hour
+  a = (hour() + (minute() * 0.00833)-2 ) * 30;
+  cspoint(x3, y3, x, y, a, 10);
+  nex.line(x3, y3, x2, y2, rgb16(0, 63, 31) ); // (cyan) hour
 
-  size = 91;
-  angle = second() * 6;
-  ang =  M_PI * (180-angle) / 180;
-  x2 = x + size * sin(ang);
-  y2 = y + size * cos(ang);
-  ang =  M_PI * (0-angle) / 180;
-  size = 24;
-  float x3 = x + size * sin(ang);
-  float y3 = y + size * cos(ang);
-
+  cspoint(x2, y2, x, y, second() * 6, 91);
+  cspoint(x3, y3, x, y, (second()+30) * 6, 24);
   nex.line(x3, y3, x2, y2, rgb16(31, 0, 0) ); // (red) second
+}
+
+void Display::cspoint(float &x2, float &y2, float x, float y, float angle, float size)
+{
+  float ang =  M_PI * (180-angle) / 180;
+  x2 = x + size * sin(ang);
+  y2 = y + size * cos(ang);  
 }
 
 void Display::updateModes() // update any displayed settings
