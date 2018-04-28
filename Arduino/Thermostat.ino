@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.3 and esp8266 SDK 2.3.0 1M (64K SPIFFS)
+// Build with Arduino IDE 1.8.5 and esp8266 SDK 2.4.1 1M (64K SPIFFS)
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
