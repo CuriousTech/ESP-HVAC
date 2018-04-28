@@ -69,12 +69,12 @@ $(document).ready(function()
 			date=new Date()
 			tE=ce
 			tG=cg
-			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate())-1;i++)
+			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate());i++)
 			{
 				div=document.getElementById("d"+i)
 				if(date.getDate()==i+1) div.setAttribute('class','style5')
 				else div.innerHTML=(i+1)+'&emsp; $'+Json.day[i][0].toFixed(2)+'&emsp; $'+Json.day[i][1].toFixed(2)
-				if(i<date.getDate())
+				if(i<date.getDate()-1)
 				{
 					tE+=Json.day[i][0]
 					tG+=Json.day[i][1]
