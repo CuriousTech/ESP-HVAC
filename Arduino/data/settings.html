@@ -62,8 +62,9 @@ ws.onmessage = function(evt) {
 	a.fanpre.value= s2t(+Json.fp)
 	a.awaytime.value= s2t(+Json.at)
 	a.heatthr.value= +Json.ht
-	a.ppkwh.value= +Json.ppk / 10000
-	a.ccf.value= +Json.ccf / 1000
+	a.ppkwh.value= +Json.ppk/10000
+	a.ccf.value= +Json.ccf/1000
+	a.cfm.value= +Json.cfm/1000
 	a.fcr.value= +Json.fcr
 	a.fcd.value= +Json.fcd
 	rmtMode=+Json.ar
@@ -120,6 +121,7 @@ function setVars()
  s+=',"ccf":'+(+a.ccf.value*1000).toFixed()
  s+=',"fcrange":'+(+a.fcr.value)
  s+=',"fcdisp":'+(+a.fcd.value)
+ s+=',"cfm":'+(+a.cfm.value*1000).toFixed()
  s+='}'
  ws.send(s)
 }
@@ -208,7 +210,7 @@ function t2s(v)
 <input type="submit" value="Main" onClick="window.location='/iot';">
 </td>
 </tr>
-<tr><td>Heat Thr</td><td><input type=text size=4 id="heatthr"></td><td></td><td></td></tr>
+<tr><td>Heat Thr</td><td><input type=text size=4 id="heatthr"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
 <tr><td>Humid Hi</td><td><input type=text size=4 id="humidh"></td><td><input type="button" value="+1" onClick="{incHumid(1)}"></td><td></td></tr>
 <tr><td>Humid Lo</td><td><input type=text size=4 id="humidl"></td><td><input type="button" value=" -1" onClick="{incHumid(-1)}"></td><td></td></tr>
 <tr><td>Pre Fan</td>
@@ -219,8 +221,8 @@ function t2s(v)
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td></td><td></td></tr>
 <tr><td>cycle Max</td><td><input type=text size=4 id="cycmax"></td><td></td><td></td></tr>
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td></td><td></td></tr>
-<tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
-<tr><td>CCF</td><td><input type=text size=4 id="ccf"></td><td></td><td></td></tr>
+<tr><td>PPKWH</td><td><input type=text size=4 id="ppkwh"></td><td></td><td></td></tr>
+<tr><td>CCF</td><td><input type=text size=4 id="ccf"></td><td>CFM</td><td><input type=text size=3 id="cfm"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td></td><td></td></tr>
 <tr><td>Display</td><td><input type=text size=4 id="fcd"></td><td></td><td></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
