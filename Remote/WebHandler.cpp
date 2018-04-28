@@ -156,6 +156,7 @@ void startServer()
 //    request->send(404);
   });
   server.on( "/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/favicon.ico");
     request->send(404);
   });
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
