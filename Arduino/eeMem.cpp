@@ -4,17 +4,17 @@
 eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
-  {870, 900},   // 87.0, 90.0 default cool temps
-  {730, 750},   // default heat temps
-  {30, 10},     // cycleThresh (cool 3.0, heat 1.0)
+  {840, 870},   // 87.0, 90.0 default cool temps
+  {760, 780},   // default heat temps
+  {30, 8},     // cycleThresh (cool 3.0, heat 0.8)
   0,            // Mode
-  30,           // heatThresh (under 30F is gas)
-  60*2,         // 2 mins minimum for a cycle
-  60*25,        // 25 minutes maximun for a cycle
-  60*5,         // idleMin 5 minutes minimum between cycles
+  33,           // heatThresh (under 33F is gas)
+  60*5,         // 5 mins minimum for a cycle
+  60*30,        // 30 minutes maximun for a cycle
+  60*8,         // idleMin 5 minutes minimum between cycles
   0,            // filterMinutes
   {60, 120},    // fanPostDelay {cool, HP}
-  {60, 60},     // fanPreTime {cool, HP}
+  {30, 30},     // fanPreTime {cool, HP}
   60*10,        // 10 mins default for override
   0,            // heatMode
   -5,           // timeZone
@@ -27,16 +27,24 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   192 | (168<<8) | (105<<24), // hostIp 192.168.0.105
   85,           // host port
   "41042",      // zipCode
-  "password",  // password for controlling thermostat
+  "password",   // password for controlling thermostat
   false,        // bLock
   false,        // bNotLocal
-  1454,         // price per KWH in cents / 10000 (0.145)
-   700,         // nat gas cost per cubic foot in cents / 100 (0.70)
+  1350,         // price per KWH in cents * 10000 (0.145)
+  1243,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.243)
   46,           // forecast range for in mapping to out mix/max (5, but 3 can be better)
   46,           // forecast range for display (5 of 7 day max)
   {0.0f},       // fCostE month costs
   {0.0f},       // fCostG
   {0},          // fCostDay day costs
+  920,          // cubic feet per minute * 1000 of furnace (0.92)
+  5000,         // compressorWatts
+  350,          // fanWatts
+  100,          // furnaceWatts
+  150,          // humidWatts
+  120,          // furnacePost (furnace internal fan timer)
+  0,
+  0,
   {0}
 };
 
