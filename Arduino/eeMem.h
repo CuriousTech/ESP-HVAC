@@ -42,8 +42,16 @@ struct eeSet // EEPROM backed data
   float    fCostE[12];        // cost total (elec) per month
   float    fCostG[12];        // cost total (gas)
   float    fCostDay[32][2];   // cost total day (e,g)
-  char     reserved2[44]; // 600 bytes
-}; // 728
+  uint16_t cfm;         // cubic feet per minute
+  uint16_t compressorWatts;
+  uint16_t fanWatts;
+  uint16_t furnaceWatts;
+  uint16_t humidWatts;
+  uint16_t furnacePost;
+  uint32_t remoteIP; // future use
+  uint16_t remotePort;
+  char     remotePath[28];
+}; // 600 bytes
 
 extern eeSet ee;
 
