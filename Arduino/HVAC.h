@@ -167,4 +167,7 @@ private:
   int8_t   m_furnaceFan;    // fake fan timer
 };
 
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
+
 #endif
