@@ -20,11 +20,7 @@ enum Page
 class Nextion
 {
 public:
-  Nextion():
-    m_newBrightness(99),
-    m_brightness(99),
-    m_page(0)
-  {};
+  Nextion(){};
   int service(char *pBuff);
   void itemText(uint8_t id, String t);
   void btnText(uint8_t id, String t);
@@ -50,9 +46,11 @@ public:
 private:
   void dimmer(void);
 
-  uint8_t m_brightness;
-  uint8_t m_newBrightness;
+  uint8_t m_brightness = 99;
+  uint8_t m_newBrightness = 99;
   uint8_t m_page;
 };
+
+extern Nextion nex;
 
 #endif // NEXTION_H
