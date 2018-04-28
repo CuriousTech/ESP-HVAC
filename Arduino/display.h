@@ -59,6 +59,7 @@ public:
 private:
   void refreshAll(void);
   void updateClock(void);
+  void cspoint(float &x2, float &y2, float x, float y, float angle, float size);
   void displayTime(void);
   void displayOutTemp(void);
   void updateModes(void); // update any displayed settings
