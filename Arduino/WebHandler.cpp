@@ -69,16 +69,20 @@ void onEvents(AsyncEventSourceClient *client)
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
   static bool rebooted = true;
+  String s;
+
   switch(type)
   {
     case WS_EVT_CONNECT:      //client connected
       if(rebooted)
       {
         rebooted = false;
-        client->printf("alert;Restarted");
+        client->text("alert;Restarted");
       }
-      client->printf("settings;%s", hvac.settingsJson().c_str()); // update everything on start
-      client->printf("state;%s", dataJson().c_str());
+      s = String("settings;") + hvac.settingsJson().c_str(); // update everything on start
+      client->text(s);
+      s = String("state;") + dataJson().c_str();
+      client->text(s);
       client->ping();
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
@@ -655,7 +659,7 @@ void GetForecast()
   // Then click [XML] and copy that URL to the line below
   // Then send "?key=<your key>&fc=1" to the thermostat to enable calls to this
 
-  String path = "/MapClick.php?latx.x=&lon=x.x&FcstType=digitalDWML";
+  String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
 
   if(!xml.begin("forecast.weather.gov", 80, path))
     WsSend("Forecast failed", "alert");
