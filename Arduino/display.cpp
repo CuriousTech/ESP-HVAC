@@ -60,6 +60,25 @@ void Display::oneSec()
   }
 }
 
+void Display::buttonRepeat()
+{
+ m_btnMode;
+ m_btnDelay;
+  int8_t m = (m_adjustMode < 2) ? Mode_Cool : Mode_Heat; // lower 2 are cool
+  int8_t hilo = (m_adjustMode ^ 1) & 1; // hi or low of set
+  int16_t t = hvac.getSetTemp(m, hilo );
+  
+  t += (m_btnMode==1) ? 1:-1; // inc by 0.1
+  hvac.setTemp(m, t, hilo);
+  
+  if(hvac.m_bLink) // adjust both high and low
+  {
+    t = hvac.getSetTemp(m, hilo^1 ) + ((m_btnMode==1) ? 1:-1); // adjust opposite hi/lo the same
+    hvac.setTemp(m, t, hilo^1);
+  }
+  updateTemps();
+}
+
 void Display::checkNextion() // all the Nextion recieved commands
 {
   char cBuf[64];
@@ -71,7 +90,15 @@ void Display::checkNextion() // all the Nextion recieved commands
   Lines(); // draw lines at full speed
 
   if(len == 0)
+  {
+    if(m_btnMode)
+      if(--m_btnDelay <= 0)
+      {
+        buttonRepeat();
+        m_btnDelay = 20; // repeat speed
+      }
     return;
+  }
 
   switch(cBuf[0])  // code
   {
@@ -98,6 +125,25 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 18: // heat lo
               hvac.m_bLink = (m_adjustMode == btn-15);
               m_adjustMode = btn-15;
+              break;
+
+            case 26: // Up button
+              if(cBuf[3]) // press
+              {
+                m_btnMode = 1;
+                buttonRepeat();
+                m_btnDelay = 40; // first repeat
+              }
+              else m_btnMode = 0; // release
+              break;
+            case 27: // Down button
+              if(cBuf[3])
+              {
+                m_btnMode = 2;
+                buttonRepeat();
+                m_btnDelay = 40;
+              }
+              else m_btnMode = 0;
               break;
 
             case 22: // fan
@@ -657,9 +703,10 @@ void Display::updateAdjMode(bool bRef)  // current adjust indicator of the 4 tem
 {
   static uint8_t am = 0;
   static bool bl = false;
-  // p0-p4
+  // p0-p3
   if(nex.getPage() || (bRef == false && am == m_adjustMode && bl == hvac.m_bLink) )
     return;
+
   nex.visible("p" + String(am), 0); // turn off both hi/lo of last
   nex.visible("p" + String(am^1), 0);
   am = m_adjustMode;
@@ -702,7 +749,7 @@ void Display::updateRSSI()
 
   int sigStrength = 127 + rssiT;
   int wh = 24; // width and height
-  int x = 178;
+  int x = 142; // X/Y position
   int y = 172;
   int sect = 127 / 5; //
   int dist = wh  / 5; // distance between blocks
