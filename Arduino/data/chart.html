@@ -10,7 +10,19 @@ box-shadow: 2px 2px 12px #000000;
 background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
 background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
 background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
+background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-clip: padding-box;
+}
+.style4 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: linear-gradient(top, #4f4f4f, #50a0ff);
 background-clip: padding-box;
 }
 .style5 {
@@ -38,6 +50,7 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws = new WebSocket("ws://"+window.location.host+"/ws")
+// ws = new WebSocket("ws://192.168.0.105:85/ws")
  ws.onopen = function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose = function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -51,44 +64,26 @@ $(document).ready(function()
 		case 'settings':
 			ppkwh= +Json.ppk/10000
 			ccf= +Json.ccf/1000
+			m=+Json.m
 			break
 		case 'state':
+			sJson=Json
 			date=new Date()
 			i=date.getDate()-1;
 			div=document.getElementById("d"+i)
-			ce=+Json.ce
-			cg=+Json.cg
 			div.innerHTML=(i+1)+'&emsp; $'+Json.ce+'&emsp; $'+Json.cg
+			cyc=secsToTime(+Json.ct)
+			updateFields()
+			draw()
 			break
 		case 'alert':
 			alert(data)
 			break
 		case 'sum':
 			ws.send('cmd;{data:0}')
-			mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
-			date=new Date()
-			tE=ce
-			tG=cg
-			for(i=0;i<(new Date(date.getYear(),date.getMonth()+1,0).getDate());i++)
-			{
-				div=document.getElementById("d"+i)
-				if(date.getDate()==i+1) div.setAttribute('class','style5')
-				else div.innerHTML=(i+1)+'&emsp; $'+Json.day[i][0].toFixed(2)+'&emsp; $'+Json.day[i][1].toFixed(2)
-				if(i<date.getDate()-1)
-				{
-					tE+=Json.day[i][0]
-					tG+=Json.day[i][1]
-				}
-			}
-			for(i=0;i<12;i++)
-			{
-				div=document.getElementById("m"+i)
-				div.innerHTML=mname[i]+'&emsp; $'+Json.mon[i][0].toFixed(2)+'&emsp; $'+Json.mon[i][1].toFixed(2)
-				if(date.getMonth()==i){
-					div.setAttribute('class','style5')
-					div.innerHTML=mname[i]+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
-				}
-			}
+			dys=Json.day
+			mns=Json.mon
+			updateFields()
 			break
 		case 'data':
 			tb=Json.tb
@@ -105,6 +100,37 @@ $(document).ready(function()
  }
  setInterval(function(){ ws.send('cmd;{data:0}'); }, 60000);
 });
+
+function updateFields()
+{
+	mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+	date=new Date()
+	tE=+sJson.ce
+	tG=+sJson.cg
+	days1=(new Date(date.getYear(),date.getMonth(),0).getDate())
+	days=(new Date(date.getYear(),date.getMonth()+1,0).getDate())
+	for(i=0;i<Math.max(days,days1);i++)
+	{
+		div=document.getElementById("d"+i)
+		if(i>=days) div.setAttribute('class','style4')
+		if(date.getDate()==i+1) div.setAttribute('class','style5')
+		else div.innerHTML=(i+1)+'&emsp; $'+dys[i][0].toFixed(2)+'&emsp; $'+dys[i][1].toFixed(2)
+		if(i<date.getDate()-1)
+		{
+			tE+=+dys[i][0]
+			tG+=+dys[i][1]
+		}
+	}
+	for(i=0;i<12;i++)
+	{
+		div=document.getElementById("m"+i)
+		div.innerHTML=mname[i]+'&emsp; $'+mns[i][0].toFixed(2)+'&emsp; $'+mns[i][1].toFixed(2)
+		if(date.getMonth()==i){
+			div.setAttribute('class','style5')
+			div.innerHTML=mname[i]+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
+		}
+	}
+}
 
 function draw(){
   graph = $('#graph')
@@ -151,17 +177,22 @@ function draw(){
   c.textBaseline = "middle"
 
   for(var i = getMinY(); i < getMaxY(); i += (yRange/8) ) {
-    c.fillText((i/10).toFixed(1), xPadding-6, getYPixel(i))
+    c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))
   }
 
-  c.fillText('Temp', xPadding-4, 6)
+  c.fillText('Temp', graph.width()-6, 6)
+  c.fillStyle = +sJson.r?(m==2?"red":"blue"):(+sJson.fr?"green":"gray")
+  c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
+ // cycle
+  c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)
+
   c.fillStyle = "green"
-  c.fillText('Rh', graph.width()-14, 6)
+  c.fillText('Rh', xPadding-6, 6)
 
   // rh scale
   for(i = 0; i < 10; i++){
     pos = graph.height()-8-( ((graph.height()-yPadding) / 10) * i )-yPadding
-    c.fillText(i*10, graph.width() - 14, pos)
+    c.fillText(i*10, xPadding-4, pos)
   }
 
   //threshold
@@ -223,7 +254,7 @@ function draw(){
 
 	// request mousemove events
 	graph.mousemove(function(e){handleMouseMove(e);})
-	
+
 	// show tooltip when mouse hovers over dot
 	function handleMouseMove(e){
 		mouseX=parseInt(e.clientX-offsetX)
@@ -306,6 +337,33 @@ function stateColor(s)
 function setVar(varName, value)
 {
  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+}
+
+function secsToTime(elap)
+{
+	d=0
+	m=0
+	h=Math.floor(elap/3600)
+	if(h >23)
+	{
+		d=Math.floor(h/24)
+		h-=(d*24)
+	}
+	else
+	{
+		m=Math.floor((elap-(h*3600))/60)
+		s=elap-(h*3600)-(m*60)
+		if(s<10) s='0'+s
+		if(h==0)
+		{
+			if( m < 10) m='  '+m
+			return '    '+m +':'+s
+		}
+	}
+	if(m<10) m='0'+m
+	if(h<10) h='  '+h
+	if(d) return d+'d '+h+'h'
+	return h+':'+m+':'+s
 }
 
 </script>
