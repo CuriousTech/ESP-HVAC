@@ -57,6 +57,7 @@ public:
   void Note(char *cNote);
   bool getGrapthPoints(gPoint *pt, int n);
 private:
+  void buttonRepeat(void);
   void refreshAll(void);
   void updateClock(void);
   void cspoint(float &x2, float &y2, float x, float y, float angle, float size);
@@ -77,10 +78,12 @@ private:
   int tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
-#define GPTS 400 // 320 px width - (10+10) padding
+#define GPTS 800 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
   uint16_t m_pointsIdx;
   uint16_t m_temp_counter = 2*60;
+  uint8_t m_btnMode;
+  uint8_t m_btnDelay;
 public:
 #define FC_CNT 64
   Forecast m_fcData[FC_CNT];
