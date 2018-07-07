@@ -33,7 +33,7 @@ struct eeSet // EEPROM backed data
   uint16_t  hostPort;
   char     zipCode[8];  // Your zipcode
   char     password[32];
-  bool     bLock;
+  bool     bLock;       // input lock
   bool     bNotLocalFcst; // Use weather.gov server
   uint16_t ppkwh;
   uint16_t ccf;
@@ -50,8 +50,10 @@ struct eeSet // EEPROM backed data
   uint16_t furnacePost;
   uint32_t remoteIP; // future use
   uint16_t remotePort;
-  char     remotePath[28];
-}; // 600 bytes
+  char     remotePath[32];
+  uint16_t diffLimit;  // in/out thermal differential limit
+  char resvered[128];
+}; // ~750 bytes
 
 extern eeSet ee;
 
