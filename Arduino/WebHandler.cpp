@@ -247,6 +247,7 @@ void fcPage(AsyncWebServerRequest *request)
 void handleServer()
 {
   MDNS.update();
+  historyDump(false);
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
@@ -387,6 +388,85 @@ String dataJson()
   return hvac.getPushData();
 }
 
+void historyDump(bool bStart)
+{
+  static bool bSending;
+  static int entryIdx;
+  static int32_t tb;
+  static int tempMin;
+  static int lMin;
+  static int hMin;
+  static int rhMin;
+  static int otMin;
+
+  if(bStart) bSending = true;
+  if(bSending == false)
+    return;
+
+  gPoint gpt;
+
+  String out;
+  if(bStart)
+  {
+    entryIdx = 0;
+    if( display.getGrapthPoints(&gpt, 0) == false)
+    {
+      bSending = false;
+      return;
+    }
+    out = String("data;{\"tb\":");
+    tb = gpt.time; // latest entry
+    tempMin = display.minPointVal(0);
+    lMin = display.minPointVal(1);
+    hMin = display.minPointVal(2);
+    rhMin = display.minPointVal(3);
+    otMin = display.minPointVal(4);
+  
+    out += tb;
+    out += ",\"th\":"; out += gpt.h - gpt.l; // threshold
+    out += ",\"tm\":"; out += tempMin; // temp min
+    out += ",\"lm\":"; out += lMin; // threshold low min
+    out += ",\"rm\":"; out += rhMin; // rh min
+    out += ",\"om\":"; out += otMin; // ot min
+    out += ",\"d\":[";
+  }
+  else
+    out = String("data2;{\"d\":[");
+
+  bool bC = false;
+  for(; entryIdx < GPTS - 1 && out.length() < 1100; entryIdx++)
+  {
+    if( display.getGrapthPoints(&gpt, entryIdx) == false)
+    {
+      bSending = false;
+      break;
+    }
+
+    if(bC) out += ",";
+    bC = true;
+    out += "[";         // [seconds/10, temp, rh, low, state],
+    out += (tb - (int32_t)gpt.time) / 10;
+    out += ",";
+    out += gpt.temp - tempMin;
+    out += ",";
+    out += gpt.bits.b.rh - rhMin;
+    out += ",";
+    out += gpt.l - lMin;
+    out += ",";
+    out += gpt.bits.u & 7;
+    out += ",";
+    out += gpt.ot - otMin;
+    out += "]";
+  }
+  if(out.length() > 15) // don't send blank
+  {
+    out += "]}";
+    ws.text(WsClientID, out);
+  }
+  if(bSending == false)
+    ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+}
+
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
@@ -433,7 +513,8 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       }
       else if(iName == 1) // 1 = data
       {
-        gPoint gpt;
+        historyDump(true);
+/*      gPoint gpt;
 
         if( display.getGrapthPoints(&gpt, 0) == false)
           return;
@@ -441,9 +522,18 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         int32_t tb = gpt.time; // latest entry
         String out = String("data;{\"tb\":");
 
+        int tempMin = display.minPointVal(0);
+        int lMin = display.minPointVal(1);
+        int hMin = display.minPointVal(2);
+        int rhMin = display.minPointVal(3);
+        int otMin = display.minPointVal(4);
+
         out += tb;
-        out += ",\"th\":";
-        out += gpt.h - gpt.l; // threshold
+        out += ",\"th\":"; out += gpt.h - gpt.l; // threshold
+        out += ",\"tm\":"; out += tempMin; // temp min
+        out += ",\"lm\":"; out += lMin; // threshold low min
+        out += ",\"rm\":"; out += rhMin; // rh min
+        out += ",\"om\":"; out += otMin; // ot min
         out += ",\"d\":[";
 
         bool bC = false;
@@ -452,24 +542,23 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           if( display.getGrapthPoints(&gpt, entryIdx) == false)
             break;
 
-          if(gpt.time == 0)
-            continue; // some glitch?
-
           if(bC) out += ",";
           bC = true;
           out += "[";         // [seconds/10, temp, rh, low, state],
           out += (tb - (int32_t)gpt.time) / 10;
           out += ",";
-          out += gpt.temp;
+          out += gpt.temp - tempMin;
           out += ",";
-          out += gpt.bits.b.rh;
+          out += gpt.bits.b.rh - rhMin;
           out += ",";
-          out += gpt.l;
+          out += gpt.l - lMin;
           out += ",";
           out += gpt.bits.u & 7;
+          out += ",";
+          out += gpt.ot - otMin;
           out += "]";
 
-          if(out.length() >= 1300) // send first part (61 entries), data2 part(s) (62) will be arr=arr.concat(d)
+          if(out.length() >= 1200) // send first part (61 entries), data2 part(s) (62) will be arr=arr.concat(d)
           {
             out += "]}";
             ws.text(WsClientID, out);
@@ -483,6 +572,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           ws.text(WsClientID, out);
         }
         ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+        */
       }
       else if(iName == 2) // 2 = summary
       {
