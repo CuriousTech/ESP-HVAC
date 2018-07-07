@@ -41,10 +41,12 @@ body{background:silver;width:800px;display:block;text-align:center;font-family: 
 var graph;
 xPadding=30
 yPadding=50
+drawOut=false
 var yRange
 var Json
 var a=document.all
 var ws
+added=false
 $(document).ready(function()
 {
  myStorage1 = localStorage.getItem('myStoredText1')
@@ -64,7 +66,8 @@ $(document).ready(function()
 		case 'settings':
 			ppkwh= +Json.ppk/10000
 			ccf= +Json.ccf/1000
-			m=+Json.m
+			md=+Json.m
+			dl=+Json.dl
 			break
 		case 'state':
 			sJson=Json
@@ -88,12 +91,23 @@ $(document).ready(function()
 		case 'data':
 			tb=Json.tb
 			th=Json.th
+			tm=Json.tm
+			lm=Json.lm
+			rm=Json.rm
+			om=Json.om
 			arr=Json.d
 			break
 		case 'data2':
 			arr=arr.concat(Json.d)
 			break
 		case 'draw':
+			for(i=0;i<arr.length;i++){
+				arr[i][0]=(tb-arr[i][0]*10)*1000
+				arr[i][1]+=tm
+				arr[i][2]+=rm
+				arr[i][3]+=lm
+				arr[i][5]+=om
+			}
 			draw()
 			break
 	}
@@ -103,7 +117,7 @@ $(document).ready(function()
 
 function updateFields()
 {
-	mname=Array('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+	mnam='JanFebMarAprMayJunJulAugSepOctNovDec'
 	date=new Date()
 	tE=+sJson.ce
 	tG=+sJson.cg
@@ -124,10 +138,10 @@ function updateFields()
 	for(i=0;i<12;i++)
 	{
 		div=document.getElementById("m"+i)
-		div.innerHTML=mname[i]+'&emsp; $'+mns[i][0].toFixed(2)+'&emsp; $'+mns[i][1].toFixed(2)
+		div.innerHTML=mnam.substr(i*3,3)+'&emsp; $'+mns[i][0].toFixed(2)+'&emsp; $'+mns[i][1].toFixed(2)
 		if(date.getMonth()==i){
 			div.setAttribute('class','style5')
-			div.innerHTML=mname[i]+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
+			div.innerHTML=mnam.substr(i*3,3)+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
 		}
 	}
 }
@@ -166,7 +180,7 @@ function draw(){
 	c.save()
 	c.translate(getXPixel(i), graph.height()-yPadding+5)
 	c.rotate(0.9)
-	date = new Date((tb-arr[i][0]*10)*1000)
+	date = new Date(arr[i][0])
 	c.fillText(date.toLocaleTimeString(),0,0)
 	c.restore()
   }
@@ -181,34 +195,57 @@ function draw(){
   }
 
   c.fillText('Temp', graph.width()-6, 6)
-  c.fillStyle = +sJson.r?(m==2?"red":"blue"):(+sJson.fr?"green":"gray")
+  c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"gray")
   c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
  // cycle
   c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)
 
-  c.fillStyle = "green"
+  c.fillStyle="green"
   c.fillText('Rh', xPadding-6, 6)
 
   // rh scale
-  for(i = 0; i < 10; i++){
-    pos = graph.height()-8-( ((graph.height()-yPadding) / 10) * i )-yPadding
-    c.fillText(i*10, xPadding-4, pos)
+  for(i=0;i<10;i++){
+    pos=graph.height()-8-(((graph.height()-yPadding)/10)*i)-yPadding
+    c.fillText(i*10,xPadding-4,pos)
   }
 
-  //threshold
-  c.fillStyle = 'rgba(200,100,200,0.25)'
-  c.beginPath()
-  c.moveTo(getXPixel(0), getYPixel(arr[0][3]+th))
+  // in-out diff
+  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding);
+  grd.addColorStop(0,'rgba(255,0,0,0.5)');
+  grd.addColorStop(1,'rgba(100,100,200,0.5)');
 
-  for(i=1; i<arr.length-1; i++)
-    c.lineTo(getXPixel(i), getYPixel(arr[i][3]+th))
-  for(i=arr.length-2; i>=0; i--)
-    c.lineTo(getXPixel(i), getYPixel(arr[i][3]))
+// Fill with gradient
+  c.fillStyle = grd;
+  c.beginPath()
+  c.moveTo(graph.width()-xPadding, graph.height()-yPadding)
+  for(i=0;i<arr.length;i++){
+	switch(md){
+	  default: diff=0; break
+	  case 1: diff=(arr[i][5]-200-arr[i][1])*10; break // 20~30=0~100%
+	  case 2: diff=(arr[i][1]-380-arr[i][5])*5; break
+	}
+	if(diff<0) diff=0
+	if(diff>1000) diff=1000
+	c.lineTo(getXPixel(i),getRHPixel(diff))
+  }
+  c.lineTo(getXPixel(i),graph.height()-yPadding)
+  c.closePath()
+  c.fill()
+
+  //threshold
+  c.fillStyle = 'rgba(100,100,180,0.25)'
+  c.beginPath()
+  c.moveTo(getXPixel(0),getYPixel(arr[0][3]+th))
+
+  for(i=1;i<arr.length-1;i++)
+    c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))
+  for(i=arr.length-2;i>=0;i--)
+    c.lineTo(getXPixel(i),getYPixel(arr[i][3]))
   c.closePath()
   c.fill()
 
   // temp lines
-  date = new Date((tb-arr[0][0]*10)*1000)
+  date = new Date(arr[0][0])
   dt = date.getDate()
   for(i = 1; i < arr.length; i++){
 	c.strokeStyle = stateColor(arr[i][4])
@@ -216,7 +253,7 @@ function draw(){
 	c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
 	c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
 	c.stroke()
-	date = new Date((tb-arr[i][0]*10)*1000)
+	date = new Date(arr[i][0])
 	if(dt != date.getDate())
 	{
 	  dt = date.getDate()
@@ -227,19 +264,26 @@ function draw(){
 	  c.stroke()
 	}
   }
+  // out temp
+  c.strokeStyle = '#fa0'
+  if(drawOut) for(i=1;i<arr.length;i++){
+	c.beginPath()
+	c.moveTo(getXPixel(i),getYPixel(arr[i][5]))
+	c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][5]))
+	c.stroke()
+  }
 
   // rh lines
   c.strokeStyle = '#0f0'
   c.beginPath()
   c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))
-
-  for(var i = 1; i < arr.length-1; i ++)
+  for(var i=1;i<arr.length-1;i ++)
 	c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))
   c.stroke()
 
   var dots = []
 	for(i = 0; i < arr.length; i ++) {
-		date = new Date((tb-arr[i][0]*10)*1000)
+		date = new Date(arr[i][0])
 		dots.push({
 			x: getXPixel(i),
 			y: getYPixel(arr[i][1]),
@@ -285,6 +329,25 @@ function draw(){
 		}
 		if (!hit) { popup.style.left = "-200px" }
 	}
+
+	mousePos={x:0,y:0}
+	lastPos=mousePos
+	if(added==false)
+	{
+		graph[0].addEventListener("mousedown",function(e){
+			lastPos=getMousePos(graph[0],e)
+			drawOut=!drawOut
+			draw()
+		},false)
+		added=true
+	}
+	function getMousePos(cDom, mEv){
+		rect = cDom.getBoundingClientRect();
+		return{
+		 x: mEv.clientX-rect.left,
+		 y: mEv.clientY-rect.top
+		}
+	}
 }
 
 function getMaxY(){
@@ -296,6 +359,8 @@ function getMaxY(){
 		  max=arr[i][1]
 		if(arr[i][3]+th>max)
 		  max=arr[i][3]+th
+		if(drawOut&&arr[i][5]>max)
+		  max=arr[i][5]
 	}
 	return Math.ceil(max)
 }
@@ -309,6 +374,8 @@ function getMinY(){
 		  min=arr[i][1]
 		if(arr[i][3]<min)
 		  min=arr[i][3]
+		if(drawOut&&arr[i][5]<min)
+		  min=arr[i][5]
 	}
 	return Math.floor(min)
 }
