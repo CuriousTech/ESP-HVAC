@@ -468,11 +468,13 @@ void HVAC::calcTargetTemp(int mode)
   {
     case Mode_Off:
     case Mode_Cool:
-      m_targetTemp  = (m_outTemp-L) * (ee.coolTemp[1]-ee.coolTemp[0]) / (H-L) + ee.coolTemp[0];
+      m_targetTemp = (m_outTemp-L) * (ee.coolTemp[1]-ee.coolTemp[0]) / (H-L) + ee.coolTemp[0];
       m_targetTemp = constrain(m_targetTemp, ee.coolTemp[0], ee.coolTemp[1]); // just for safety
+      if(m_targetTemp < m_outTemp - ee.diffLimit) // increase to differential limit
+        m_targetTemp = m_outTemp - ee.diffLimit;
       break;
     case Mode_Heat:
-      m_targetTemp  = (m_outTemp-L) * (ee.heatTemp[1]-ee.heatTemp[0]) / (H-L) + ee.heatTemp[0];
+      m_targetTemp = (m_outTemp-L) * (ee.heatTemp[1]-ee.heatTemp[0]) / (H-L) + ee.heatTemp[0];
       m_targetTemp = constrain(m_targetTemp, ee.heatTemp[0], ee.heatTemp[1]); // just for safety
       break;
   }
@@ -779,6 +781,7 @@ String HVAC::settingsJson()
   s += ",\"frnw\":";  s += ee.furnaceWatts;
   s += ",\"hfw\":";  s += ee.humidWatts;
   s += ",\"ffp\":";  s += ee.furnacePost;
+  s += ",\"dl\":";  s += ee.diffLimit;
   s += "}";
   return s;
 }
@@ -884,6 +887,7 @@ const char *cmdList[] = { "cmd",
   "frnw",
   "hfw",
   "ffp",
+  "dl",
   NULL
 };
 
@@ -1065,6 +1069,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 40:
       ee.furnacePost = val;
+      break;
+    case 41: // dl
+      ee.diffLimit = constrain(val, 150, 350);
       break;
   }
 }
