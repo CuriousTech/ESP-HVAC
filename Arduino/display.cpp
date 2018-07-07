@@ -878,7 +878,8 @@ void Display::addGraphPoints()
     p->h = hvac.m_targetTemp + ee.cycleThresh[1];
     p->l = hvac.m_targetTemp;
   }
-//  m_points[m_pointsIdx].ltemp = hvac.m_localTemp;
+  p->ot = hvac.m_outTemp;
+//  p->ltemp = hvac.m_localTemp;
   p->bits.b.rh = hvac.m_rh;
   p->bits.b.fan = hvac.getFanRunning();
   p->bits.b.state = hvac.getState(); 
@@ -1052,4 +1053,26 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
   if(m_points[idx].temp == -1) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
+}
+
+int Display::minPointVal(int n)
+{
+  int minv = 10000;
+
+  for(int i = 0; i < GPTS; i++)
+  {
+    int val;
+    switch(n)
+    {
+      default: val = m_points[i].temp; break;
+      case 1: val = m_points[i].l; break;
+      case 2: val = m_points[i].h; break;
+      case 3: val = m_points[i].bits.b.rh; break;
+      case 4: val = m_points[i].ot; break;
+    }
+    if(val == -1) break;
+    if(minv > val) 
+      minv = val;
+  }
+  return minv;
 }
