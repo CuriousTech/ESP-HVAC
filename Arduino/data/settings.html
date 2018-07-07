@@ -46,6 +46,7 @@ ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
 ws.onmessage = function(evt) {
+// console.log(evt.data)
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
@@ -67,6 +68,7 @@ ws.onmessage = function(evt) {
 	a.cfm.value= +Json.cfm/1000
 	a.fcr.value= +Json.fcr
 	a.fcd.value= +Json.fcd
+	a.acth.value= +Json.dl/10
 	rmtMode=+Json.ar
 	setAtt()
  }
@@ -122,17 +124,9 @@ function setVars()
  s+=',"fcrange":'+(+a.fcr.value)
  s+=',"fcdisp":'+(+a.fcd.value)
  s+=',"cfm":'+(+a.cfm.value*1000).toFixed()
+ s+=',"dl":'+(+a.acth.value*10).toFixed()
  s+='}'
  ws.send(s)
-}
-
-function incHumid(n)
-{
-a.humidh.value= +a.humidh.value+n
-a.humidl.value= +a.humidl.value+n
-
-setVar('humidh',(+a.humidh.value*10).toFixed())
-setVar('humidl',(+a.humidl.value*10).toFixed())
 }
 
 function setRmt(v)
@@ -210,16 +204,12 @@ function t2s(v)
 <input type="submit" value="Main" onClick="window.location='/iot';">
 </td>
 </tr>
-<tr><td>Heat Thr</td><td><input type=text size=4 id="heatthr"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
-<tr><td>Humid Hi</td><td><input type=text size=4 id="humidh"></td><td><input type="button" value="+1" onClick="{incHumid(1)}"></td><td></td></tr>
-<tr><td>Humid Lo</td><td><input type=text size=4 id="humidl"></td><td><input type="button" value=" -1" onClick="{incHumid(-1)}"></td><td></td></tr>
-<tr><td>Pre Fan</td>
-<td><input type=text size=4 id="fanpre"></td>
-<td></td><td></td></tr>
-<tr><td>Post Fan</td><td><input type=text size=4 id="fandelay"></td><td></td><td></td></tr>
-<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin"></td><td></td><td></td></tr>
-<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td></td><td></td></tr>
-<tr><td>cycle Max</td><td><input type=text size=4 id="cycmax"></td><td>PKW</td><td><input type=text size=3 id="ppkwh"></td></tr>
+<tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
+<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth"></td><td></td><td></td></tr>
+<tr><td>Humid Low</td><td><input type=text size=4 id="humidl"></td><td>High</td><td><input type=text size=3 id="humidh"></td></tr>
+<tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre"></td><td>Post</td><td><input type=text size=3 id="fandelay"></td></tr>
+<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td>Max</td><td><input type=text size=3 id="cycmax"></td></tr>
+<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin"></td><td>PKW</td><td><input type=text size=3 id="ppkwh"></td></tr>
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td>CFM</td><td><input type=text size=3 id="cfm"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td>CCF</td><td><input type=text size=3 id="ccf"></td></tr>
 <tr><td>Display</td><td><input type=text size=4 id="fcd"></td><td></td><td></td></tr>
