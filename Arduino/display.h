@@ -32,6 +32,7 @@ struct gPoint{
   int16_t temp;
   int16_t l;
   int16_t h;
+  int16_t ot;
   gflags bits;
 };
 
@@ -56,6 +57,7 @@ public:
   void drawForecast(bool bRef);
   void Note(char *cNote);
   bool getGrapthPoints(gPoint *pt, int n);
+  int  minPointVal(int n);
 private:
   void buttonRepeat(void);
   void refreshAll(void);
@@ -75,7 +77,7 @@ private:
   void drawPointsTemp(void);
   uint16_t stateColor(gflags v);
   void Lines(void);
-  int tween(int8_t t1, int8_t t2, int m, int r);
+  int  tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
 #define GPTS 800 // 320 px width - (10+10) padding
