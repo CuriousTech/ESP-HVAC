@@ -292,7 +292,8 @@ function draw(){
 			color: "red",
 			tip: arr[i][1]/10,
 			tip2: arr[i][2]/10,
-			tip3: date.toLocaleTimeString()+' '
+			tip3: date.toLocaleTimeString()+' ',
+			tip4: arr[i][5]/10
 		})
 	}
 
@@ -321,6 +322,7 @@ function draw(){
 				tipCtx.fillText( dot.tip + '°F', 4, 15)
 				tipCtx.fillText( dot.tip2 + '%', 4, 29)
 				tipCtx.fillText( dot.tip3, 4, 44)
+				tipCtx.fillText( dot.tip4 + '°F', 4, 58)
 				hit = true
 				popup = document.getElementById("popup")
 				popup.style.top = dot.y + "px"
@@ -462,7 +464,7 @@ function secsToTime(elap)
 <body>
 <div id="wrapper">
 <canvas id="graph" width="800" height="400"></canvas>
-<div id="popup"><canvas id="tip" width="70" height="45"></canvas></div>
+<div id="popup"><canvas id="tip" width="70" height="58"></canvas></div>
 </div>
 <table cellspacing=1 width=800>
 <tr><td><div id='d0'></div></td><td><div id='d1'></div></td><td><div id='d2'></div></td><td><div id='d3'></div></td></tr>
