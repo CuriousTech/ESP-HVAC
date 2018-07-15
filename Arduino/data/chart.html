@@ -88,31 +88,38 @@ $(document).ready(function()
 			mns=Json.mon
 			updateFields()
 			break
-		case 'data':
+		case 'ref':
 			tb=Json.tb
 			th=Json.th
 			tm=Json.tm
 			lm=Json.lm
 			rm=Json.rm
 			om=Json.om
-			arr=Json.d
+			arr=new Array()
 			break
-		case 'data2':
+		case 'data':
+			for(i=0;i<Json.d.length;i++){
+				Json.d[i][0]=(tb-Json.d[i][0]*10)*1000
+				Json.d[i][1]+=tm
+				Json.d[i][2]+=rm
+				Json.d[i][3]+=lm
+				Json.d[i][5]+=om
+			}
 			arr=arr.concat(Json.d)
 			break
+		case 'data2':
+			for(i=0;i<Json.d.length;i++)
+				Json.d[i][0]*=1000
+			arr=Json.d.concat(arr)
 		case 'draw':
-			for(i=0;i<arr.length;i++){
-				arr[i][0]=(tb-arr[i][0]*10)*1000
-				arr[i][1]+=tm
-				arr[i][2]+=rm
-				arr[i][3]+=lm
-				arr[i][5]+=om
-			}
 			draw()
 			break
 	}
  }
- setInterval(function(){ ws.send('cmd;{data:0}'); }, 60000);
+ setInterval(function(){
+  s=0
+  if(arr.length) s=(arr[0][0]/1000).toFixed()
+  ws.send('cmd;{data:'+s+'}'); }, 60000);
 });
 
 function updateFields()
