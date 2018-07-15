@@ -80,7 +80,7 @@ private:
   int  tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
-#define GPTS 800 // 320 px width - (10+10) padding
+#define GPTS 600 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
   uint16_t m_pointsIdx;
   uint16_t m_temp_counter = 2*60;
