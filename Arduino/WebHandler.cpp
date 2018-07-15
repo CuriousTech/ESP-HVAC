@@ -229,11 +229,8 @@ void fcPage(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response = request->beginResponseStream("text/javascript");
 
-  for(int i = 0; i < FC_CNT; i++)
+  for(int i = 0; i < FC_CNT && display.m_fcData[i].tm; i++)
   {
-    if(display.m_fcData[i].tm == 0)
-      break;
-
     String out = "";
     out += display.m_fcData[i].tm;
     out += ",";
@@ -249,7 +246,7 @@ void handleServer()
   MDNS.update();
   static int n;
 
-  if(++n > 10)
+  if(++n >= 10)
   {
     historyDump(false);
     n = 0;
@@ -420,7 +417,7 @@ void historyDump(bool bStart)
       bSending = false;
       return;
     }
-    out = String("data;{\"tb\":");
+    out = String("ref;{\"tb\":");
     tb = gpt.time; // latest entry
     tempMin = display.minPointVal(0);
     lMin = display.minPointVal(1);
@@ -434,23 +431,18 @@ void historyDump(bool bStart)
     out += ",\"lm\":"; out += lMin; // threshold low min
     out += ",\"rm\":"; out += rhMin; // rh min
     out += ",\"om\":"; out += otMin; // ot min
-    out += ",\"d\":[";
+    out += "}";
+    ws.text(WsClientID, out);
   }
-  else
-    out = String("data2;{\"d\":[");
+
+  out = String("data;{\"d\":[");
 
   bool bC = false;
-  for(; entryIdx < GPTS - 1 && out.length() < 1100; entryIdx++)
+  for(; entryIdx < GPTS - 1 && out.length() < 1100 && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
   {
-    if( display.getGrapthPoints(&gpt, entryIdx) == false)
-    {
-      bSending = false;
-      break;
-    }
-
     if(bC) out += ",";
     bC = true;
-    out += "[";         // [seconds/10, temp, rh, low, state],
+    out += "[";         // [seconds/10, temp, rh, lowThresh, state, outTemp],
     out += (tb - (int32_t)gpt.time) / 10;
     out += ",";
     out += gpt.temp - tempMin;
@@ -464,13 +456,47 @@ void historyDump(bool bStart)
     out += gpt.ot - otMin;
     out += "]";
   }
-  if(out.length() > 15) // don't send blank
+  if(bC) // don't send blank
   {
     out += "]}";
     ws.text(WsClientID, out);
   }
+  else
+    bSending = false;
   if(bSending == false)
     ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+}
+
+
+void appendDump(int startTime)
+{
+  String out = String("data2;{\"d\":[");
+  bool bC = false;
+  gPoint gpt;
+
+  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < 1100 && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
+  {
+    if(bC) out += ",";
+    bC = true;
+    out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
+    out += gpt.time;
+    out += ",";
+    out += gpt.temp;
+    out += ",";
+    out += gpt.bits.b.rh;
+    out += ",";
+    out += gpt.l;
+    out += ",";
+    out += gpt.bits.u & 7;
+    out += ",";
+    out += gpt.ot;
+    out += "]";
+  }
+  if(bC) // don't send blank
+  {
+    out += "]}";
+    ws.text(WsClientID, out);
+  }
 }
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
@@ -519,7 +545,8 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       }
       else if(iName == 1) // 1 = data
       {
-        historyDump(true);
+        if(iValue) appendDump(iValue);
+        else historyDump(true);
       }
       else if(iName == 2) // 2 = summary
       {
