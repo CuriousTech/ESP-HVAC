@@ -1,0 +1,42 @@
+PCB OSHPark $16.50 for 3
+
+ESP-07          eBay
+USB Micro-B     ZX62D-B-5PA8(30) or common eBay (remote only)
+Nextion HMI     2.8" eBay
+3V3R            MCP1755T-3302E/OT
+TXRX,LCD,DHT    0.1" headers. Use for serial programming ESP, debug, Nextion.
+
+rh/temp sensor options:
+ AM2302/DHT22   (upper 4 pin)
+ AM2320         (lower 4 pin, i2c)
+ SHT21          DFN-6
+ Si7021         cheaper DFN-6
+ Si7034         super cheap
+
+R1-R5       *   0805 470
+R6-R8       *   0805 10K
+R9              0805 10K (use R9 on remote as well)
+R10,R11         0805 10K
+R12,R13         0805 4K7 (ignore for AM2302)
+R14,R15         ADC voltage divider (not used)
+R16,R17         0805 5K6
+R19             0805 10K (pullup in case 10K isn't removed from Nextion)
+R20         *   0805 4K7
+
+F1          *   1812 PPTC Fuse 1.5A PTS181224V150
+BR          *   MDB10SV
+VREG        *   LMR16006YQ5DDCRQ1
+L1          *   0805 6.8uH IFSC0806AZER6R8M01
+D1          *   SOT-223 NSVR0320MW2T1G
+C1 or C2    *   10uF+ 25V+ 5mm UZR1V100MCL1GB
+C3-C6       *   0805 16V 0.1uF
+C7          *   0805 16V 1uF
+C8          *   0805 16V 10uF
+C9              0603 16V 0.1uF (if SHTxx used)
+C10         *   0805 2.2uF
+
+K1-K5       *   AQY282SZ or AQY282S or AQY211EHAX (SMD-DIP4 1FormA 30VAC+ 500mA~5A)
+X1          *   39357-0008 (or 691322110008 and 691361100008) Screw terimal, 8 position 3.5mm pitch
+J1              ADC expansion (Not used)
+
+* Only for main controller
