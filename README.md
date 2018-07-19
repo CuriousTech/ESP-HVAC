@@ -1,9 +1,7 @@
 # ESP8266-HVAC
 WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
-<b>Update 3:</b> Did what I could with the PCB.  An external sensor works best though.  I'm done with the code for now as well.  
-
-<b>Update 2:</b> Added a picture.  There will need to be a rev 1 board.  The SHT21 works fine on the desk, but reaches 91°F in the box.  I've moved it to an external board and not sure where to go with it now.  
+<b>2018 Model:</b> The new model was redesigned with a cooler switching regulator (~20mA idle, with a dim screen), smaller ($16.50 from OSHPark) more options for the temp/RH sensor, and the rotory encoder was removed, but has a header for an external encoder or buttons. The only difference in connections is the SCL/SDA were accidentaly reversed on the onboard SHTxx chip. Pics should be at the bottom. Not all parts are on it yet.
 
 Notes about the Nextion: The baudrate is bauds=115200 in the main initialize varaibles. This will alow it to communicate at the highest speed.  
 
@@ -58,6 +56,10 @@ Like any setting, it can be automated with something like Tasker.  To turn on wo
 ![remotepage](http://www.curioustech.net/images/hvacweb.png)  
 
 The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, rh is green, the target/threshold is at 3.0, and probably adjusted in the middle.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit.  The daily/monthly cost summary will be changed to a chart.  
-![chartpage](http://www.curioustech.net/images/hvacchart1.png)  
+![chartpage](http://www.curioustech.net/images/hvacchart.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
+
+New Model
+![model2](http://www.curioustech.net/images/esphvac2.jpg)  
+![model2side](http://www.curioustech.net/images/esphvac21.jpg)  
