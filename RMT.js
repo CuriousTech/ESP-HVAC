@@ -1,4 +1,6 @@
-Url = 'http://192.168.0.103:86/events'
+rmtIP = '192.168.0.105:86'
+Url = 'ws://' + rmtIP + '/ws'
+
 if(!Http.Connected)
 	Http.Connect( 'event', Url )  // Start the event stream
 
@@ -13,18 +15,15 @@ function OnCall(msg, event, data)
 	{
 		case 'HTTPDATA':
 			heartbeat = new Date()
-			if(data.length <= 2) break // keep-alive heartbeat
 			mute = false
-			lines = data.split('\n')
-			for(i = 0; i < lines.length; i++)
-				procLine(lines[i])
+//Pm.Echo(data)
+			procLine(data)
 			break
 		case 'HTTPSTATUS':
-			Pm.Echo('RMT Status ' + event)
+			Pm.Echo('RMT Status ' + event + ' ' + data)
 			break
 		case 'HTTPCLOSE':
 			Pm.Echo('RMT stream retry')
-//			Http.Connect( 'event', Url )  // Start the event stream
 			break
 	}
 }
@@ -33,34 +32,24 @@ function procLine(data)
 {
 	if(data.length < 2) return
 	data = data.replace(/\n|\r/g, "")
-	if( data.indexOf( 'event' ) >= 0 )
-	{
-		event = data.substring( data.indexOf(':') + 2)
-		return
-	}
-	else if( data.indexOf( 'data' ) >= 0 )
-	{
-		data = data.substring( data.indexOf(':') + 2)
-	}
-	else
-	{
-		return // headers
-	}
+	parts = data.split(';')
 
-	switch(event)
+	switch(parts[0])
 	{
 		case 'state':
-			LogRemote(data)
+			LogRemote(parts[1])
 			break
 		case 'print':
-			Pm.Echo( 'RMT Print: ' + data)
+			Pm.Echo( 'RMT Print: ' + parts[1])
 			break
 		case 'alert':
-			Pm.Echo( 'RMT Alert: ' + data)
+			Pm.Echo( 'RMT Alert: ' + parts[1])
 			Pm.Beep(0)
 			break
+		case 'OTA':
+			Pm.Echo( 'RMT Update: ' + parts[1])
+			break
 	}
-	event = ''
 }
 
 function OnTimer()
@@ -75,7 +64,7 @@ function OnTimer()
 				mute = true
 				Pm.Echo('RMT timeout')
 			}
-	//		Http.Connect( 'event', Url )  // Start the event stream
+			Http.Connect( 'event', Url )  // Start the event stream
 		}
 	}
 }
@@ -87,15 +76,9 @@ function LogRemote(str)
 
 	line = rmtJson.tempi + ',' + rmtJson.rhi
 
-//Pm.Echo(str)
 	if(line == last || +rmtJson.tempi == -1)
 		return
 	last = line
 
-//	Pm.Echo( new Date(rmtJson.t * 1000) )
-	fso = new ActiveXObject( 'Scripting.FileSystemObject' )
-	tf = fso.OpenTextFile( 'Remote.log', 8, true)
-	tf.WriteLine( rmtJson.t + ',' + line )
-	tf.Close()
-	fso = null
+	Pm.Log( 'Remote.log', rmtJson.t + ',' + line )
 }
