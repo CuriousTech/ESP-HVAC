@@ -35,33 +35,23 @@ uint8_t serverPort = 86;            // firewalled
 
 //-----------------
 AsyncWebServer server( serverPort );
-AsyncEventSource events("/events"); // event source (Server-Sent events)
+AsyncWebSocket ws("/ws");
 extern HVAC hvac;
 extern Display display;
 WiFiManager wifi;
-WebSocketsClient ws;
-AsyncClient fc_client;
+WebSocketsClient wsc;
+//AsyncClient fc_client;
+bool bKeyGood;
+int WsClientID;
+bool bWscConnected;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
 void startListener(void);
-void dataPage(AsyncWebServerRequest *request);
 void fcPage(AsyncWebServerRequest *request);
-int chartFiller(uint8_t *buffer, int maxLen, int index);
 
 int xmlState;
 void GetForecast(void);
-
-void onEvents(AsyncEventSourceClient *client)
-{
-  static bool rebooted = true;
-  events.send(dataJson().c_str(), "state");
-  if(rebooted)
-  {
-    events.send("Restarted", "alert");
-    rebooted = false;
-  }
-}
 
 const char pageR[] PROGMEM = 
    "<!DOCTYPE html>\n"
@@ -83,10 +73,63 @@ const char pageR[] PROGMEM =
    "</head>\n"
    "<body\">\n"
    "<strong><em>CuriousTech HVAC Remote</em></strong><br>\n"
-   "<input type=\"submit\" value=\"Chart\" onClick=\"window.location='/chart.html';\">\n"
+   "<input type=\"submit\" value=\"Chart\" onClick=\"window.location='/chart.html';\"><br>\n"
    "<small>Copyright &copy 2016 CuriousTech.net</small>\n"
    "</body>\n"
    "</html>\n";
+
+// values sent at an interval of 30 seconds unless they change sooner
+const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
+const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", NULL };
+const char *cmdList[] = { "cmd",
+  "key",
+  "data",
+  "sum",
+  NULL};
+  
+const char *jsonList3[] = { "alert", NULL };
+
+void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
+{  //Handle WebSocket event
+  static bool rebooted = true;
+  String s;
+
+  switch(type)
+  {
+    case WS_EVT_CONNECT:      //client connected
+      if(rebooted)
+      {
+        rebooted = false;
+        client->text("alert;Restarted");
+      }
+      s = String("settings;") + hvac.settingsJson().c_str(); // update everything on start
+      client->text(s);
+      s = String("state;") + dataJson().c_str();
+      client->text(s);
+      client->ping();
+      break;
+    case WS_EVT_DISCONNECT:    //client disconnected
+    case WS_EVT_ERROR:    //error was received from the other end
+      break;
+    case WS_EVT_PONG:    //pong message was received (in response to a ping request maybe)
+      break;
+    case WS_EVT_DATA:  //data packet
+      AwsFrameInfo * info = (AwsFrameInfo*)arg;
+      if(info->final && info->index == 0 && info->len == len){
+        //the whole message is in a single frame and we got all of it's data
+        if(info->opcode == WS_TEXT){
+          data[len] = 0;
+          char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
+          char *pData = strtok(NULL, "");
+          if(pCmd == NULL || pData == NULL) break;
+          bKeyGood = false; // for callback (all commands need a key)
+          WsClientID = client->id();
+          remoteParse.process(pCmd, pData);
+        }
+      }
+      break;
+  }
+}
 
 void startServer()
 {
@@ -108,9 +151,9 @@ void startServer()
   server.addHandler(new SPIFFSEditor("admin", ee.password));
 #endif
 
-  // attach AsyncEventSource
-  events.onConnect(onEvents);
-  server.addHandler(&events);
+  // attach AsyncWebSocket
+  ws.onEvent(onWsEvent);
+  server.addHandler(&ws);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
 //    Serial.println("handleRoot");
@@ -143,7 +186,6 @@ void startServer()
       request->send_P(200, "text/html", page_chart);
 #endif
   });
-  server.on ( "/data", HTTP_GET, dataPage);
   server.on ( "/forecast", HTTP_GET, fcPage);
 
   // respond to GET requests on URL /heap
@@ -173,55 +215,10 @@ void startServer()
   ArduinoOTA.begin();
 #endif
 
-  fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
-  fc_client.onData([](void* obj, AsyncClient* c, void* data, size_t len){fc_onData(c, static_cast<char*>(data), len); });
-  fc_client.onDisconnect([](void* obj, AsyncClient* c) { fc_onDisconnect(c); });
-  fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
-}
-
-// Send the array formated chart data and any modified variables
-void dataPage(AsyncWebServerRequest *request)
-{
-  int32_t tb = 0; // time subtracted from entries (saves 5 bytes each)
-
-  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
-
-  for(int entryIdx = 0; entryIdx < GPTS - 12; entryIdx++)
-  {
-    gPoint gpt;
-    if( display.getGrapthPoints(&gpt, entryIdx) == false)
-      break;
-   
-    if(gpt.time == 0)
-      continue; // some glitch?
-
-    String out = "";
-    if(tb == 0) // first entry found
-    {
-      tb = gpt.time - (60*60*26);  // subtract 26 hours form latest entry
-      out += "tb=";      // first data opening statements
-      out += tb;
-      out += "\ncost=";
-      out +=  String(hvac.m_fCostE + hvac.m_fCostG, 2);
-      out += "\ndata=[\n";
-    }
-    out += "[";         // [seconds/10, temp, rh, high, low, state],
-    out += (gpt.time - tb)/10;
-    out += ",";
-    out += gpt.temp;
-    out += ",";
-    out += gpt.bits.b.rh;
-    out += ",";
-    out += gpt.h;
-    out += ",";
-    out += gpt.l;
-    out += ",";
-    out += gpt.bits.u & 7;
-    out += "],";
-    response->print(out);
-  }
-  response->print("]\n");
-  request->send ( response );
+  remoteParse.addList(jsonList1);
+  remoteParse.addList(jsonList2);
+  remoteParse.addList(cmdList);
+  remoteParse.addList(jsonList3);
 }
 
 // Send the comma delimited forecast data
@@ -247,6 +244,13 @@ void fcPage(AsyncWebServerRequest *request)
 void handleServer()
 {
   MDNS.update();
+  static int n;
+
+  if(++n >= 10)
+  {
+    historyDump(false);
+    n = 0;
+  }
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
@@ -254,29 +258,25 @@ void handleServer()
 #endif
 }
 
-void WsSend(char *txt, const char *type)
+void WsSend(char *txt, const char *type) // Browser WebSocket
+{
+  ws.textAll(String(type) + String(";") + String(txt));
+}
+
+void WscSend(char *txt, const char *type) // remote WebSocket
 {
   String s = type;
   s += ";";
   s += txt;
-  ws.sendTXT(s);
+  wsc.sendTXT(s);
 }
 
 void secondsServer() // called once per second
 {
-  static uint8_t timer = 10;
-
-  if(--timer == 0) // event stream needs a keep-alive of 10 seconds
-  {
-    timer = 10;
-    events.send("", "");
-  }
-
   if(hvac.tempChange())
   {
-    events.send(dataJson().c_str(), "state");
-    WsSend((char*)dataJson().c_str(), "state");
-    timer = 10;
+    WsSend((char*)dataJson().c_str(), "state" );
+    WscSend((char*)dataJson().c_str(), "state");
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
@@ -291,18 +291,10 @@ void secondsServer() // called once per second
           startListener();
   }
 
-  if(display.m_bUpdateFcst)
+  if(display.m_bUpdateFcst && bWscConnected)
   {
      display.m_bUpdateFcst = false;
-
-     // Request data from main unit
-     if(fc_client.connected() == false)
-     {
-       display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hour data
-       display.m_fcData[0].tm = display.m_fcData[1].tm;
-       IPAddress ip(ee.hostIp);
-       fc_client.connect(ip, ee.hostPort);
-     }
+     WscSend("{\"bin\":1}", "cmd"); // forcast data
   }
 }
 
@@ -372,14 +364,123 @@ String dataJson()
   return hvac.getPushData();
 }
 
-// values sent at an interval of 30 seconds unless they change sooner
-const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
-const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", NULL };
-const char *jsonList3[] = { "alert", NULL };
+void historyDump(bool bStart)
+{
+  static bool bSending;
+  static int entryIdx;
+  static int32_t tb;
+  static int tempMin;
+  static int lMin;
+  static int hMin;
+  static int rhMin;
+  static int otMin;
+
+  if(bStart) bSending = true;
+  if(bSending == false)
+    return;
+
+  gPoint gpt;
+
+  String out;
+#define CHUNK_SIZE 800
+  out.reserve(CHUNK_SIZE + 100);
+
+  if(bStart)
+  {
+    entryIdx = 0;
+    if( display.getGrapthPoints(&gpt, 0) == false)
+    {
+      bSending = false;
+      return;
+    }
+    out = String("ref;{\"tb\":");
+    tb = gpt.time; // latest entry
+    tempMin = display.minPointVal(0);
+    lMin = display.minPointVal(1);
+    hMin = display.minPointVal(2);
+    rhMin = display.minPointVal(3);
+    otMin = display.minPointVal(4);
+  
+    out += tb;
+    out += ",\"th\":"; out += gpt.h - gpt.l; // threshold
+    out += ",\"tm\":"; out += tempMin; // temp min
+    out += ",\"lm\":"; out += lMin; // threshold low min
+    out += ",\"rm\":"; out += rhMin; // rh min
+    out += ",\"om\":"; out += otMin; // ot min
+    out += "}";
+    ws.text(WsClientID, out);
+  }
+
+  out = String("data;{\"d\":[");
+
+  bool bC = false;
+  for(; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
+  {
+    if(bC) out += ",";
+    bC = true;
+    out += "[";         // [seconds/10, temp, rh, lowThresh, state, outTemp],
+    out += (tb - (int32_t)gpt.time) / 10;
+    out += ",";
+    out += gpt.temp - tempMin;
+    out += ",";
+    out += gpt.bits.b.rh - rhMin;
+    out += ",";
+    out += gpt.l - lMin;
+    out += ",";
+    out += gpt.bits.u & 7;
+    out += ",";
+    out += gpt.ot - otMin;
+    out += "]";
+  }
+  if(bC) // don't send blank
+  {
+    out += "]}";
+    ws.text(WsClientID, out);
+  }
+  else
+    bSending = false;
+  if(bSending == false)
+    ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+}
+
+void appendDump(int startTime)
+{
+  String out;
+
+  out.reserve(CHUNK_SIZE + 100);
+  out = String("data2;{\"d\":[");
+  bool bC = false;
+  gPoint gpt;
+
+  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
+  {
+    if(bC) out += ",";
+    bC = true;
+    out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
+    out += gpt.time;
+    out += ",";
+    out += gpt.temp;
+    out += ",";
+    out += gpt.bits.b.rh;
+    out += ",";
+    out += gpt.l;
+    out += ",";
+    out += gpt.bits.u & 7;
+    out += ",";
+    out += gpt.ot;
+    out += "]";
+  }
+  if(bC) // don't send blank
+  {
+    out += "]}";
+    ws.text(WsClientID, out);
+  }
+}
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   static bool bConn = false;
+  String out;
 
   switch(iEvent)
   {
@@ -389,7 +490,43 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
     case 1: // settings
       hvac.setSettings(iName, iValue);
       break;
-    case 2: // alert
+    case 2: // cmdList
+      switch(iName)
+      {
+        case 0: // key
+          break;
+        case 1: // data
+          if(iValue) appendDump(iValue);
+          else historyDump(true);
+          break;
+        case 2: // sum
+          out = String("sum;{\"mon\":[");
+  
+          for(int i = 0; i < 12; i++)
+          {
+            if(i) out += ",";
+            out += "[";
+            out += ee.fCostE[i];
+            out += ",";
+            out += ee.fCostG[i];
+            out += "]";
+          }
+          out += "],\"day\":[";
+          for(int i = 0; i < 31; i++)
+          {
+            if(i) out += ",";
+            out += "[";
+            out += ee.fCostDay[i][0];
+            out += ",";
+            out += ee.fCostDay[i][1];
+            out += "]";
+          }
+          out += "]}";
+          ws.text(WsClientID, out);
+          break;
+      }
+      break;
+    case 3: // alert
       display.Note(psValue);
       break;
   }
@@ -397,13 +534,17 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
 {
+  String s;
+
   switch(type)
   {
     case WStype_DISCONNECTED:
+      bWscConnected = false;
       hvac.m_bLocalTempDisplay = true;
       hvac.m_notif = Note_Network;
       break;
     case WStype_CONNECTED:
+      bWscConnected = true;
       hvac.m_bLocalTempDisplay = false;
       if(hvac.m_notif == Note_Network) // remove net disconnect error
         hvac.m_notif = Note_None;
@@ -417,71 +558,24 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
         }
       break;
     case WStype_BIN:
-//      USE_SERIAL.printf("[WSc] get binary lenght: %u\n", length);
-//      hexdump(payload, length);
-
-      // send data to server
-      // ws.sendBIN(payload, length);
+        switch(payload[0])
+        {
+          case 1: // forecast (512+1 bytes)
+            if(length == sizeof(display.m_fcData)+1)
+            {
+              memcpy(display.m_fcData, payload+1, sizeof(display.m_fcData));
+              display.m_bUpdateFcstDone = true;
+            }
+            break;
+        }
       break;
   }
 }
 
 void startListener()
 {
+  wsc.onEvent(webSocketEvent);
   IPAddress ip(ee.hostIp);
-  remoteParse.addList(jsonList1);
-  remoteParse.addList(jsonList2);
-  remoteParse.addList(jsonList3);
-  ws.onEvent(webSocketEvent);
-  ws.begin(ip.toString().c_str(), ee.hostPort, "/ws");
-}
-
-int fcIdx;
-
-void fc_onConnect(AsyncClient* client)
-{
-  (void)client;
-
-  IPAddress ip(ee.hostIp);
-  String s = "GET /forecast HTTP/1.1\n"
-    "Host: ";
-  s += ip.toString();
-  s += "\nConnection: close\n"
-    "Accept: */*\n\n";
-
-  fc_client.add(s.c_str(), s.length());
-  fcIdx = 0; // 0 is reserved
-}
-
-// read data as comma delimited 'time,temp,rh' per line
-void fc_onData(AsyncClient* client, char* data, size_t len)
-{
-  while(fcIdx < FC_CNT-1 && *data)
-  {
-    uint32_t tm = atoi(data);
-    if(tm) // skip the headers
-    {
-      display.m_fcData[fcIdx].tm = tm;
-      while(*data && *data != ',') data ++;
-      if(*data == ',') data ++;
-      else return;
-      display.m_fcData[fcIdx].temp = atoi(data);
-      fcIdx++;
-    }
-    while(*data && *data != '\r' && *data != '\n') data ++;
-    while(*data == '\r' || *data == '\n') data ++;
-  }
-  display.m_fcData[fcIdx].tm = 0;
-  display.m_bUpdateFcstDone = true;
-  hvac.enable();
-}
-
-void fc_onDisconnect(AsyncClient* client)
-{
-  (void)client;
-}
-
-void fc_onTimeout(AsyncClient* client, uint32_t time)
-{
-  (void)client;
+  wsc.begin(ip.toString().c_str(), ee.hostPort, "/ws");
+  String s = String("openWS ") + ip.toString();
 }
