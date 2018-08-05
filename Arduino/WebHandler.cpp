@@ -34,7 +34,6 @@ int nFcPort = 83;
 
 //-----------------
 AsyncWebServer server( serverPort );
-AsyncEventSource events("/events"); // event source (Server-Sent events)
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 extern HVAC hvac;
 extern Display display;
@@ -53,18 +52,6 @@ uint32_t lastIP;
 bool bKeyGood;
 int WsClientID;
 int WsRemoteID;
-
-// Handle event stream
-void onEvents(AsyncEventSourceClient *client)
-{
-  static bool rebooted = true;
-  if(rebooted)
-  {
-    rebooted = false;
-    events.send("Restarted", "alert");
-  }
-  events.send(dataJson().c_str(), "state");
-}
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -139,10 +126,6 @@ void startServer()
   server.addHandler(new SPIFFSEditor("admin", ee.password));
 #endif
 
-  // attach AsyncEventSource
-  events.onConnect(onEvents);
-  server.addHandler(&events);
-
   // attach AsyncWebSocket
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
@@ -186,8 +169,6 @@ void startServer()
     request->send_P(200, "text/html", page_chart);
 #endif
   });
-  server.on ( "/forecast", HTTP_GET, fcPage); // forecast data for remote unit
-
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/favicon.ico");
 //    request->send(404);
@@ -224,23 +205,6 @@ void startServer()
   fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
 }
 
-// Send the comma delimited forecast data
-void fcPage(AsyncWebServerRequest *request)
-{
-  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
-
-  for(int i = 0; i < FC_CNT && display.m_fcData[i].tm; i++)
-  {
-    String out = "";
-    out += display.m_fcData[i].tm;
-    out += ",";
-    out += display.m_fcData[i].temp;
-    out += "\r\n";
-    response->print(out);
-  }
-  request->send( response );
-}
-
 void handleServer()
 {
   MDNS.update();
@@ -260,7 +224,6 @@ void handleServer()
 
 void WsSend(char *txt, const char *type)
 {
-  events.send(txt, type);
   ws.textAll(String(type) + String(";") + String(txt));
 }
 
@@ -269,17 +232,8 @@ void secondsServer() // called once per second
   if(nWrongPass)
     nWrongPass--;
 
-  static int n = 10;
   if(hvac.stateChange() || hvac.tempChange())
-  {
     WsSend((char*)dataJson().c_str(), "state" );
-    n = 10;
-  }
-  else if(--n == 0)
-  {
-    events.send("", "" ); // keepalive
-    n = 10;
-  }
 
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
@@ -409,6 +363,9 @@ void historyDump(bool bStart)
   gPoint gpt;
 
   String out;
+#define CHUNK_SIZE 800
+  out.reserve(CHUNK_SIZE + 100);
+
   if(bStart)
   {
     entryIdx = 0;
@@ -438,7 +395,7 @@ void historyDump(bool bStart)
   out = String("data;{\"d\":[");
 
   bool bC = false;
-  for(; entryIdx < GPTS - 1 && out.length() < 1100 && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
+  for(; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
   {
     if(bC) out += ",";
     bC = true;
@@ -470,11 +427,14 @@ void historyDump(bool bStart)
 
 void appendDump(int startTime)
 {
-  String out = String("data2;{\"d\":[");
+  String out;
+
+  out.reserve(CHUNK_SIZE + 100);
+  out = String("data2;{\"d\":[");
   bool bC = false;
   gPoint gpt;
 
-  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < 1100 && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
+  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
   {
     if(bC) out += ",";
     bC = true;
@@ -574,10 +534,24 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         out += "]}";
         ws.text(WsClientID, out);
       }
-      else
+      else if(iName == 3) // 3 = bin
+      {
+        switch(iValue)
+        {
+          case 1: // forecast data
+          {
+            uint8_t pl[sizeof(display.m_fcData)+1];
+            memcpy(pl+1, (uint8_t*)display.m_fcData, sizeof(display.m_fcData));
+            pl[0] = 1;
+            ws.binary(WsClientID, pl, sizeof(pl));
+          }
+          break;
+        }
+      }
+      else // 4+
       {
         if(bKeyGood)
-          hvac.setVar(cmdList[iName+1], iValue); // 4 is "fanmode"
+          hvac.setVar(cmdList[iName+1], iValue); // 5 is "fanmode"
       }
       break;
     case 2: // alert
@@ -587,7 +561,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 }
 
 // local server forecast retrieval 
-int fcIdx;
+String sfcBuffer;
 
 void fc_onConnect(AsyncClient* client)
 {
@@ -601,41 +575,52 @@ void fc_onConnect(AsyncClient* client)
     "Accept: */*\n\n";
 
   fc_client.add(s.c_str(), s.length());
-  fcIdx = 1; // 0 is reserved
+  sfcBuffer = String("");
+  sfcBuffer.reserve(1200);  // about 1010 bytes
+}
+
+// build file in chunks
+void fc_onData(AsyncClient* client, char* data, size_t len)
+{
+  sfcBuffer += data;
 }
 
 // read data as comma delimited 'time,temp,rh' per line
-void fc_onData(AsyncClient* client, char* data, size_t len)
+void fc_onDisconnect(AsyncClient* client)
 {
-  while(fcIdx < FC_CNT-1 && *data)
+  (void)client;
+
+  int fcIdx;
+  const char *p = sfcBuffer.c_str();
+  if(p == NULL)
+    return;
+
+  for(fcIdx = 1; fcIdx < FC_CNT-1 && *p;)
   {
-    uint32_t tm = atoi(data);
-    if(tm) // skip the headers
+    uint32_t tm = atoi(p);
+    if(tm > 15336576) // skip the headers
     {
       display.m_fcData[fcIdx].tm = tm;
-      while(*data && *data != ',') data ++;
-      if(*data == ',') data ++;
-      else return;
-      display.m_fcData[fcIdx].temp = atoi(data);
+      while(*p && *p != ',') p ++;
+      if(*p == ',') p ++;
+      else break;
+      display.m_fcData[fcIdx].temp = atoi(p);
       fcIdx++;
     }
-    while(*data && *data != '\r' && *data != '\n') data ++;
-    while(*data == '\r' || *data == '\n') data ++;
+    while(*p && *p != '\r' && *p != '\n') p ++;
+    while(*p == '\r' || *p == '\n') p ++;
   }
+  sfcBuffer = String("");
   display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
-  hvac.enable();
 
   if(display.m_fcData[0].tm == 0) // initial read
   {
     display.m_fcData[0].temp = display.m_fcData[1].temp;
     display.m_fcData[0].tm = display.m_fcData[1].tm;
   }
-}
-
-void fc_onDisconnect(AsyncClient* client)
-{
-  (void)client;
+  if(display.m_fcData[0].tm)
+    hvac.enable();
 }
 
 void fc_onTimeout(AsyncClient* client, uint32_t time)
