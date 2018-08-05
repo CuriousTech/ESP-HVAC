@@ -13,8 +13,6 @@
 #include <TimeLib.h>
 #include "eeMem.h"
 
-extern void WsSend(char *txt, const char *type);
-
 HVAC::HVAC()
 {
   pinMode(P_FAN, OUTPUT);
@@ -23,11 +21,11 @@ HVAC::HVAC()
   pinMode(P_HUMID, OUTPUT);
   pinMode(P_HEAT, OUTPUT);
 
+  digitalWrite(P_FAN, LOW);
   digitalWrite(P_HEAT, LOW);
   digitalWrite(P_REV, LOW); // LOW = HEAT, HIGH = COOL
   digitalWrite(P_COOL, LOW);
   digitalWrite(P_HUMID, HIGH); // LOW = ON
-  digitalWrite(P_FAN, LOW);
 }
 
 void HVAC::init()
@@ -378,6 +376,8 @@ void HVAC::tempCheck()
         if( m_bFanRunning == false)
         {
           uint16_t t = ee.fanPreTime[mode == Mode_Heat];
+          if( m_FanMode == FM_Cycle )
+            t = ee.fanCycleTime;
           if(t && m_fanPreElap > ee.idleMin) // try to use fan to adjust temp first
           {
             m_fanPreTimer = t;
@@ -463,6 +463,9 @@ void HVAC::calcTargetTemp(int mode)
   }
   int16_t L = m_outMin * 10;
   int16_t H = m_outMax * 10;
+
+  if( H-L == 0) // divide by 0
+    return;
 
   switch(mode)
   {
@@ -845,6 +848,7 @@ const char *cmdList[] = { "cmd",
   "key",
   "data",
   "sum",
+  "bin",
 
   "fanmode",
   "mode",
@@ -895,12 +899,12 @@ int HVAC::CmdIdx(String s )
 {
   int iCmd;
   // skip the top 4 (event, key, data)
-  for(iCmd = 4; cmdList[iCmd]; iCmd++)
+  for(iCmd = 5; cmdList[iCmd]; iCmd++)
   {
     if( s.equalsIgnoreCase( String(cmdList[iCmd]) ) )
       break;
   }
-  return iCmd - 4;
+  return iCmd - 5;
 }
 
 // POST set params as "fanmode=1"
@@ -992,7 +996,7 @@ void HVAC::setVar(String sCmd, int val)
       ee.rhLevel[1] = constrain(val, 300, 900);
       break;
     case 20: // adj
-      ee.adj = constrain(val, -30, 30); // calibrate can only be +/-3.0
+      ee.adj = constrain(val, -80, 10); // calibrate can only be -8.0 to +1.0
       break;
     case 21:     // fanPretime
       ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
