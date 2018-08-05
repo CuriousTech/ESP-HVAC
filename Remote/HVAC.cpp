@@ -67,7 +67,7 @@ void HVAC::sendCmd(const char *szName, int value)
   s += value;
   s += "}";
 
-  WsSend((char*)s.c_str(), "cmd");
+  WscSend((char*)s.c_str(), "cmd");
 }
 
 void HVAC::enableRemote()
@@ -425,6 +425,11 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::settingsJson()
 {
   String s = "{";
+  s += "\"m\":";   s += ee.Mode;
+  s += ",\"ppk\":";  s += ee.ppkwh;
+  s += ",\"ccf\":";  s += ee.ccf;
+  s += ",\"cfm\":";  s += ee.cfm;
+  s += ",\"dl\":";  s += ee.diffLimit;
   s += "\"rmt\":"; s += m_bRemoteStream;
   s += "}";
   return s;
@@ -435,8 +440,14 @@ String HVAC::getPushData()
 {
   String s = "{";
   s += "\"t\":";  s += now() - ((ee.tz+m_DST) * 3600);
+  s += ",\"r\":" ;  s += m_bRunning;
+  s += ",\"fr\":";  s += getFanRunning();
+  s += ",\"it\":";  s += m_inTemp;
   s += ",\"tempi\":"; s += m_localTemp;
   s += ",\"rhi\":"; s += m_localRh;
+  s += ",\"ce\":\""; s += m_fCostE;  s += "\"";
+  s += ",\"cg\":\"";  s += m_fCostG;  s += "\"";
+  s += ",\"ct\":";  s += m_cycleTimer;
   s += ",\"rmt\":"; s += m_bRemoteStream;
   s += "}";
   return s;
