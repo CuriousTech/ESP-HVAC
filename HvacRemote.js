@@ -1,7 +1,7 @@
 //  HvacRemote script running on PngMagic  http://www.curioustech.net/pngmagic.html
 // Device is set to a fixed IP in the router
 
-	hvacUrl = 'ws://192.168.0.105:85/ws'
+	hvacUrl = 'ws://192.168.0.103:85/ws'
 	password = 'password'
 
 	kwh = 3600 // killowatt hours (compressor+fan)
@@ -29,6 +29,7 @@
 	Gdi.Width = 208 // resize drawing area
 	Gdi.Height = 250
 
+	Http.Close()
 	if(!Http.Connected)
 		Http.Connect('HVAC', hvacUrl)
 
@@ -52,10 +53,11 @@ function OnCall(msg, event, data, d2)
 			break
 		case 'HTTPDATA':
 			timeout = new Date()
+//Pm.Echo(data)
 			if(data.length) procLine(data)
 			break
 		case 'HTTPCLOSE':
-			Pm.Echo( 'HvacRemote WS closed')
+			Pm.Echo( 'HvacRemote WS closed ' + data)
 			break
 
 		case 'BUTTON':
@@ -129,7 +131,7 @@ function OnCall(msg, event, data, d2)
 			break
 
 		default:
-			Pm.Echo('HR Unrecognised ' + msg)
+			Pm.Echo('HVAC Unrecognised ' + msg)
 			break
 	}
 }
@@ -139,11 +141,13 @@ function OnTimer()
 	if(Http.Connected)
 		return
 	Http.Connect('HVAC', hvacUrl)
+Pm.Echo('HVAC reconnect')
 }
 
 function SetVar(v, val)
 {
-	Http.Send( 'cmd;{key:' + password + ',' + v + ':' + val  )
+	Http.Send( 'cmd;{key:' + password + ',' + v + ':' + val + '}'  )
+	Pm.Echo( 'cmd;{key:' + password + ',' + v + ':' + val + '}'  )
 }
 
 function procLine(data)
@@ -172,6 +176,12 @@ function procLine(data)
 			overrideTime = +json.ov
 			remoteTimer = json.rm
 			remoteTimeout = json.ro
+			ppkwh = json.ppk / 10000
+			kwh = json.cw + json.fw
+
+			ccfs = json.ccf / 100000 // Nat gas = 1.243 CCF on bill / into CF
+			cfm = json.cfm / 1000	// Cubic feet per minute into seconds
+
 			Draw()
 			break
 
@@ -181,7 +191,7 @@ function procLine(data)
 			state = +json.s
 			fan = +json.fr
 			inTemp = +json.it / 10
-			rh = +json.rh / 10
+			rh = (+json.rh / 10).toFixed(1)
 			targetTemp = +json.tt / 10
 			filterMins = +json.fm
 			outTemp = +json.ot / 10
@@ -191,6 +201,8 @@ function procLine(data)
 			fanTimer = +json.ft
 			runTotal = +json.rt
 
+//Pm.Echo('HV ' + inTemp + ' ' + rh)
+
 			if(Pm.FindWindow( 'History' ))
 				Pm.History( 'REFRESH' )
 			Draw()
@@ -198,10 +210,14 @@ function procLine(data)
 			Pm.X10('STATTEMP', inTemp + '° ' + rh + '% > ' + targetTemp + '° ')
 			break
 		case 'alert':
-			Pm.Echo('HVAC Alert: ' + parts[1])
+			date = new Date()
+			Pm.Echo('HVAC Alert: ' + date.toLocaleTimeString() + ' ' + parts[1])
+			break
+		case 'print':
+			Pm.Echo( 'HVAC  ' + parts[1])
 			break
 		default:
-			Pm.Echo('HR Unknown event: ' + data)
+			Pm.Echo('HVAC Unknown event: ' + data)
 			break	
 	}
 }
@@ -217,7 +233,7 @@ function setTemp( mode, Temp, hl)
 	switch(mode)
 	{
 		case 1:
-			if(Temp < 65.0 || Temp > 90.0)    // ensure sane values
+			if(Temp < 65.0 || Temp > 92.0)    // ensure sane values
 				break
 			if(hl)
 			{
@@ -296,6 +312,7 @@ function Draw()
 	s = 'huh'
 	switch(mode)
 	{
+		case 0: s = 'Off'; break
 		case 1: s = 'Cooling'; break
 		case 2: s = 'Heating'; break
 		case 3: s = 'eHeating'; break
@@ -319,8 +336,8 @@ function Draw()
 	y += bh
 	Gdi.Text('ovr Time:', x, y); 	Gdi.Text(overrideTime , x + 112, y, 'Time')
 	y += bh
-	a = Reg.overrideTemp
-	Gdi.Text('Override:', x, y);  Gdi.Text(a + '°' , x + 112, y, 'Right')
+	a = +Reg.overrideTemp
+	Gdi.Text('Override:', x, y);  Gdi.Text(a.toFixed(1) + '°' , x + 112, y, 'Right')
 
 	if(ovrActive)
 		Gdi.Pen(Gdi.Argb(255,255,20,20), 2 )	// Button square
@@ -334,7 +351,7 @@ function Draw()
  	if(mode == 1 || (mode==2 && heatMode == 0))  // cool or HP
 		cost = ppkwh * runTotal / (1000*60*60) * kwh
 	else
-		cost = ccfs * runTotal
+		cost = ccfs * runTotal * cfm
 
 	Gdi.Text('Filter:', x, y);  Gdi.Text(filterMins*60, x + 100, y, 'Time')
 	Gdi.Pen(Gdi.Argb(255,20,20,255), 2 )	// Button square
@@ -396,15 +413,12 @@ function LogTemps( )
 	last1  = last2
 	last2 = inTemp
 
-	fso = new ActiveXObject( 'Scripting.FileSystemObject' )
-
 	ttL = targetTemp
-	
 	ttH = targetTemp
 
-	if(Reg.hvacMode == 1)
-		    ttH -= cycleThresh // cool
-	else ttH += cycleThresh // heat
+	if(Reg.hvacMode == 2)
+		    ttH += cycleThresh // heat
+	else ttH -= cycleThresh // cool
 
 	if(mode != Reg.hvacMode)
 	{
@@ -412,8 +426,5 @@ function LogTemps( )
 		Pm.Echo('mode change')
 	}
 
-	tf = fso.OpenTextFile( 'statTemp.log', 8, true)
-	tf.WriteLine( hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + ttL + ',' + ttH+ ',' + rh)
-	tf.Close()
-	fso = null
+	Pm.Log( 'statTemp.log', hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + ttL + ',' + ttH.toFixed(1)+ ',' + rh)
 }
