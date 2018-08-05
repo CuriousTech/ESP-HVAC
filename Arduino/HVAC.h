@@ -4,11 +4,11 @@
 #ifndef HVAC_H
 #define HVAC_H
 //----------------
-#define P_FAN   16 // GPIO for SSRs
-#define P_COOL  14
-#define P_REV   12
-#define P_HEAT  15
-#define P_HUMID  0
+#define P_FAN   16 // G GPIO for SSRs
+#define P_COOL  14 // Y
+#define P_REV   12 // O
+#define P_HEAT  15 // W
+#define P_HUMID  0 // H
 //-----------------
 #include <arduino.h>
 
