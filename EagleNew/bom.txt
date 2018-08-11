@@ -28,14 +28,14 @@ BR          *   MDB10SV
 VREG        *   LMR16006YQ5DDCRQ1
 L1          *   0805 6.8uH IFSC0806AZER6R8M01
 D1          *   SOT-223 NSVR0320MW2T1G
-C1 or C2    *   10uF+ 25V+ 5mm UZR1V100MCL1GB
+C1 or C2    *   10uF+ 25V+ 5mm (PCV1E470MCL2GS 6mm) or UZR1V100MCL1GB
 C3-C6       *   0805 16V 0.1uF
 C7          *   0805 16V 1uF
 C8          *   0805 16V 10uF
 C9              0603 16V 0.1uF (if SHTxx used)
 C10         *   0805 2.2uF
 
-K1-K5       *   AQY282SZ or AQY282S or AQY211EHAX (SMD-DIP4 1FormA 30VAC+ 500mA~5A)
+K1-K5       *   G3VM-61GR2 (stays cooler), or AQY282S, or any SMD-DIP4 1FormA 30VAC+ 500mA~5A
 X1          *   39357-0008 (or 691322110008 and 691361100008) Screw terimal, 8 position 3.5mm pitch
 J1              ADC expansion (Not used)
 
