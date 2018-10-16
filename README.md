@@ -19,8 +19,6 @@ Some screens including a keyboard and SSID chooser, but this is using the auto c
 
 ![Some display screenshots](http://www.curioustech.net/images/hvacscreens.png)
 
-![The thing](http://www.curioustech.net/images/esphvac.jpg)
-
 Cool/heat low/high:  
 These are the desired temperature ranges for cooling and heating, which are calculated based on outside temperature over the next 3 days ee.fcRange adjusts the time range.  ee.fcDisplay adjusts the days shown.  Up to 7ish days.  
 
