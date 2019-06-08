@@ -359,7 +359,7 @@ void Display::drawForecast(bool bRef)
 
     int rng = fcCnt;
     if(rng > ee.fcRange) rng = ee.fcRange;
-  
+
     // Get min/max of current forecast
     for(int i = 1; i < rng; i++)
     {
@@ -472,8 +472,8 @@ void Display::drawForecast(bool bRef)
 int Display::tween(int8_t t1, int8_t t2, int m, int r)
 {
   if(r == 0) r = 1; // div by zero check
-  double t = (double)(t2 - t1) * (m * 100 / r) / 100;
-  return (int)((t + t1) * 10);
+  float t = (float)(t2 - t1) * (m * 100 / r) / 100;
+  return (int)((t + (float)t1) * 10);
 }
 
 void Display::displayOutTemp()
@@ -495,7 +495,6 @@ void Display::displayOutTemp()
   {
     String s = String("iH=") + String(iH);
     WsSend((char*)s.c_str(), "alert");
-//    m_bUpdateFcst = true;
   }
 
   int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
@@ -556,6 +555,7 @@ void Display::updateNotification(bool bRef)
   nex.itemText(12, s);
   if(s != "" && bRef == false) // refresh shouldn't be resent
   {
+    s = "{\"text\":\"" + s + "\"}";
     WsSend((char*)s.c_str(), "alert");
   }
 }
@@ -868,7 +868,7 @@ void Display::addGraphPoints()
   p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
   p->temp = hvac.m_inTemp; // 66~90 scale to 0~220
-  if(hvac.getMode() == Mode_Cool) // Todo: could be auto
+  if(hvac.m_modeShadow == Mode_Heat)
   {
     p->h = hvac.m_targetTemp;
     p->l = hvac.m_targetTemp - ee.cycleThresh[0];
@@ -907,11 +907,13 @@ void Display::fillGraph()
   while(x > 10)
   {
     nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
+    delay(1);
     nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
     x -= 12 * 6; // left 6 hours
     h -= 6;
     if( h <= 0) h += 12;
   }
+  delay(2);
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
   drawPointsRh( rgb16(  0, 53,  0) ); // rh green
@@ -956,7 +958,7 @@ void Display::drawPoints(int w, uint16_t color)
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(1);
+      delay(2);
       y2 = y;
       x2 = x;
     }
@@ -1014,7 +1016,7 @@ void Display::drawPointsTemp()
     if(y != y2)
     {
       nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
-      delay(1);
+      delay(2);
       y2 = y;
       x2 = x;
     }
