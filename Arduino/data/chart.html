@@ -52,11 +52,11 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws = new WebSocket("ws://"+window.location.host+"/ws")
-// ws = new WebSocket("ws://192.168.0.105:85/ws")
+// ws = new WebSocket("ws://192.168.0.103/ws")
  ws.onopen = function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose = function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
-	console.log(evt.data)
+//	console.log(evt.data)
 	lines = evt.data.split(';')
 	event=lines[0]
 	data=lines[1]
@@ -74,7 +74,7 @@ $(document).ready(function()
 			date=new Date()
 			i=date.getDate()-1;
 			div=document.getElementById("d"+i)
-			div.innerHTML=(i+1)+'&emsp; $'+Json.ce+'&emsp; $'+Json.cg
+			div.innerHTML=(i+1)+'&emsp; $'+Json.ce.toFixed(2)+'&emsp; $'+Json.cg.toFixed(2)
 			cyc=secsToTime(+Json.ct)
 			updateFields()
 			draw()
@@ -106,6 +106,7 @@ $(document).ready(function()
 				Json.d[i][5]+=om
 			}
 			arr=arr.concat(Json.d)
+			draw()
 			break
 		case 'data2':
 			for(i=0;i<Json.d.length;i++)
@@ -142,15 +143,22 @@ function updateFields()
 			tG+=+dys[i][1]
 		}
 	}
+	a.tot.innerHTML='Tot&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
+	a.tot.setAttribute('class','style4')
+	yE=0
+	yG=0
 	for(i=0;i<12;i++)
 	{
 		div=document.getElementById("m"+i)
 		div.innerHTML=mnam.substr(i*3,3)+'&emsp; $'+mns[i][0].toFixed(2)+'&emsp; $'+mns[i][1].toFixed(2)
+		yE+=+mns[i][0]
+		yG+=+mns[i][1]
 		if(date.getMonth()==i){
 			div.setAttribute('class','style5')
-			div.innerHTML=mnam.substr(i*3,3)+'&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
 		}
 	}
+	a.mt.innerHTML='Year $'+yE.toFixed(2)+' $'+yG.toFixed(2)
+	a.mt.setAttribute('class','style4')
 }
 
 function draw(){
@@ -481,12 +489,13 @@ function secsToTime(elap)
 <tr><td><div id='d16'></div></td><td><div id='d17'></div></td><td><div id='d18'></div></td><td><div id='d19'></div></td></tr>
 <tr><td><div id='d20'></div></td><td><div id='d21'></div></td><td><div id='d22'></div></td><td><div id='d23'></div></td></tr>
 <tr><td><div id='d24'></div></td><td><div id='d25'></div></td><td><div id='d26'></div></td><td><div id='d27'></div></td></tr>
-<tr><td><div id='d28'></div></td><td><div id='d29'></div></td><td><div id='d30'></div></td><td></td></tr>
+<tr><td><div id='d28'></div></td><td><div id='d29'></div></td><td><div id='d30'></div></td><td><div id='tot'></div></td></tr>
 </table>
 <table cellspacing=1 width=800>
 <tr><td><div id='m0'></div></td><td><div id='m1'></div></td><td><div id='m2'></div></td><td><div id='m3'></div></td></tr>
 <tr><td><div id='m4'></div></td><td><div id='m5'></div></td><td><div id='m6'></div></td><td><div id='m7'></div></td></tr>
 <tr><td><div id='m8'></div></td><td><div id='m9'></div></td><td><div id='m10'></div></td><td><div id='m11'></div></td></tr>
+<tr><td><div id='mt'></div></td><td></td><td></td><td></td></tr>
 </table>
 </body>
 </html>
