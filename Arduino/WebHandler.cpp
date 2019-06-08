@@ -25,9 +25,10 @@
 #include "pages.h"
 #endif
 #include <XMLReader.h>
+#include "jsonstring.h"
 
 //-----------------
-int serverPort = 85;            // Change to 80 for normal access
+int serverPort = 80;
 
 IPAddress ipFcServer(192,168,0,100);    // local forecast server and port
 int nFcPort = 83;
@@ -66,10 +67,8 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         rebooted = false;
         client->text("alert;Restarted");
       }
-      s = String("settings;") + hvac.settingsJson().c_str(); // update everything on start
-      client->text(s);
-      s = String("state;") + dataJson().c_str();
-      client->text(s);
+      client->text( hvac.settingsJson() );
+      client->text( dataJson() );
       client->ping();
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
@@ -149,8 +148,7 @@ void startServer()
   });
 
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    String s = hvac.settingsJson();
-    request->send ( 200, "text/json", s);
+    request->send ( 200, "text/json",  hvac.settingsJson());
   });
 
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -233,11 +231,11 @@ void secondsServer() // called once per second
     nWrongPass--;
 
   if(hvac.stateChange() || hvac.tempChange())
-    WsSend((char*)dataJson().c_str(), "state" );
+    ws.textAll( dataJson() );
 
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
-    ws.textAll(String("settings;") + s); // update anything changed
+    ws.textAll(s); // update anything changed
 
   if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == false)
   {
@@ -302,12 +300,12 @@ void parseParams(AsyncWebServerRequest *request)
       nWrongPass <<= 1;
     if(ip != lastIP)  // if different IP drop it down
        nWrongPass = 10;
-    String data = "{\"ip\":\"";
-    data += request->client()->remoteIP().toString();
-    data += "\",\"pass\":\"";
-    data += password; // bug - String object adds a NULL
-    data += "\"}";
-    WsSend((char*)data.c_str(), "hack"); // log attempts
+
+    jsonString js("hack");
+    js.Var("ip", request->client()->remoteIP().toString() );
+    js.Var("pass", password);
+    ws.textAll(js.Close());
+
     lastIP = ip;
     return;
   }
@@ -362,10 +360,6 @@ void historyDump(bool bStart)
 
   gPoint gpt;
 
-  String out;
-#define CHUNK_SIZE 800
-  out.reserve(CHUNK_SIZE + 100);
-
   if(bStart)
   {
     entryIdx = 0;
@@ -374,7 +368,8 @@ void historyDump(bool bStart)
       bSending = false;
       return;
     }
-    out = String("ref;{\"tb\":");
+
+    jsonString js("ref");
     tb = gpt.time; // latest entry
     tempMin = display.minPointVal(0);
     lMin = display.minPointVal(1);
@@ -382,15 +377,21 @@ void historyDump(bool bStart)
     rhMin = display.minPointVal(3);
     otMin = display.minPointVal(4);
   
-    out += tb;
-    out += ",\"th\":"; out += gpt.h - gpt.l; // threshold
-    out += ",\"tm\":"; out += tempMin; // temp min
-    out += ",\"lm\":"; out += lMin; // threshold low min
-    out += ",\"rm\":"; out += rhMin; // rh min
-    out += ",\"om\":"; out += otMin; // ot min
-    out += "}";
-    ws.text(WsClientID, out);
+    js.Var("tb", tb);
+    if(hvac.m_modeShadow == Mode_Heat)
+      js.Var("th", gpt.h - gpt.l); // threshold
+    else // cool
+      js.Var("th", gpt.l - gpt.h); // -threshold
+    js.Var("tm", tempMin); // temp min
+    js.Var("lm", lMin); // threshold low min
+    js.Var("rm", rhMin); // rh min
+    js.Var("om", otMin); // ot min
+    ws.text(WsClientID, js.Close());
   }
+
+  String out;
+#define CHUNK_SIZE 800
+  out.reserve(CHUNK_SIZE + 100);
 
   out = String("data;{\"d\":[");
 
@@ -423,7 +424,6 @@ void historyDump(bool bStart)
   if(bSending == false)
     ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
 }
-
 
 void appendDump(int startTime)
 {
