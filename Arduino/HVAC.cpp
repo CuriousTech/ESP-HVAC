@@ -12,6 +12,10 @@
 #include "HVAC.h"
 #include <TimeLib.h>
 #include "eeMem.h"
+#include "jsonstring.h"
+
+extern void WsSend(char *,const char *);
+
 
 HVAC::HVAC()
 {
@@ -124,7 +128,7 @@ void HVAC::service()
     if(--m_overrideTimer == 0)
     {
       m_ovrTemp = 0;
-      calcTargetTemp(ee.Mode);  // recalc normal set temp
+      calcTargetTemp(m_modeShadow);  // recalc normal set temp
       m_bAway = false;
     }
   }
@@ -147,13 +151,15 @@ void HVAC::service()
 
   if(m_setMode != ee.Mode || m_setHeat != ee.heatMode)    // requested HVAC mode change
   {
-    if(m_bRunning)                     // cycleTimer is already > 20s here
+    if(m_bRunning)                   // cycleTimer is already > 20s here
       m_bStop = true;
-    else if(m_idleTimer >= 5)          // User may be cycling through modes (give 5s)
+    else if(m_idleTimer >= 5)        // User may be cycling through modes (give 5s)
     {
       ee.heatMode = m_setHeat;
       ee.Mode = m_setMode;
-      calcTargetTemp(ee.Mode);
+      if(ee.Mode != Mode_Off)
+        m_modeShadow = ee.Mode;
+      calcTargetTemp(m_modeShadow);
     }
   }
 
@@ -174,6 +180,7 @@ void HVAC::service()
           delay(2000);                //   if no heatpump, remove
         }
         digitalWrite(P_COOL, HIGH);
+        m_bRunning = true;
         break;
     case Mode_Heat:
         if(hm)  // gas
@@ -190,9 +197,9 @@ void HVAC::service()
           }
           digitalWrite(P_COOL, HIGH);
         }
+        m_bRunning = true;
         break;
     }
-    m_bRunning = true;
     if(ee.humidMode == HM_Run)
       humidSwitch(true);
     m_cycleTimer = 0;
@@ -320,7 +327,7 @@ void HVAC::tempCheck()
     if(second() == 0 || m_bRecheck) // readjust while running
     {
       m_bRecheck = false;
-      preCalcCycle(ee.Mode);
+      preCalcCycle();
     }
 
     switch(mode)
@@ -371,7 +378,7 @@ void HVAC::tempCheck()
     if(second() == 0 || m_bRecheck)
     {
       m_bRecheck = false;
-      if(m_bStart = preCalcCycle(ee.Mode))
+      if(m_bStart = preCalcCycle())
       {
         if( m_bFanRunning == false)
         {
@@ -394,7 +401,7 @@ void HVAC::tempCheck()
   }
 }
 
-bool HVAC::preCalcCycle(int mode)
+bool HVAC::preCalcCycle()
 {
   bool bRet = false;
 
@@ -414,10 +421,10 @@ bool HVAC::preCalcCycle(int mode)
   }
 
   // Standard triggers for now
-  switch(mode)
+  switch(ee.Mode)
   {
-    case Mode_Off: // 
-      calcTargetTemp(Mode_Off);
+    case Mode_Off:
+      calcTargetTemp(m_modeShadow); // use last heat/cool mode to calc target
       break;
     case Mode_Cool:
       calcTargetTemp(Mode_Cool);
@@ -550,8 +557,12 @@ void HVAC::setMode(int mode)
   m_setMode = mode & 3;
   if(!m_bRunning)
   {
-    if(m_setMode == 0 && m_FanMode != FM_On)
-      fanSwitch(0); // fan may be on
+    if(m_setMode == Mode_Off && m_FanMode != FM_On)
+    {
+      fanSwitch(false); // fan may be on
+      m_fanPreElap = 0;
+      m_fanPreTimer = 0;
+    }
     if(m_idleTimer < ee.idleMin - 60)
       m_idleTimer = ee.idleMin - 60;        // shorten the idle time
     if(m_idleTimer >= ee.idleMin)
@@ -608,7 +619,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   switch(mode)
   {
     case Mode_Off:        // keep a value at least
-      calcTargetTemp(ee.Mode);
+      calcTargetTemp(m_modeShadow);
       break;
  
     case Mode_Cool:
@@ -749,44 +760,44 @@ void HVAC::resetTotal()
 // Current control settings
 String HVAC::settingsJson()
 {
-  String s = "{";
-  s += "\"m\":";   s += ee.Mode;
-  s += ",\"am\":";  s += m_AutoMode;
-  s += ",\"hm\":";  s += ee.heatMode;
-  s += ",\"fm\":";  s += m_FanMode;
-  s += ",\"ot\":";  s += m_ovrTemp;
-  s += ",\"ht\":";  s += ee.eHeatThresh;
-  s += ",\"c0\":";  s += ee.coolTemp[0];
-  s += ",\"c1\":";  s += ee.coolTemp[1];
-  s += ",\"h0\":";  s += ee.heatTemp[0];
-  s += ",\"h1\":";  s += ee.heatTemp[1];
-  s += ",\"im\":";  s += ee.idleMin;
-  s += ",\"cn\":";  s += ee.cycleMin;
-  s += ",\"cx\":";  s += ee.cycleMax;
-  s += ",\"ct\":";  s += ee.cycleThresh[ee.Mode == Mode_Heat];
-  s += ",\"fd\":";  s += ee.fanPostDelay[digitalRead(P_REV)];
-  s += ",\"ov\":";  s += ee.overrideTime;
-  s += ",\"rhm\":";  s += ee.humidMode;
-  s += ",\"rh0\":";  s += ee.rhLevel[0];
-  s += ",\"rh1\":";  s += ee.rhLevel[1];
-  s += ",\"fp\":";   s += ee.fanPreTime[ee.Mode == Mode_Heat];
-  s += ",\"fct\":";  s += ee.fanCycleTime;
-  s += ",\"ar\":";  s += m_RemoteFlags;
-  s += ",\"at\":";  s += ee.awayTime;
-  s += ",\"ad\":";  s += ee.awayDelta[ee.Mode == Mode_Heat];
-  s += ",\"ppk\":";  s += ee.ppkwh;
-  s += ",\"ccf\":";  s += ee.ccf;
-  s += ",\"cfm\":";  s += ee.cfm;
-  s += ",\"fcr\":";  s += ee.fcRange;
-  s += ",\"fcd\":";  s += ee.fcDisplay;
-  s += ",\"cw\":";  s += ee.compressorWatts;
-  s += ",\"fw\":";  s += ee.fanWatts;
-  s += ",\"frnw\":";  s += ee.furnaceWatts;
-  s += ",\"hfw\":";  s += ee.humidWatts;
-  s += ",\"ffp\":";  s += ee.furnacePost;
-  s += ",\"dl\":";  s += ee.diffLimit;
-  s += "}";
-  return s;
+  jsonString js("settings");
+
+  js.Var("m",  ee.Mode);
+  js.Var("am", m_AutoMode);
+  js.Var("hm", ee.heatMode);
+  js.Var("fm", m_FanMode);
+  js.Var("ot", m_ovrTemp);
+  js.Var("ht", ee.eHeatThresh);
+  js.Var("c0", ee.coolTemp[0]);
+  js.Var("c1", ee.coolTemp[1]);
+  js.Var("h0", ee.heatTemp[0]);
+  js.Var("h1", ee.heatTemp[1]);
+  js.Var("im", ee.idleMin);
+  js.Var("cn", ee.cycleMin);
+  js.Var("cx", ee.cycleMax);
+  js.Var("ct", ee.cycleThresh[ee.Mode == Mode_Heat]);
+  js.Var("fd", ee.fanPostDelay[digitalRead(P_REV)]);
+  js.Var("ov", ee.overrideTime);
+  js.Var("rhm", ee.humidMode);
+  js.Var("rh0", ee.rhLevel[0]);
+  js.Var("rh1", ee.rhLevel[1]);
+  js.Var("fp",  ee.fanPreTime[ee.Mode == Mode_Heat]);
+  js.Var("fct", ee.fanCycleTime);
+  js.Var("ar",  m_RemoteFlags);
+  js.Var("at",  ee.awayTime);
+  js.Var("ad",  ee.awayDelta[ee.Mode == Mode_Heat]);
+  js.Var("ppk", ee.ppkwh);
+  js.Var("ccf", ee.ccf);
+  js.Var("cfm", ee.cfm);
+  js.Var("fcr", ee.fcRange);
+  js.Var("fcd", ee.fcDisplay);
+  js.Var("cw",  ee.compressorWatts);
+  js.Var("fw",  ee.fanWatts);
+  js.Var("frnw", ee.furnaceWatts);
+  js.Var("hfw", ee.humidWatts);
+  js.Var("ffp", ee.furnacePost);
+  js.Var("dl",  ee.diffLimit);
+  return js.Close();
 }
 
 // Current control settings modified since last call
@@ -813,35 +824,34 @@ String HVAC::settingsJsonMod()
 // Constant changing values
 String HVAC::getPushData()
 {
-  String s = "{";
-  s += "\"t\":";  s += now() - ((ee.tz+m_DST) * 3600);
-  s += ",\"r\":" ;  s += m_bRunning;
-  s += ",\"fr\":";  s += getFanRunning();
-  s += ",\"s\":" ;  s += getState();
-  s += ",\"it\":";  s += m_inTemp;
-  s += ",\"rh\":";  s += m_rh;
-  s += ",\"lt\":";  s += m_localTemp; // always local
-  s += ",\"lh\":";  s += m_localRh;
-  s += ",\"tt\":";  s += m_targetTemp;
-  s += ",\"fm\":";  s += m_filterMinutes;
-  s += ",\"ot\":";  s += m_outTemp;
-  s += ",\"ol\":";  s += m_outMin;
-  s += ",\"oh\":";  s += m_outMax;
-  s += ",\"ct\":";  s += m_cycleTimer;
-  s += ",\"ft\":";  s += m_fanOnTimer;
-  s += ",\"rt\":";  s += m_runTotal;
-  s += ",\"h\":";   s += m_bHumidRunning;
-  s += ",\"aw\":";  s += m_bAway;
-  s += ",\"ce\":\""; s += m_fCostE;  s += "\"";
-  s += ",\"cg\":\"";  s += m_fCostG;  s += "\"";
+  jsonString js("state");
+  js.Var("t", now() - ((ee.tz+m_DST) * 3600) );
+  js.Var("r", m_bRunning);
+  js.Var("fr", getFanRunning() );
+  js.Var("s" , getState() );
+  js.Var("it", m_inTemp);
+  js.Var("rh", m_rh);
+  js.Var("lt", m_localTemp); // always local
+  js.Var("lh", m_localRh);
+  js.Var("tt", m_targetTemp);
+  js.Var("fm", m_filterMinutes);
+  js.Var("ot", m_outTemp);
+  js.Var("ol", m_outMin);
+  js.Var("oh", m_outMax);
+  js.Var("ct", m_cycleTimer);
+  js.Var("ft", m_fanOnTimer);
+  js.Var("rt", m_runTotal);
+  js.Var("h",  m_bHumidRunning);
+  js.Var("aw", m_bAway);
+  js.Var("ce", m_fCostE);
+  js.Var("cg", m_fCostG);
   if(m_bRemoteDisconnect)
   {
-    s += ",\"rmt\":0";
+    js.Var("rmt", 0);
     m_bRemoteDisconnect = false;
     m_bLocalTempDisplay = true;
   }
-  s += "}";
-  return s;
+  return js.Close();
 }
 
 const char *cmdList[] = { "cmd",
