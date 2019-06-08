@@ -127,12 +127,13 @@ public:
   float    m_fCostG;        // cost total (gas)
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
+  int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
 
 private:
   void  fanSwitch(bool bOn);
   void  humidSwitch(bool bOn);
   void  tempCheck(void);
-  bool  preCalcCycle(int mode);
+  bool  preCalcCycle();
   void  calcTargetTemp(int mode);
   void  costAdd(int secs, int mode, int hm);
   int   CmdIdx(String s);
