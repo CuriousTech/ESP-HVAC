@@ -4,33 +4,33 @@
 eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
-  {840, 870},   // 87.0, 90.0 default cool temps
+  {850, 860},   // 87.0, 90.0 default cool temps
   {760, 780},   // default heat temps
-  {20, 8},     // cycleThresh (cool 2.0, heat 1.0)
+  {20, 8},     // cycleThresh (cool 2.0, heat 0.8)
   0,            // Mode
   33,           // heatThresh (under 33F is gas)
   60*5,         // 5 mins minimum for a cycle
   60*30,        // 30 minutes maximun for a cycle
   60*8,         // idleMin 8 minutes minimum between cycles
   0,            // filterMinutes
-  {60, 120},    // fanPostDelay {cool, heat}
-  {60, 60},     // fanPreTime {cool, heat}
+  {60*2, 60*2}, // fanPostDelay {cool, heat}
+  {60*1, 60*1}, // fanPreTime {cool, heat}
   60*10,        // 10 mins default for override
   0,            // heatMode
   -5,           // timeZone
   0,            // temp reading offset adjust
   0,            // humidMode
   {450, 550},   // rhLevel 45.0%, 55%
-  {40, -40},    // awayDelta cool, heat
-  9*60,         // awayTime (minutes)
-  30*60,        // fanCycleTime 30 mins
-  192 | (168<<8) | (105<<24), // hostIp 192.168.0.105
-  85,           // host port
+  {40, -40},    // awayDelta cool, heat 4.0
+  60*9,         // awayTime (minutes)
+  60*30,        // fanCycleTime 30 mins
+  {192,168,0,105}, // hostIp 192.168.0.105
+  80,           // host port
   "41042",      // zipCode
   "password",  // password for controlling thermostat
   false,        // bLock
   false,        // bNotLocal
-  1540,         // price per KWH in cents * 10000 (0.154)
+  146,          // price per KWH in cents * 10000 (0.146)
   1243,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.243)
   46,           // forecast range for in mapping to out mix/max (5, but 3 can be better)
   46,           // forecast range for display (5 of 7 day max)
@@ -43,10 +43,10 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   100,          // furnaceWatts
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
-  0,
+  {0,0,0,0},    // remoteIP
   0,
   {0},
-  200         // set to 20 deg differential cooling limit
+  300           // set to 30 deg differential cooling limit
 };
 
 eeMem::eeMem()
