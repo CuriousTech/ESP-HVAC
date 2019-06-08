@@ -1,11 +1,11 @@
 //  HvacRemote script running on PngMagic  http://www.curioustech.net/pngmagic.html
 // Device is set to a fixed IP in the router
 
-	hvacUrl = 'ws://192.168.0.103:85/ws'
+	hvacUrl = 'ws://192.168.0.103/ws'
 	password = 'password'
 
 	kwh = 3600 // killowatt hours (compressor+fan)
-	ppkwh = 0.14320  // electric price per KWH  (price / KWH)
+	ppkwh = 0.151  // electric price per KWH  (price / KWH)
 	ccfs	= 0.70 / (60*60) // NatGas cost per hour divided into seconds
 
 	modes = new Array('Off', 'Cool', 'Heat', 'Auto')
