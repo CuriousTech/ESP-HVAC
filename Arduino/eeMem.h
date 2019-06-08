@@ -3,6 +3,15 @@
 
 #include <Arduino.h>
 
+struct Sched
+{
+  uint16_t setTemp;
+  uint16_t timeSch;
+  uint8_t thresh;
+  uint8_t wday;
+  char    name[16]; // names for small display
+}; // 22
+
 struct eeSet // EEPROM backed data
 {
   uint16_t size;          // if size changes, use defaults
@@ -29,7 +38,7 @@ struct eeSet // EEPROM backed data
   int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
   uint16_t awayTime;    // time limit for away offset (in minutes)
   uint16_t fanCycleTime; // for user fan cycles
-  unsigned long hostIp;
+  uint8_t hostIp[4];
   uint16_t  hostPort;
   char     zipCode[8];  // Your zipcode
   char     password[32];
@@ -48,10 +57,12 @@ struct eeSet // EEPROM backed data
   uint16_t furnaceWatts;
   uint16_t humidWatts;
   uint16_t furnacePost;
-  uint32_t remoteIP; // future use
+  uint8_t remoteIP[4]; // future use
   uint16_t remotePort;
   char     remotePath[32];
   uint16_t diffLimit;  // in/out thermal differential limit
+//#define MAX_SCHED 8
+//  Sched   schedule[MAX_SCHED];  // 22x8 bytes
   char resvered[128];
 }; // ~750 bytes
 
