@@ -70,6 +70,14 @@ enum HumidifierMode
 #define RF_RL (1 << 2)
 #define RF_RH (1 << 3)
 
+struct remoteSensor
+{
+  uint16_t ID; // unique ID / valid
+  uint16_t temp;
+  uint16_t rh;
+  uint32_t time;
+};
+
 class HVAC
 {
 public:
@@ -133,7 +141,7 @@ private:
   void  fanSwitch(bool bOn);
   void  humidSwitch(bool bOn);
   void  tempCheck(void);
-  bool  preCalcCycle();
+  bool  preCalcCycle(int16_t tempL, int16_t tempH);
   void  calcTargetTemp(int mode);
   void  costAdd(int secs, int mode, int hm);
   int   CmdIdx(String s);
@@ -166,6 +174,9 @@ private:
   uint16_t m_remoteTimer;   // in seconds
   uint16_t m_humidTimer;    // timer for humidifier cost
   int8_t   m_furnaceFan;    // fake fan timer
+#define RMTSND_CNT 5
+  remoteSensor m_rmtSensor[RMTSND_CNT];
+  uint8_t  m_rmtIdx;        // current remote sensor in use
 };
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
