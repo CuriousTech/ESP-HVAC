@@ -104,10 +104,12 @@ const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL 
 extern const char *cmdList[];
 const char *jsonList3[] = { "alert", NULL };
 
+const char *hostName = "HVAC";
+
 void startServer()
 {
-  WiFi.hostname("HVAC");
-  wifi.autoConnect("HVAC", ee.password); // Tries configured AP, then starts softAP mode for config
+  WiFi.hostname(hostName);
+  wifi.autoConnect(hostName, ee.password); // Tries configured AP, then starts softAP mode for config
 
   Serial.println("");
   if(wifi.isCfg() == false)
@@ -116,7 +118,7 @@ void startServer()
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
   
-    if( !MDNS.begin ( "HVAC", WiFi.localIP() ) )
+    if( !MDNS.begin ( hostName, WiFi.localIP() ) )
       Serial.println ( "MDNS responder failed" );
   }
 
@@ -194,7 +196,12 @@ void startServer()
   remoteParse.addList(jsonList3);
 
 #ifdef OTA_ENABLE
+  ArduinoOTA.setHostname(hostName);
   ArduinoOTA.begin();
+  ArduinoOTA.onStart([]() {
+    eemem.update();
+  });
+
 #endif
 
   fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
@@ -278,7 +285,7 @@ void parseParams(AsyncWebServerRequest *request)
   if(request->params() == 0)
     return;
 
-  for ( uint8_t i = 0; i < request->params(); i++ ) // password may be at end
+  for( uint8_t i = 0; i < request->params(); i++ ) // password may be at end
   {
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
@@ -319,8 +326,6 @@ void parseParams(AsyncWebServerRequest *request)
     String s = wifi.urldecode(temp);
 
     if(p->name() == "key");
-    else if(p->name() == "rest")
-      display.init();
     else if(p->name() == "ssid")
       s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
     else if(p->name() == "pass")
@@ -378,10 +383,7 @@ void historyDump(bool bStart)
     otMin = display.minPointVal(4);
   
     js.Var("tb", tb);
-    if(hvac.m_modeShadow == Mode_Heat)
-      js.Var("th", gpt.h - gpt.l); // threshold
-    else // cool
-      js.Var("th", gpt.l - gpt.h); // -threshold
+    js.Var("th", gpt.h - gpt.l); // threshold
     js.Var("tm", tempMin); // temp min
     js.Var("lm", lMin); // threshold low min
     js.Var("rm", rhMin); // rh min
@@ -595,7 +597,7 @@ void fc_onDisconnect(AsyncClient* client)
   if(p == NULL)
     return;
 
-  for(fcIdx = 1; fcIdx < FC_CNT-1 && *p;)
+  for(fcIdx = 2; fcIdx < FC_CNT-1 && *p;) // leave first 2 entries for history shift
   {
     uint32_t tm = atoi(p);
     if(tm > 15336576) // skip the headers
@@ -616,8 +618,8 @@ void fc_onDisconnect(AsyncClient* client)
 
   if(display.m_fcData[0].tm == 0) // initial read
   {
-    display.m_fcData[0].temp = display.m_fcData[1].temp;
-    display.m_fcData[0].tm = display.m_fcData[1].tm;
+    display.m_fcData[1].temp = display.m_fcData[0].temp = display.m_fcData[2].temp;
+    display.m_fcData[1].tm = display.m_fcData[0].tm = display.m_fcData[2].tm;
   }
   if(display.m_fcData[0].tm)
     hvac.enable();
@@ -662,7 +664,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
     case 1:            // valid time
       if(idx == 0)     // first item isn't really data
       {
-        cnt = 0;
+        cnt = 1;
         break;
       }
 //      if(pTag[0] != 's') // start only
@@ -684,7 +686,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       break;
     case 2:                  // temperature
       if(idx == 0)
-        cnt = 0;
+        cnt = 1;
       if((idx % 3) != 0) // skip every 3 hours
         break;
 
@@ -697,8 +699,10 @@ XMLReader xml(xml_callback, Xtags);
 
 void GetForecast()
 {
-  display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hour data
+  display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 2 3hour data
   display.m_fcData[0].tm = display.m_fcData[1].tm;
+  display.m_fcData[1].temp = display.m_fcData[2].temp;
+  display.m_fcData[1].tm = display.m_fcData[2].tm;
 
   // Full 7 day hourly
   //  Go here first:  http://www.weather.gov
