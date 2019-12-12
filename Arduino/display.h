@@ -38,7 +38,7 @@ struct gPoint{
 
 struct Forecast
 {
-  uint32_t tm;   // time
+  uint32_t tm;   // time in seconds
   int8_t temp;   // integer temperature value
 };
 
@@ -80,14 +80,14 @@ private:
   int  tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
-#define GPTS 600 // 320 px width - (10+10) padding
+#define GPTS 680 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
   uint16_t m_pointsIdx;
   uint16_t m_temp_counter = 2*60;
   uint8_t m_btnMode;
   uint8_t m_btnDelay;
 public:
-#define FC_CNT 64
+#define FC_CNT 68
   Forecast m_fcData[FC_CNT];
   uint8_t  m_adjustMode; // which of 4 temps to adjust with rotary encoder
   bool     m_bUpdateFcst;
