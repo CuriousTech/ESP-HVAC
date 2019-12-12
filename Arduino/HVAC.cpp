@@ -16,7 +16,6 @@
 
 extern void WsSend(char *,const char *);
 
-
 HVAC::HVAC()
 {
   pinMode(P_FAN, OUTPUT);
@@ -35,6 +34,7 @@ HVAC::HVAC()
 void HVAC::init()
 {
   m_setMode = ee.Mode;
+  if(ee.Mode) m_modeShadow = ee.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
   m_setHeat = ee.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
@@ -264,7 +264,7 @@ void HVAC::costAdd(int secs, int mode, int hm)
       watts = ee.humidWatts;
       break;
   }
-  m_fCostE += (float)ee.ppkwh / 100000.0 * secs * watts / 360000.0;
+  m_fCostE += ((float)ee.ppkwh / 1000.0) * secs * (watts / 3600000.0);
 }
 
 bool HVAC::stateChange()
@@ -306,17 +306,49 @@ void HVAC::tempCheck()
 
   int16_t tempL = m_inTemp;
   int16_t tempH = m_inTemp;
-
+  int8_t sensCnt = 0;
+  int16_t sensTemp = 0;
+/*
+  for(int8_t i = 0; i < RMTSND_CNT; i++)
+  {
+    if(m_rmtSensor[i].ID)
+    {
+      if(now() - m_rmtSensor[i].time > 60*5) // disregard expired sensor data 
+        m_rmtSensor[i].ID = 0;
+      else
+      {
+         sensTemp += m_rmtSensor[i].temp;
+         sensCnt++;
+      }
+    }
+  }
+  if(sensCnt)
+  {
+    if(sensCnt > 1) sensTemp /= sensCnt; // average
+  }
+*/
   if(m_bRemoteStream && m_RemoteFlags)
   {
     if(m_RemoteFlags & RF_ML)
       tempL = m_localTemp; // main low
     if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
-      tempL = (m_inTemp + m_localTemp) / 2; // use both for low
+      tempL = (m_inTemp + m_localTemp) / 2; // use avg for low
     if(m_RemoteFlags & RF_MH)
       tempH = m_localTemp; // main high
     if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
-      tempH = (m_inTemp + m_localTemp) / 2; // use both for high
+      tempH = (m_inTemp + m_localTemp) / 2; // use avg for high
+  }
+  else if(sensCnt)
+  {
+    m_inTemp = sensTemp; // override local with remote
+    if(m_RemoteFlags & RF_ML)
+      tempL = m_localTemp; // main low
+    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
+      tempL = (sensTemp + m_localTemp) / 2; // use avg for low
+    if(m_RemoteFlags & RF_MH)
+      tempH = m_localTemp; // main high
+    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
+      tempH = (sensTemp + m_localTemp) / 2; // use avg for high
   }
 
   if(m_bRunning)
@@ -327,7 +359,7 @@ void HVAC::tempCheck()
     if(second() == 0 || m_bRecheck) // readjust while running
     {
       m_bRecheck = false;
-      preCalcCycle();
+      preCalcCycle(tempL, tempH);
     }
 
     switch(mode)
@@ -378,7 +410,7 @@ void HVAC::tempCheck()
     if(second() == 0 || m_bRecheck)
     {
       m_bRecheck = false;
-      if(m_bStart = preCalcCycle())
+      if(m_bStart = preCalcCycle(tempL, tempH))
       {
         if( m_bFanRunning == false)
         {
@@ -401,24 +433,9 @@ void HVAC::tempCheck()
   }
 }
 
-bool HVAC::preCalcCycle()
+bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
 {
   bool bRet = false;
-
-  int16_t tempL = m_inTemp;
-  int16_t tempH = m_inTemp;
-
-  if(m_bRemoteStream && m_RemoteFlags)
-  {
-    if(m_RemoteFlags & RF_ML)
-      tempL = m_localTemp; // main low
-    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
-      tempL = (m_inTemp + m_localTemp) / 2; // use both for low
-    if(m_RemoteFlags & RF_MH)
-      tempH = m_localTemp; // main high
-    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
-      tempH = (m_inTemp + m_localTemp) / 2; // use both for low
-  }
 
   // Standard triggers for now
   switch(ee.Mode)
@@ -495,7 +512,7 @@ void HVAC::calcTargetTemp(int mode)
   {
     case Mode_Off:
     case Mode_Cool:
-      m_targetTemp = constrain(m_targetTemp, 650, 999); // more safety (after override/away of up to +/-15)
+      m_targetTemp = constrain(m_targetTemp, 650, 980); // more safety (after override/away of up to +/-15)
       break;
     case Mode_Heat:
       m_targetTemp = constrain(m_targetTemp, 590, 860);
@@ -692,7 +709,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   m_localTemp = Temp + ee.adj; // Using remote vars for local here
   m_localRh = rh;
 
-  if( m_bRemoteStream == false )
+  if( m_bRemoteStream == false ) // don't update if external temp sensor used
   {
     m_inTemp = Temp + ee.adj;
     m_rh = rh;
@@ -775,17 +792,17 @@ String HVAC::settingsJson()
   js.Var("im", ee.idleMin);
   js.Var("cn", ee.cycleMin);
   js.Var("cx", ee.cycleMax);
-  js.Var("ct", ee.cycleThresh[ee.Mode == Mode_Heat]);
+  js.Var("ct", ee.cycleThresh[m_modeShadow == Mode_Heat]);
   js.Var("fd", ee.fanPostDelay[digitalRead(P_REV)]);
   js.Var("ov", ee.overrideTime);
   js.Var("rhm", ee.humidMode);
   js.Var("rh0", ee.rhLevel[0]);
   js.Var("rh1", ee.rhLevel[1]);
-  js.Var("fp",  ee.fanPreTime[ee.Mode == Mode_Heat]);
+  js.Var("fp",  ee.fanPreTime[m_modeShadow == Mode_Heat]);
   js.Var("fct", ee.fanCycleTime);
   js.Var("ar",  m_RemoteFlags);
   js.Var("at",  ee.awayTime);
-  js.Var("ad",  ee.awayDelta[ee.Mode == Mode_Heat]);
+  js.Var("ad",  ee.awayDelta[m_modeShadow == Mode_Heat]);
   js.Var("ppk", ee.ppkwh);
   js.Var("ccf", ee.ccf);
   js.Var("cfm", ee.cfm);
@@ -797,6 +814,7 @@ String HVAC::settingsJson()
   js.Var("hfw", ee.humidWatts);
   js.Var("ffp", ee.furnacePost);
   js.Var("dl",  ee.diffLimit);
+  js.Var("fco", ee.fcOffset[m_modeShadow == Mode_Heat]);
   return js.Close();
 }
 
@@ -902,6 +920,10 @@ const char *cmdList[] = { "cmd",
   "hfw",
   "ffp",
   "dl",
+  "fco",
+  "rmtid",
+  "rmttemp",
+  "rmtrh",
   NULL
 };
 
@@ -1069,13 +1091,13 @@ void HVAC::setVar(String sCmd, int val)
     case 35: // TZ
       ee.tz = constrain(val, -12, 12);
       break;
-    case 36:
+    case 36: // cw
       ee.compressorWatts = val;
       break;
-    case 37:
+    case 37: // fw
       ee.fanWatts = val;
       break;
-    case 38:
+    case 38: // frnw
       ee.furnaceWatts = val;
       break;
     case 39:
@@ -1086,6 +1108,35 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 41: // dl
       ee.diffLimit = constrain(val, 150, 350);
+      break;
+    case 42: // fco
+      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
+      break;
+    case 43: // rmtid (?rmtid=100&rmttemp=750&rmtrh=500)
+      {
+        int i;
+        for(i = 0; i < RMTSND_CNT; i++) // find ID
+        {
+          if(m_rmtSensor[i].ID == val)
+            break;
+        }
+        if(i == RMTSND_CNT) // not found
+          for(i = 0; i < RMTSND_CNT; i++)
+          {
+            if(m_rmtSensor[i].ID == 0)
+              break;
+          }
+        if(i < RMTSND_CNT)
+          m_rmtSensor[i].ID = val;
+        m_rmtIdx = i;
+      }
+      break;
+    case 44: // rmttemp
+      m_rmtSensor[m_rmtIdx].temp = constrain(val, 650, 860);
+      m_rmtSensor[m_rmtIdx].time = now();
+      break;
+    case 45: // rmtrh
+      m_rmtSensor[m_rmtIdx].rh = val;
       break;
   }
 }
