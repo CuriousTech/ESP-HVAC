@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
@@ -42,6 +42,7 @@ var ws
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
+// ws = new WebSocket("ws://192.168.0.103/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
@@ -63,11 +64,12 @@ ws.onmessage = function(evt) {
 	a.fanpre.value= s2t(+Json.fp)
 	a.awaytime.value= s2t(+Json.at)
 	a.heatthr.value= +Json.ht
-	a.ppkwh.value= +Json.ppk/10000
+	a.ppkwh.value= +Json.ppk/1000
 	a.ccf.value= +Json.ccf/1000
 	a.cfm.value= +Json.cfm/1000
 	a.fcr.value= +Json.fcr
 	a.fcd.value= +Json.fcd
+	a.fco.value= +Json.fco
 	a.acth.value= +Json.dl/10
 	rmtMode=+Json.ar
 	setAtt()
@@ -119,12 +121,13 @@ function setVars()
  s+=',"cyclemin":'+t2s(a.cycmin.value)
  s+=',"cyclemax":'+t2s(a.cycmax.value)
  s+=',"awaytime":'+t2s(a.awaytime.value)
- s+=',"ppk":'+(+a.ppkwh.value*10000).toFixed()
+ s+=',"ppk":'+(+a.ppkwh.value*1000).toFixed()
  s+=',"ccf":'+(+a.ccf.value*1000).toFixed()
  s+=',"fcrange":'+(+a.fcr.value)
  s+=',"fcdisp":'+(+a.fcd.value)
  s+=',"cfm":'+(+a.cfm.value*1000).toFixed()
  s+=',"dl":'+(+a.acth.value*10).toFixed()
+ s+=',"fco":'+(+a.fco.value)
  s+='}'
  ws.send(s)
 }
@@ -211,8 +214,8 @@ function t2s(v)
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td>Max</td><td><input type=text size=3 id="cycmax"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin"></td><td>PKW</td><td><input type=text size=3 id="ppkwh"></td></tr>
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td>CFM</td><td><input type=text size=3 id="cfm"></td></tr>
-<tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td>CCF</td><td><input type=text size=3 id="ccf"></td></tr>
-<tr><td>Display</td><td><input type=text size=4 id="fcd"></td><td></td><td></td></tr>
+<tr><td>FC Shift</td><td><input type=text size=4 id="fco"></td><td>CCF</td><td><input type=text size=3 id="ccf"></td></tr>
+<tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td>Disp</td><td><input type=text size=3 id="fcd"></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
 <td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}">
 </td></tr>

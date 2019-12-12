@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
@@ -38,6 +38,7 @@ var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
+//ws = new WebSocket("ws://192.168.0.105:85/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
