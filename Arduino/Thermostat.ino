@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.5 and esp8266 SDK 2.4.1 1M (64K SPIFFS)
+// Build with Arduino IDE 1.8.10 and esp8266 SDK 2.4.2 1M (64K SPIFFS)
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
@@ -45,8 +45,8 @@ SOFTWARE.
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
-#define SCL       2
-#define SDA      13
+#define SDA       2
+#define SCL      13
 
 #define ENC_A    5  // Encoder is on GPIO4 and 5
 #define ENC_B    4
@@ -126,7 +126,7 @@ void setup()
   sht.init();
 #endif
 #ifdef dht_h
-  dht.setup(SDA, DHT::DHT22);
+  dht.setup(SCL, DHT::DHT22);
 #endif
 #ifdef DallasTemperature_h
   ds18.setResolution(ds18addr, ds18Resolution);
