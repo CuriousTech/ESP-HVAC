@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <title>HVAC Chart</title>
@@ -12,6 +12,17 @@ background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
 background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
 background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
 background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-clip: padding-box;
+}
+.style3 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: linear-gradient(top, #4f4f4f, #50a0a0);
 background-clip: padding-box;
 }
 .style4 {
@@ -144,7 +155,7 @@ function updateFields()
 		}
 	}
 	a.tot.innerHTML='Tot&emsp; $'+tE.toFixed(2)+'&emsp; $'+tG.toFixed(2)
-	a.tot.setAttribute('class','style4')
+	a.tot.setAttribute('class','style3')
 	yE=0
 	yG=0
 	for(i=0;i<12;i++)
@@ -158,7 +169,7 @@ function updateFields()
 		}
 	}
 	a.mt.innerHTML='Year $'+yE.toFixed(2)+' $'+yG.toFixed(2)
-	a.mt.setAttribute('class','style4')
+	a.mt.setAttribute('class','style3')
 }
 
 function draw(){
@@ -205,9 +216,8 @@ function draw(){
   c.textAlign = "right"
   c.textBaseline = "middle"
 
-  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) ) {
+  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) )
     c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))
-  }
 
   c.fillText('Temp', graph.width()-6, 6)
   c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"gray")
@@ -225,12 +235,12 @@ function draw(){
   }
 
   // in-out diff
-  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding);
-  grd.addColorStop(0,'rgba(255,0,0,0.5)');
-  grd.addColorStop(1,'rgba(100,100,200,0.5)');
+  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding)
+  grd.addColorStop(0,'rgba(255,0,0,0.5)')
+  grd.addColorStop(1,'rgba(100,100,200,0.5)')
 
 // Fill with gradient
-  c.fillStyle = grd;
+  c.fillStyle = grd
   c.beginPath()
   c.moveTo(graph.width()-xPadding, graph.height()-yPadding)
   for(i=0;i<arr.length;i++){
