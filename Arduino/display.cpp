@@ -491,26 +491,37 @@ void Display::displayOutTemp()
     m = (tmNow - m_fcData[iH].tm) / 60;  // offset = minutes past forecast
   }
 
-  if(iH > 3 && m_bUpdateFcstDone) // if data more than 3*2 hours old, refresh
-  {
-    String s = String("iH=") + String(iH);
-    WsSend((char*)s.c_str(), "alert");
-  }
-
   int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
   int outTempReal = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
-  int outTempDelayed = outTempReal;
-  if(iH) // assume range = 3 hours for a -3 hour delay
+  int outTempShift = outTempReal;
+  int fcOffset = ee.fcOffset[ee.Mode == Mode_Heat];
+
+  m += fcOffset % 60;
+  if(m < 0) m+= 60;
+  if(m >= r)
   {
-     r = (m_fcData[iH].tm - m_fcData[iH-1].tm) / 60;
-     outTempDelayed = tween(m_fcData[iH-1].temp, m_fcData[iH].temp, m, r);
+    iH++;
+    m -= r;
   }
+  if(fcOffset <= r) while(fcOffset <= r && iH)
+  {
+    iH--;
+    fcOffset += r;
+  }
+  while(fcOffset >= r)
+  {
+    iH++;
+    fcOffset -= r;
+  }
+
+  r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60;
+  outTempShift = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
 
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
 
   // Summer/winter curve.  Summer is delayed 3 hours
-  hvac.updateOutdoorTemp((ee.Mode == Mode_Heat) ? outTempReal : outTempDelayed);
+  hvac.updateOutdoorTemp( outTempShift );
 }
 
 void Display::Note(char *cNote)
@@ -868,16 +879,11 @@ void Display::addGraphPoints()
   p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
   p->temp = hvac.m_inTemp; // 66~90 scale to 0~220
+  p->l = hvac.m_targetTemp;
   if(hvac.m_modeShadow == Mode_Heat)
-  {
-    p->h = hvac.m_targetTemp;
-    p->l = hvac.m_targetTemp - ee.cycleThresh[0];
-  }
-  else // heat
-  {
     p->h = hvac.m_targetTemp + ee.cycleThresh[1];
-    p->l = hvac.m_targetTemp;
-  }
+  else // cool
+    p->h = hvac.m_targetTemp + ee.cycleThresh[0];
   p->ot = hvac.m_outTemp;
 //  p->ltemp = hvac.m_localTemp;
   p->bits.b.rh = hvac.m_rh;
