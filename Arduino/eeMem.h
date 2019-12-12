@@ -38,7 +38,7 @@ struct eeSet // EEPROM backed data
   int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
   uint16_t awayTime;    // time limit for away offset (in minutes)
   uint16_t fanCycleTime; // for user fan cycles
-  uint8_t hostIp[4];
+  uint8_t  hostIp[4];
   uint16_t  hostPort;
   char     zipCode[8];  // Your zipcode
   char     password[32];
@@ -61,9 +61,10 @@ struct eeSet // EEPROM backed data
   uint16_t remotePort;
   char     remotePath[32];
   uint16_t diffLimit;  // in/out thermal differential limit
+  int16_t  fcOffset[2]; // forecast offset adjust
 //#define MAX_SCHED 8
 //  Sched   schedule[MAX_SCHED];  // 22x8 bytes
-  char resvered[128];
+  char resvered[124];
 }; // ~750 bytes
 
 extern eeSet ee;
