@@ -5,8 +5,8 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
   {850, 860},   // 87.0, 90.0 default cool temps
-  {760, 780},   // default heat temps
-  {20, 8},     // cycleThresh (cool 2.0, heat 0.8)
+  {710, 730},   // default heat temps
+  {15, 8},     // cycleThresh (cool 0.5, heat 0.8)
   0,            // Mode
   33,           // heatThresh (under 33F is gas)
   60*5,         // 5 mins minimum for a cycle
@@ -30,23 +30,24 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "password",  // password for controlling thermostat
   false,        // bLock
   false,        // bNotLocal
-  146,          // price per KWH in cents * 10000 (0.146)
-  1243,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.243)
-  46,           // forecast range for in mapping to out mix/max (5, but 3 can be better)
+  152,          // price per KWH in cents * 10000 (0.146)
+  1000,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.00)
+  24,           // forecast range for in mapping to out mix/max (in hours * 3)
   46,           // forecast range for display (5 of 7 day max)
   {0},       // fCostE month costs
   {0},       // fCostG
-  {0},          // fCostDay day costs
+//  {0},          // fCostDay day costs
   920,          // cubic feet per minute * 1000 of furnace (0.92)
-  4500,         // compressorWatts
-  350,          // fanWatts
+  2600,         // compressorWatts
+  250,          // fanWatts
   100,          // furnaceWatts
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
   {0,0,0,0},    // remoteIP
   0,
   {0},
-  300           // set to 30 deg differential cooling limit
+  300,           // set to 30 deg differential cooling limit
+  {-180,0},      // forecast offset in minutes
 };
 
 eeMem::eeMem()
