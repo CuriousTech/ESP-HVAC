@@ -333,7 +333,7 @@ void Display::drawForecast(bool bRef)
 {
   int i;
 
-  if(m_fcData[1].tm == 0) // no data yet
+  if(m_fcData[2].tm == 0) // no data yet
   {
     if(m_bUpdateFcstDone)
       m_bUpdateFcst = true;
@@ -341,7 +341,7 @@ void Display::drawForecast(bool bRef)
   }
 
   int fcCnt;
-  for(fcCnt = 1; fcCnt < FC_CNT; fcCnt++) // get length (0 = end)
+  for(fcCnt = 2; fcCnt < FC_CNT; fcCnt++) // get length (0 = end)
     if(m_fcData[fcCnt].tm == 0)
       break;
 
@@ -355,13 +355,13 @@ void Display::drawForecast(bool bRef)
     int8_t tmax = m_fcData[0].temp;
 
     if(tmin == 0) // initial value
-      tmin = m_fcData[1].temp;
+      tmin = m_fcData[2].temp;
 
     int rng = fcCnt;
     if(rng > ee.fcRange) rng = ee.fcRange;
 
     // Get min/max of current forecast
-    for(int i = 1; i < rng; i++)
+    for(int i = 2; i < rng; i++)
     {
       int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
@@ -392,13 +392,13 @@ void Display::drawForecast(bool bRef)
     int8_t tmax = m_fcData[0].temp;
 
     if(tmin == 0) // initial value
-      tmin = m_fcData[1].temp;
+      tmin = m_fcData[2].temp;
 
     int rng = fcCnt;
     if(rng > ee.fcDisplay) rng = ee.fcDisplay;
 
     // Get min/max of current forecast
-    for(int i = 1; i < rng; i++)
+    for(int i = 2; i < rng; i++)
     {
       int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
@@ -421,23 +421,23 @@ void Display::drawForecast(bool bRef)
     t -= dec;
   }
 
-  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[1].tm) / 3600; // normally 180ish hours
+  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[2].tm) / 3600; // normally 180ish hours
   int day_x = 0;
 
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[1].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[2].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
   int day = weekday()-1;              // current day
 
-  for(i = 1; i < fcCnt; i++) // should be 41 data points
+  for(i = 2; i < fcCnt; i++) // should be 41 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
     int h = m_fcData[i].tm;
     if(h < m_fcData[i-1].tm) h = m_fcData[i-1].tm; // Todo: temp fix (end of month?)
-    h = (h - m_fcData[1].tm) / 3600;
+    h = (h - m_fcData[2].tm) / 3600;
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
