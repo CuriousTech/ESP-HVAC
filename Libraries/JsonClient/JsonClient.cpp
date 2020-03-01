@@ -4,11 +4,11 @@
 
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
 
-  Default 1024 byte limit for data received
+  1024 byte limit for data received
   8 lists max per instance
 */
 #include "JsonClient.h"
- 
+
 #define TIMEOUT 30000 // Allow maximum 30s between data packets.
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
@@ -33,6 +33,7 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
   m_ac.setRxTimeout(TIMEOUT);
   m_pBuffer = new char[nSize];
   m_nBufSize = nSize;
+  m_ac.stop();
 }
 
 // add a json list {"event name", "valname1", "valname2", "valname3", NULL}
@@ -64,7 +65,7 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   m_nPort = port;
   m_bKeepAlive = bKeepAlive;
   m_timeOut = millis();
-  m_Status = JC_IDLE;
+  m_Status = JC_BUSY;
   m_pHeaders = pHeaders;
   m_bPost = bPost;
   m_retryCnt = 0;
@@ -88,14 +89,6 @@ void JsonClient::process(char *event, char *data)
   processLine();
 }
 
-// Call this from loop() ->remove
-bool JsonClient::service()
-{
-  if(m_Status == JC_DONE || m_Status == JC_RETRY_FAIL)
-    return false;
-  return true;
-}
-
 // not used normally
 void JsonClient::end()
 {
@@ -106,6 +99,8 @@ void JsonClient::end()
 
 int JsonClient::status()
 {
+  if(m_ac.connected() == false)
+	m_Status = JC_IDLE;
   return m_Status;
 }
 
@@ -136,6 +131,7 @@ bool JsonClient::connect()
     m_Status = JC_RETRY_FAIL;
     m_szHost[0] = 0;
     m_callback(-1, m_Status, m_nPort, m_szHost);
+    m_Status = JC_IDLE;
     return false;
   }
 
@@ -165,6 +161,7 @@ void JsonClient::_onDisconnect(AsyncClient* client)
         processLine();
     }
 	m_callback(-1, m_Status, m_nPort, m_szHost);
+    m_Status = JC_IDLE;
     return;
   }
   connect();
@@ -177,6 +174,7 @@ void JsonClient::_onTimeout(AsyncClient* client, uint32_t time)
   m_Status = JC_TIMEOUT;
   m_ac.stop();
   m_callback(-1, m_Status, m_nPort, m_szHost);
+  m_Status = JC_IDLE;
 }
 
 void JsonClient::_onConnect(AsyncClient* client)
@@ -226,9 +224,9 @@ void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
   for(int i = 0; i < len; i++)
   {
     char c = data[i];
-    if(c != '\r' && m_bufcnt < m_nBufSize)
+    if(c != '\r' && c != '\n' && m_bufcnt < m_nBufSize)
       m_pBuffer[m_bufcnt++] = c;
-    if(c == '\n')
+    if(c == '\r' || c == '\n')
     {
       if(m_bufcnt > 1) // ignore keepalive
       {
