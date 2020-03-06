@@ -29,7 +29,7 @@ class JsonClient
 public:
   JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize = 1024);
   bool  addList(const char **pList);
-  bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL);
+  bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = 30000);
   void  end(void);
   void  process(char *event, char *data);
   int   status(void);
@@ -72,4 +72,3 @@ private:
 };
 
 #endif // JSONCLIENT_H
-
