@@ -48,7 +48,7 @@ bool JsonClient::addList(const char **pList)
 }
 
 // begin with host, /path?param=x&param=x, port, streaming
-bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData)
+bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData, uint16_t to)
 {
   if(m_ac.connected())
     m_ac.stop();
@@ -69,6 +69,7 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   m_pHeaders = pHeaders;
   m_bPost = bPost;
   m_retryCnt = 0;
+  m_ac.setRxTimeout(to);
   return connect();
 }
 
