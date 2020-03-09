@@ -30,7 +30,7 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
   m_ac.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<JsonClient*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
 //  m_ac.onPoll([](void* obj, AsyncClient* c) { (static_cast<JsonClient*>(obj))->_onPoll(c); }, this);
 
-  m_ac.setRxTimeout(TIMEOUT);
+//  m_ac.setRxTimeout(TIMEOUT);
   m_pBuffer = new char[nSize];
   m_nBufSize = nSize;
   m_ac.stop();
@@ -133,6 +133,7 @@ bool JsonClient::connect()
     m_szHost[0] = 0;
     m_callback(-1, m_Status, m_nPort, m_szHost);
     m_Status = JC_IDLE;
+	m_ac.stop();
     return false;
   }
 
