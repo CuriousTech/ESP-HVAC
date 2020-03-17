@@ -56,6 +56,8 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
   m_event = 0;
   m_bufcnt = 0;
 
+  if(m_ac.connected())
+	return false;
   strncpy(m_szHost, pHost, sizeof(m_szHost) );
   strncpy(m_szPath, pPath, sizeof(m_szPath) );
   m_szData[0] = 0;
