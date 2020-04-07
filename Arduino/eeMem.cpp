@@ -31,12 +31,12 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   false,        // bLock
   false,        // bNotLocal
   152,          // price per KWH in cents * 10000 (0.146)
-  1000,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.00)
+  1210,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.21)
   24,           // forecast range for in mapping to out mix/max (in hours * 3)
   46,           // forecast range for display (5 of 7 day max)
   {0},       // fCostE month costs
   {0},       // fCostG
-//  {0},          // fCostDay day costs
+  {0},
   920,          // cubic feet per minute * 1000 of furnace (0.92)
   2600,         // compressorWatts
   250,          // fanWatts
@@ -52,7 +52,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
 
 eeMem::eeMem()
 {
-  EEPROM.begin(1024);
+  EEPROM.begin(sizeof(eeSet));
 
   uint8_t data[sizeof(eeSet)];
   uint16_t *pwTemp = (uint16_t *)data;
