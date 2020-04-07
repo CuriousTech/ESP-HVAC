@@ -31,7 +31,7 @@
 int serverPort = 80;
 
 IPAddress ipFcServer(192,168,0,100);    // local forecast server and port
-int nFcPort = 83;
+int nFcPort = 80;
 
 //-----------------
 AsyncWebServer server( serverPort );
@@ -153,6 +153,10 @@ void startServer()
     request->send ( 200, "text/json",  hvac.settingsJson());
   });
 
+  server.on ( "/forecast", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    request->send ( 200, "text/json",  forecastJson());
+  });
+
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
 #ifdef USE_SPIFFS
@@ -199,9 +203,10 @@ void startServer()
   ArduinoOTA.setHostname(hostName);
   ArduinoOTA.begin();
   ArduinoOTA.onStart([]() {
+    hvac.dayTotals(day() - 1); // save for reload
+    ee.filterMinutes = hvac.m_filterMinutes;
     eemem.update();
   });
-
 #endif
 
   fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
@@ -251,8 +256,10 @@ void secondsServer() // called once per second
       GetForecast();
     else if(fc_client.connected() == false)    // get preformatted data from local server
     {
-       display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 3hr data
+       display.m_fcData[0].temp = display.m_fcData[1].temp; // copy 2nd 3hr data to start
        display.m_fcData[0].tm = display.m_fcData[1].tm;
+       display.m_fcData[1].temp = display.m_fcData[2].temp; // keep a copy of first 3hr data
+       display.m_fcData[1].tm = display.m_fcData[2].tm;
        fc_client.connect(ipFcServer, nFcPort);
     }
   }
@@ -299,7 +306,7 @@ void parseParams(AsyncWebServerRequest *request)
 
   uint32_t ip = request->client()->remoteIP();
 
-  if(strcmp(ee.password, password))
+  if(strcmp(ee.password, password) || nWrongPass)
   {
     if(nWrongPass == 0)
       nWrongPass = 10;
@@ -461,6 +468,27 @@ void appendDump(int startTime)
   }
 }
 
+String forecastJson()
+{
+  String out = "fc;{\"d\":[";
+  bool bC = false;
+
+  for(int i = 0; i < FC_CNT; i++)
+  {
+    if(bC) out += ",";
+    bC = true;
+    out += "[";         // [seconds, temp],
+    out += display.m_fcData[i].tm;
+    out += ",";
+    out += display.m_fcData[i].temp;
+    out += "]";
+  }
+  if(bC) // don't send blank
+    out += "]";
+  out += "}";
+  return out;
+}
+
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   switch(iEvent)
@@ -577,7 +605,7 @@ void fc_onConnect(AsyncClient* client)
     "Accept: */*\n\n";
 
   fc_client.add(s.c_str(), s.length());
-  sfcBuffer = String("");
+  sfcBuffer = "";
   sfcBuffer.reserve(1200);  // about 1010 bytes
 }
 
@@ -612,7 +640,7 @@ void fc_onDisconnect(AsyncClient* client)
     while(*p && *p != '\r' && *p != '\n') p ++;
     while(*p == '\r' || *p == '\n') p ++;
   }
-  sfcBuffer = String("");
+  sfcBuffer = "";
   display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
 
