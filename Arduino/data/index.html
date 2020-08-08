@@ -1,30 +1,40 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
 
 <title>ESP-HVAC</title>
 <style type="text/css">
-table,input{
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
-background-image: linear-gradient(top, #ffffff, #50a0ff);
+table{
+border-radius: 3px;
+box-shadow: 2px 2px 8px #000000;
+background-image: -moz-linear-gradient(top, #efbfbf, #50a0ff);
+background-image: -ms-linear-gradient(top, #efbfbf, #50a0ff);
+background-image: -o-linear-gradient(top, #efbfbf, #50a0ff);
+background-image: -webkit-linear-gradient(top, #efbfbf, #50a0ff);
+background-image: linear-gradient(top, #efbfbf, #50a0ff);
 background-clip: padding-box;
 }
-.style1 {border-width: 0;}
-.style2 {text-align: right;}
-.style5 {
+input{
 border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+box-shadow: 3px 3px 10px #000000;
+background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -o-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);
+background-image: linear-gradient(top, #00ffff, #50a0ff);
+background-clip: padding-box;
+}
+.style1{border-width: 0;}
+.style2{text-align: right;}
+.style5{
+border-radius: 4px;
+box-shadow: 3px 3px 10px #000000;
+background-image: -moz-linear-gradient(top, #ff0000, #ffa0a0);
+background-image: -ms-linear-gradient(top, #ff0000, #ffa0a0);
+background-image: -o-linear-gradient(top, #ff0000, #ffa0a0);
 background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: linear-gradient(top, #ff0000, #ffa0a0);
 }
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
@@ -38,7 +48,7 @@ var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.0.105:85/ws")
+//ws = new WebSocket("ws://192.168.31.125/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
@@ -280,37 +290,37 @@ function t2s(v)
 <tr>
 <td id="fanCell"><div id="fan">Fan Off</div></td>
 <td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
-<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"><input type="button" value="Cycl" name="fS" onClick="{setfan(2)}"></td>
+<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"><input type="button" value="Cycle" name="fS" onClick="{setfan(2)}"></td>
 <td width=300 align="right"><input type="submit" value="Settings" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
 <td align="right"><input type="button" value=" Off " name="mOff" onClick="{setMode(0)}"></td>
-<td><input type="button" value="Cool" name="mCool" onClick="{setMode(1)}"><input type="button" value="Heat" name="mHeat" onClick="{setMode(2)}"></td>
-<td><input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}">&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<input type="submit" value="Chart" onClick="window.location='/chart.html';">
+<td><input type="button" value="Cool" name="mCool" onClick="{setMode(1)}"><input type="button" value="Heat " name="mHeat" onClick="{setMode(2)}"></td>
+<td><input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}"> &nbsp &nbsp &nbsp<input type="submit" value="  Chart  " align="right" onClick="window.location='/chart.html';">
 </td>
 </tr>
 <tr>
 <td>&nbsp</td><td></td><td></td><td></td>
 </tr>
 <tr>
-<td>Cool Hi</td><td><input type=text size=3 id="coolh"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
+<td>Cool Hi</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
 </tr>
 <tr>
 <td style="width: 81px">Cool Lo</td>
-<td style="width: 44px"><input type=text size=3 id="cooll"></td>
+<td style="width: 44px"><input type=text size=3 id="cooll" onChange="{setVars()}"></td>
 <td style="width: 200px"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
 <td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="Gas " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="Auto" name="hAuto" onClick="{setHeatMode(2)}"></td>
 </tr>
 <tr>
 <td>Heat Hi</td>
-<td><input type=text size=3 id="heath"></td>
+<td><input type=text size=3 id="heath" onChange="{setVars()}"></td>
 <td><input type="button" value="+1" onClick="{incHeat(1)}"></td>
 <td></td>
 </tr>
 <tr>
 <td>Heat Lo</td>
-<td><input type=text size=3 id="heatl"></td>
+<td><input type=text size=3 id="heatl" onChange="{setVars()}"></td>
 <td><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
 <td id="hmCell"><div id="hm">Humidifier Off</div></td>
 </tr>
@@ -319,30 +329,29 @@ function t2s(v)
 <td></td>
 <td></td>
 <td>
-<input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}"><input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"></td>
+<input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}"></td>
 </tr>
 <tr>
-<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value=" Go " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
+<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="  Go  " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
 <td>
-<input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}"></td>
+<input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"></td>
 </tr>
 <tr>
-<td id="ovrCell">Overrd &Delta;</td>
-<td><input type=text size=3 id="ovrtemp"></td>
-<td><input type="button" value="Stop" onClick="{cancelOvr()}">
+<td id="ovrCell">Ovrrd &Delta;</td>
+<td><input type=text size=3 id="ovrtemp" onChange="{setVars()}"></td>
+<td><input type="button" value=" Stop " onClick="{cancelOvr()}">
 </td>
-<td>
-<input type="button" value=" A1 " name="hmAuto1" onClick="{setHumidMode(3)}"><input type="button" value=" A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
+<td><input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}"></td>
 </tr>
 <tr>
 <td>Freshen</td>
-<td><input type=text size=3 id="fantime"></td>
-<td><input type="button" value=" Go  " onClick="{setfan(3)}"></td>
-<td></td>
+<td><input type=text size=3 id="fantime" onChange="{setVars()}"></td>
+<td><input type="button" style="margin-left:200" value="  Go  " onClick="{setfan(3)}"></td>
+<td><input type="button" value=" A1 " name="hmAuto1" onClick="{setHumidMode(3)}"></td>
 </tr>
 <tr>
-<td>Away &Delta;</td><td><input type=text size=3 id="awaytemp"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
-<td align="right"><input type="button" value="Save" onClick="{setVars()}"></td>
+<td>Away &Delta;</td><td><input type=text size=3 id="awaytemp" onChange="{setVars()}"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
+<td><input type="button" value=" A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
 </tr>
 </table><br/>
 <table style="width: 350px">
