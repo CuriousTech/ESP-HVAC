@@ -5,11 +5,11 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
   {850, 860},   // 87.0, 90.0 default cool temps
-  {710, 730},   // default heat temps
-  {15, 8},     // cycleThresh (cool 0.5, heat 0.8)
+  {740, 750},   // default heat temps
+  {28, 8},     // cycleThresh (cool 0.5, heat 0.8)
   0,            // Mode
   33,           // heatThresh (under 33F is gas)
-  60*5,         // 5 mins minimum for a cycle
+  60*4,         // 5 mins minimum for a cycle
   60*30,        // 30 minutes maximun for a cycle
   60*8,         // idleMin 8 minutes minimum between cycles
   0,            // filterMinutes
@@ -22,20 +22,24 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   0,            // humidMode
   {450, 550},   // rhLevel 45.0%, 55%
   {40, -40},    // awayDelta cool, heat 4.0
-  60*9,         // awayTime (minutes)
+  60*8,         // awayTime (minutes)
   60*30,        // fanCycleTime 30 mins
-  {192,168,0,105}, // hostIp 192.168.0.105
+  {192,168,31,100}, // hostIp 192.168.0.105
   80,           // host port
   "41042",      // zipCode
   "password",  // password for controlling thermostat
   false,        // bLock
   false,        // bNotLocal
-  152,          // price per KWH in cents * 10000 (0.146)
+  140,          // price per KWH in cents * 10000 (0.140)
   1210,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.21)
-  24,           // forecast range for in mapping to out mix/max (in hours * 3)
+  23,           // forecast range for in mapping to out mix/max (in hours * 3)
   46,           // forecast range for display (5 of 7 day max)
-  {0},       // fCostE month costs
-  {0},       // fCostG
+//  { 10.55, 7.49, 6.07, 4.46,6.87,17.66,53.21,40.00,19.02,20.92,4.65,5.19},       // fCostE month costs
+//  {82.13,53.05,37.82,23.45, 8.26, 0.40,0.0,0.0,0.0,7.54,39.38,42.55},       // fCostG
+//  {0},          // fCostDay day costs
+//  {{1.86,0.0},{1.44,0},{0.11,0},{1.35,0},{1.00,0},{0.59,0},{0.41,0},{0.13,0},{0.56,0},{0.40,0},{0.79,0},{1.73,0},{1.84,0},{2.06,0.00},{0.54,0.00},{0.00,0},{0.68,0},{1.38,0},{0.76,0},{0.33,0},
+//  {1.12,0},{2.08,0.0},{1.11,0.0},{0.56,0.0},{0.19,0.0},{0.19,0.0},{0.0,0.0},{0.99,0.0},{0.0,0.0},{0.0,0.0},{0.0,0.0},{0.0,0.0}},
+  {0},
   {0},
   920,          // cubic feet per minute * 1000 of furnace (0.92)
   2600,         // compressorWatts
@@ -44,10 +48,10 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
   {0,0,0,0},    // remoteIP
-  0,
-  {0},
-  300,           // set to 30 deg differential cooling limit
-  {-180,0},      // forecast offset in minutes
+  0,            // remote port
+  {0},          // remote path
+  300,          // set to 30 deg differential cooling limit
+  {-180,0},     // forecast offset in minutes (cool, heat)
 };
 
 eeMem::eeMem()
