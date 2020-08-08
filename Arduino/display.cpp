@@ -10,7 +10,7 @@
 Nextion nex;
 extern HVAC hvac;
 extern WiFiManager wifi;
-extern void WsSend(char *,const char *);
+extern void WsSend(String s);
 
 void Display::init()
 {
@@ -53,7 +53,7 @@ void Display::oneSec()
   }
   if(m_bUpdateFcstDone)
   {
-    WsSend("Forecast success", "print");
+    WsSend("print;Forecast success");
     screen(true);
     drawForecast(true);
     m_bUpdateFcstDone = false;
@@ -81,7 +81,7 @@ void Display::buttonRepeat()
 
 void Display::checkNextion() // all the Nextion recieved commands
 {
-  char cBuf[64];
+  static char cBuf[64];
   int len = nex.service(cBuf); // returns just the button value or 0 if no data
   uint8_t btn;
   String s;
@@ -459,7 +459,7 @@ void Display::drawForecast(bool bRef)
       nex.line(x1, Fc_Top, x1, Fc_Top+Fc_Height, rgb16(12, 25, 12) ); // gray
     }
     hOld = h;
-    delay(5); // small glitch in drawing
+    delay(7); // avoid buffer overrun
     x2 = x1;
     y2 = y1;
   }
@@ -528,7 +528,7 @@ void Display::Note(char *cNote)
 {
   screen(true);
   nex.itemText(12, cNote);
-  WsSend(cNote, "alert");
+  WsSend(String("alert;")+cNote);
 }
 
 // update the notification text box
@@ -566,8 +566,8 @@ void Display::updateNotification(bool bRef)
   nex.itemText(12, s);
   if(s != "" && bRef == false) // refresh shouldn't be resent
   {
-    s = "{\"text\":\"" + s + "\"}";
-    WsSend((char*)s.c_str(), "alert");
+    s = "alert;{\"text\":\"" + s + "\"}";
+    WsSend(s);
   }
 }
 
@@ -879,11 +879,16 @@ void Display::addGraphPoints()
   p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
   p->temp = hvac.m_inTemp; // 66~90 scale to 0~220
-  p->l = hvac.m_targetTemp;
   if(hvac.m_modeShadow == Mode_Heat)
+  {
     p->h = hvac.m_targetTemp + ee.cycleThresh[1];
+    p->l = hvac.m_targetTemp;
+  }
   else // cool
-    p->h = hvac.m_targetTemp + ee.cycleThresh[0];
+  {
+    p->h = hvac.m_targetTemp;
+    p->l = hvac.m_targetTemp - ee.cycleThresh[0];
+  }
   p->ot = hvac.m_outTemp;
 //  p->ltemp = hvac.m_localTemp;
   p->bits.b.rh = hvac.m_rh;
@@ -906,6 +911,7 @@ void Display::fillGraph()
   nex.line( 10,  58+8, 310,  58+8, rgb16(10, 20, 10) );
   nex.text(292, 58, 2, textcolor, String(84));
   nex.text(292,  8, 2, textcolor, String(90));
+  delay(3);
 
   int x = 310 - (minute() / 5); // center over even hour, 5 mins per pixel
   int h = hourFormat12();
@@ -919,15 +925,18 @@ void Display::fillGraph()
     h -= 6;
     if( h <= 0) h += 12;
   }
-  delay(2);
+  delay(3);
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
+  delay(3);
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
+  delay(3);
+  drawPointsTemp(); // off/cool/heat colors
+  delay(3);
   drawPointsRh( rgb16(  0, 53,  0) ); // rh green
 //  if(hvac.isRemote())
 //  {
 //    drawPoints(2, rgb16( 31, 0,  15) ); // remote temp
 //  }
-  drawPointsTemp(); // off/cool/heat colors
 }
 
 void Display::drawPoints(int w, uint16_t color)
@@ -993,7 +1002,7 @@ void Display::drawPointsRh(uint16_t color)
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(1);
+      delay(2);
       y2 = y;
       x2 = x;
     }
