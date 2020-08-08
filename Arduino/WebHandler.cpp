@@ -30,7 +30,7 @@
 //-----------------
 int serverPort = 80;
 
-IPAddress ipFcServer(192,168,0,100);    // local forecast server and port
+IPAddress ipFcServer(192,168,31,100);    // local forecast server and port
 int nFcPort = 80;
 
 //-----------------
@@ -140,7 +140,7 @@ void startServer()
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/index.html");
 #else
-    request->send_P(200, "text/html", page1);
+    request->send_P(200, "text/html", page_index);
 #endif
   });
 
@@ -162,7 +162,7 @@ void startServer()
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/settings.html");
 #else
-    request->send_P(200, "text/html", page2);
+    request->send_P(200, "text/html", page_settings);
 #endif
   });
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -193,7 +193,7 @@ void startServer()
   server.begin();
 
   // Add service to MDNS-SD
-  MDNS.addService("http", "tcp", serverPort);
+  MDNS.addService("iot", "tcp", serverPort);
 
   remoteParse.addList(jsonList1);
   remoteParse.addList(cmdList);
@@ -232,9 +232,9 @@ void handleServer()
 #endif
 }
 
-void WsSend(char *txt, const char *type)
+void WsSend(String s)
 {
-  ws.textAll(String(type) + String(";") + String(txt));
+  ws.textAll(s);
 }
 
 void secondsServer() // called once per second
@@ -274,7 +274,7 @@ void secondsServer() // called once per second
           display.m_bUpdateFcstDone = true;
           break;
         case XML_TIMEOUT:
-          WsSend("Forcast timeout", "print");
+          WsSend("print;Forcast timeout");
           hvac.disable();
           hvac.m_notif = Note_Forecast;
           display.m_bUpdateFcstDone = true;
@@ -337,6 +337,8 @@ void parseParams(AsyncWebServerRequest *request)
       s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
     else if(p->name() == "pass")
       wifi.setPass(s.c_str());
+    else if(p->name() == "restart")
+      ESP.reset();
     else if(p->name() == "fc")
     {
       ee.bNotLocalFcst = s.toInt() ? true:false;
@@ -546,9 +548,14 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         {
           if(i) out += ",";
           out += "[";
-          out += ee.fCostE[i];
+//          out += ee.fCostE[i];
+//          out += ",";
+ //         out += ee.fCostG[i];
+          out += ee.iSecsMon[i][0];
           out += ",";
-          out += ee.fCostG[i];
+          out += ee.iSecsMon[i][1];
+          out += ",";
+          out += ee.iSecsMon[i][2];
           out += "]";
         }
         out += "],\"day\":[";
@@ -556,9 +563,14 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         {
           if(i) out += ",";
           out += "[";
-          out += ee.fCostDay[i][0];
+//          out += ee.fCostDay[i][0];
+//          out += ",";
+//          out += ee.fCostDay[i][1];
+          out += ee.iSecsDay[i][0];
           out += ",";
-          out += ee.fCostDay[i][1];
+          out += ee.iSecsDay[i][1];
+          out += ",";
+          out += ee.iSecsDay[i][2];
           out += "]";
         }
         out += "]}";
@@ -656,7 +668,7 @@ void fc_onDisconnect(AsyncClient* client)
 void fc_onTimeout(AsyncClient* client, uint32_t time)
 {
   (void)client;
-  WsSend("Error getting local server forecast", "print");
+  WsSend("print;Error getting local server forecast");
 }
 
 //---
@@ -743,5 +755,5 @@ void GetForecast()
   String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
 
   if(!xml.begin("forecast.weather.gov", 80, path))
-    WsSend("Forecast failed", "alert");
+    WsSend("alet;Forecast failed");
 }
