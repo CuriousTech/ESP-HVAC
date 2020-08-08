@@ -48,9 +48,11 @@ struct eeSet // EEPROM backed data
   uint16_t ccf;
   uint8_t  fcRange; // number in forecasts (3 hours)
   uint8_t  fcDisplay; // number in forecasts (3 hours)
-  float    fCostE[12];        // cost total (elec) per month
-  float    fCostG[12];        // cost total (gas)
-  float    fCostDay[32][2];   // cost total day (e,g)
+  uint16_t iSecsDay[32][3];
+  uint32_t iSecsMon[12][3]; // compressor,gas,fan
+//  float    fCostE[12];        // cost total (elec) per month
+//  float    fCostG[12];        // cost total (gas)
+//  float    fCostDay[32][2];   // cost total day (e,g)
   uint16_t cfm;         // cubic feet per minute
   uint16_t compressorWatts;
   uint16_t fanWatts;
