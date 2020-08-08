@@ -131,8 +131,9 @@ public:
   bool     m_bRemoteDisconnect;
   bool     m_bLocalTempDisplay;
   int8_t   m_outMin, m_outMax;
-  float    m_fCostE;        // cost total (elec)
-  float    m_fCostG;        // cost total (gas)
+//  float    m_fCostE;        // cost total (elec)
+//  float    m_fCostG;        // cost total (gas)
+  uint16_t m_iSecs[3];
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
