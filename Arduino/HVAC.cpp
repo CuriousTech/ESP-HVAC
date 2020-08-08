@@ -14,7 +14,7 @@
 #include "eeMem.h"
 #include "jsonstring.h"
 
-extern void WsSend(char *,const char *);
+extern void WsSend(String s);
 
 HVAC::HVAC()
 {
@@ -50,13 +50,14 @@ void HVAC::fanSwitch(bool bOn)
   m_bFanRunning = bOn;
   if(bOn)
   {
-    m_fanOnTimer = 0;       // reset fan on timer
     if(ee.humidMode == HM_Fan) // run humidifier when fan is on
         humidSwitch(true);
   }
   else
   {
+    m_iSecs[2] += m_fanOnTimer;
     costAdd(m_fanOnTimer, Mode_Fan, 0);
+    m_fanOnTimer = 0;       // reset fan on timer
     humidSwitch(false);
   }
 }
@@ -185,24 +186,32 @@ void HVAC::service()
     case Mode_Heat:
         if(hm)  // gas
         {
-          digitalWrite(P_HEAT, HIGH);
+          if(digitalRead(P_COOL))
+            WsSend("print;Error: NG heat start conflict");
+          else
+            digitalWrite(P_HEAT, HIGH);
         }
         else
         {
+          WsSend("print;HP heat start");
           fanSwitch(true);
-          if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if cools, reverse this)
+          if(digitalRead(P_HEAT))
+            WsSend("print;Error: HP heat start conflict");
+          else
           {
-            digitalWrite(P_REV, LOW);
-            delay(2000);
+            if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if cools, reverse this)
+            {
+              digitalWrite(P_REV, LOW);
+              delay(2000);
+            }
+            digitalWrite(P_COOL, HIGH);
           }
-          digitalWrite(P_COOL, HIGH);
         }
         m_bRunning = true;
         break;
     }
     if(ee.humidMode == HM_Run)
       humidSwitch(true);
-    m_cycleTimer = 0;
   }
 
   if(m_bStop && m_bRunning)             // Stop signal occurred
@@ -212,6 +221,7 @@ void HVAC::service()
     digitalWrite(P_HEAT, LOW);
 
     costAdd(m_cycleTimer, mode, hm);
+    m_cycleTimer = 0;
 
     if(ee.humidMode == HM_Run)      // shut off after heat/cool phase
       humidSwitch(false);
@@ -238,33 +248,30 @@ void HVAC::service()
 
 void HVAC::costAdd(int secs, int mode, int hm)
 {
-  int watts;
-
   switch(mode)
   {
     case Mode_Cool:
-      watts = ee.compressorWatts;
+      m_iSecs[0] += secs;
       break;
     case Mode_Heat:
       switch(hm)
       {
         case Heat_HP:
-          watts = ee.compressorWatts;
+          m_iSecs[0] += secs;
           break;
         case Heat_NG:
-          watts = ee.furnaceWatts; // cost / 1000 = $, /1000CF = $ per cubic foot, cfm/1000=float cfm, /60=cfs
-          m_fCostG += ((float)ee.ccf/100000) * secs * ((float)ee.cfm/1000/60);
+//          watts = ee.furnaceWatts; // cost / 1000 = $, /1000CF = $ per cubic foot, cfm/1000=float cfm, /60=cfs
+//          m_fCostG += ((float)ee.ccf/100000) * secs * ((float)ee.cfm/1000/60);
+          m_iSecs[1] += secs;
           break;
       }
       break;
     case Mode_Fan:
-      watts = ee.fanWatts;
       break;
     case Mode_Humid:
-      watts = ee.humidWatts;
       break;
   }
-  m_fCostE += ((float)ee.ppkwh / 1000.0) * secs * (watts / 3600000.0);
+  dayTotals(day() - 1);
 }
 
 bool HVAC::stateChange()
@@ -861,8 +868,6 @@ String HVAC::getPushData()
   js.Var("rt", m_runTotal);
   js.Var("h",  m_bHumidRunning);
   js.Var("aw", m_bAway);
-  js.Var("ce", m_fCostE);
-  js.Var("cg", m_fCostG);
   if(m_bRemoteDisconnect)
   {
     js.Var("rmt", 0);
@@ -1074,10 +1079,10 @@ void HVAC::setVar(String sCmd, int val)
       ee.cfm = val; // CFM / 1000
       break;
     case 30: // ce cost in cents/100
-      m_fCostE = val / 10000;
+//      m_fCostE = val / 10000;
       break;
     case 31: // cg cost in cents/100
-      m_fCostG = val / 10000;
+//      m_fCostG = val / 10000;
       break;
     case 32: // fcrange
       ee.fcRange = constrain(val, 1, 46);
@@ -1143,32 +1148,37 @@ void HVAC::setVar(String sCmd, int val)
 
 void HVAC::dayTotals(int d)
 {
-  ee.fCostDay[d][0] = m_fCostE;
-  ee.fCostDay[d][1] = m_fCostG;
-  m_fCostE = 0;
-  m_fCostG = 0;
+  ee.iSecsDay[d][0] += m_iSecs[0];
+  ee.iSecsDay[d][1] += m_iSecs[1];
+  ee.iSecsDay[d][2] += m_iSecs[2];
+  m_iSecs[0] = 0;
+  m_iSecs[1] = 0;
+  m_iSecs[2] = 0;
+
+  jsonString js("update");
+  js.Var("type", "day");
+  js.Var("e", day() - 1);
+  js.Var("d0", ee.iSecsDay[d][0]);
+  js.Var("d1", ee.iSecsDay[d][1]);
+  js.Var("d2", ee.iSecsDay[d][2]);
+  WsSend( js.Close() );
 }
 
 static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
 
 void HVAC::monthTotal(int m)
 {
-  float e = 0;
-  float g = 0;
+  uint32_t sec[3];
   int i;
   for(i = 0; i < monthDays[m]; i++) // Todo: leap year
   {
-    e += ee.fCostDay[i][0];
-    g += ee.fCostDay[i][1];
+    sec[0] = ee.iSecsDay[i][0];
+    sec[1] = ee.iSecsDay[i][1];
+    sec[2] = ee.iSecsDay[i][2];
   }
-  ee.fCostE[m] = e;
-  ee.fCostG[m] = g;
-  for(;i < 31; i++)
-  {
-    ee.fCostDay[i][0] = 0;
-    ee.fCostDay[i][1] = 0;
-  }
-//  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
+  ee.iSecsMon[m][0] = sec[0];
+  ee.iSecsMon[m][1] = sec[1];
+  ee.iSecsMon[m][2] = sec[2];
 }
 
 void HVAC::updateVar(int iName, int iValue)// host values
