@@ -218,6 +218,9 @@ void loop()
           if(lastDay != -1)
             hvac.dayTotals(lastDay);
           lastDay = day() - 1;
+          ee.iSecsDay[lastDay][0] = 0; // reset,
+          ee.iSecsDay[lastDay][1] = 0;
+          ee.iSecsDay[lastDay][2] = 0;
           if(lastDay == 0) // new month
           {
             int m = (month() + 10) % 12; // last month: Dec = 10, Jan = 11, Feb = 0
