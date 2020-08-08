@@ -1,11 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
 
 <title>ESP-HVAC</title>
 <style type="text/css">
-table,input{
+table{
 border-radius: 5px;
 box-shadow: 2px 2px 12px #000000;
 background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
@@ -16,18 +16,26 @@ background-image: linear-gradient(top, #ffffff, #50a0ff);
 background-clip: padding-box;
 }
 input{
+border-radius: 4px;
+box-shadow: 3px 3px 10px #000000;
+background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -o-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);
+background-image: linear-gradient(top, #00ffff, #50a0ff);
+background-clip: padding-box;
 text-align: right;
 }
-.style1 {border-width: 0;}
-.style2 {text-align: right;}
-.style5 {
+.style1{border-width: 0;}
+.style2{text-align: right;}
+.style5{
 border-radius: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0a0);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0a0);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0a0);
 background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: linear-gradient(top, #ff00ff, #ffa0a0);
 }
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
@@ -42,7 +50,7 @@ var ws
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
-// ws = new WebSocket("ws://192.168.0.103/ws")
+//ws = new WebSocket("ws://192.168.31.125/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 
@@ -106,30 +114,6 @@ a.rmth3.setAttribute('class',(rmtMode&10)==2?'style5':'')
 a.rmtl1.setAttribute('class',(rmtMode&5)==4?'style5':'')
 a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')
 a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
-}
-
-function setVars()
-{
- s='cmd;{"key":"'+a.myToken.value+'"'
- s+=',"cyclethresh":'+(+a.thresh.value*10).toFixed()
- s+=',"eheatthresh":'+a.heatthr.value
- s+=',"humidh":'+(+a.humidh.value*10).toFixed()
- s+=',"humidl":'+(+a.humidl.value*10).toFixed()
- s+=',"fanpostdelay":'+t2s(a.fandelay.value)
- s+=',"fanpretime":'+t2s(a.fanpre.value)
- s+=',"idlemin":'+t2s(a.idlemin.value)
- s+=',"cyclemin":'+t2s(a.cycmin.value)
- s+=',"cyclemax":'+t2s(a.cycmax.value)
- s+=',"awaytime":'+t2s(a.awaytime.value)
- s+=',"ppk":'+(+a.ppkwh.value*1000).toFixed()
- s+=',"ccf":'+(+a.ccf.value*1000).toFixed()
- s+=',"fcrange":'+(+a.fcr.value)
- s+=',"fcdisp":'+(+a.fcd.value)
- s+=',"cfm":'+(+a.cfm.value*1000).toFixed()
- s+=',"dl":'+(+a.acth.value*10).toFixed()
- s+=',"fco":'+(+a.fco.value)
- s+='}'
- ws.send(s)
 }
 
 function setRmt(v)
@@ -196,37 +180,37 @@ function t2s(v)
 	document.getElementById('myToken').value=myStorage1
  }
  startEvents()
-}">
+}" align="center">
 <strong><em>CuriousTech HVAC Settings</em></strong><br><br>
-<table style="width: 240px" cellspacing="0" cellpadding="0">
+<table style="width: 240px" cellspacing=0 cellpadding=0>
 <tr>
 <td style="width: 81px">Threshold</td>
-<td style="width: 44px"><input type=text size=4 id="thresh"></td>
-<td style="width: 10px"></td>
+<td style="width: 44px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
+<td style="width: 20px"></td>
 <td>
-<input type="submit" value="Main" onClick="window.location='/iot';">
+<input type="submit" value=" Home " onClick="window.location='/iot';">
 </td>
 </tr>
-<tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr"></td><td></td><td><input type="button" value="Save" onClick="{setVars()}"></td></tr>
-<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth"></td><td></td><td></td></tr>
-<tr><td>Humid Low</td><td><input type=text size=4 id="humidl"></td><td>High</td><td><input type=text size=3 id="humidh"></td></tr>
-<tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre"></td><td>Post</td><td><input type=text size=3 id="fandelay"></td></tr>
-<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin"></td><td>Max</td><td><input type=text size=3 id="cycmax"></td></tr>
-<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin"></td><td>PKW</td><td><input type=text size=3 id="ppkwh"></td></tr>
-<tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime"></td><td>CFM</td><td><input type=text size=3 id="cfm"></td></tr>
-<tr><td>FC Shift</td><td><input type=text size=4 id="fco"></td><td>CCF</td><td><input type=text size=3 id="ccf"></td></tr>
-<tr><td>Lookahead</td><td><input type=text size=4 id="fcr"></td><td>Disp</td><td><input type=text size=3 id="fcd"></td></tr>
+<tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
+<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
+<tr><td>Rh Low</td><td><input type=text size=4 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}"></td><td>High</td><td><input type=text size=3 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td></tr>
+<tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
+<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
+<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime" onchange="{setVar('awaytime',t2s(this.value))}"></td><td>CFM</td><td><input type=text size=3 id="cfm" onchange="{setVar('cfm',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
-<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value="Main" name="rmth3" onClick="{setRmt(3)}">
+<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value=" Main  " name="rmth3" onClick="{setRmt(3)}">
 </td></tr>
 <tr><td>Remote Lo</td><td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
-<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"></td><td><input type="button" value="Main" name="rmtl3" onClick="{setRmt(6)}">
+<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"></td><td><input type="button" value=" Main  " name="rmtl3" onClick="{setRmt(6)}">
 </td></tr>
 </table>
 <p>
 <table style="width: 240px">
-<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 110px">
-<input type="button" value="Set" onClick="{
+<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 98px"
+ onChange="{
  localStorage.setItem('myStoredText1', a.myToken.value)
  alert(a.myToken.value+' Has been stored')
 }">
