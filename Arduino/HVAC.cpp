@@ -1169,12 +1169,11 @@ static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
 void HVAC::monthTotal(int m)
 {
   uint32_t sec[3];
-  int i;
-  for(i = 0; i < monthDays[m]; i++) // Todo: leap year
+  for(int i = 0; i < monthDays[m]; i++) // Todo: leap year
   {
-    sec[0] = ee.iSecsDay[i][0];
-    sec[1] = ee.iSecsDay[i][1];
-    sec[2] = ee.iSecsDay[i][2];
+    sec[0] += ee.iSecsDay[i][0];
+    sec[1] += ee.iSecsDay[i][1];
+    sec[2] += ee.iSecsDay[i][2];
   }
   ee.iSecsMon[m][0] = sec[0];
   ee.iSecsMon[m][1] = sec[1];
