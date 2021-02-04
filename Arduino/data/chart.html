@@ -7,20 +7,20 @@ div,table,input{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
-background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-image: -moz-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -ms-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
+background-image: linear-gradient(top, #ffffff, #a0a0a0);
 background-clip: padding-box;
 }
 .style3 {
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
 background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
 background-image: linear-gradient(top, #4f4f4f, #50a0a0);
 background-clip: padding-box;
@@ -48,6 +48,7 @@ background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="forecast"></script>
 <script type="text/javascript">
 var graph;
 xPadding=30
@@ -83,13 +84,20 @@ $(document).ready(function()
 			frnw=+Json.frnw
 			md=+Json.m
 			dl=+Json.dl
+			a.fco.value=fco=+Json.fco
+			a.fcr.value=fcr=+Json.fcr
+			ct=+Json.ct
+			c0=+Json.c0
+			c1=+Json.c1
+			h0=+Json.h0
+			h1=+Json.h1
+			a.lo.value=(iMin=(md==2)?h0:c0)/10
+			a.hi.value=(iMax=(md==2)?h1:c1)/10
+			a.ct.value=ct/10
+			drawFC()
 			break
 		case 'state':
 			sJson=Json
-//			date=new Date()
-//			i=date.getDate()-1;
-//			div=document.getElementById("d"+i)
-//			div.innerHTML=(i+1)+'&emsp; $'+Json.ce.toFixed(2)+'&emsp; $'+Json.cg.toFixed(2)
 			cyc=secsToTime(+Json.ct)
 			draw()
 			break
@@ -214,8 +222,8 @@ function draw(){
 
   // in-out diff
   grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding)
-  grd.addColorStop(0,'rgba(255,0,0,0.5)')
-  grd.addColorStop(1,'rgba(100,100,200,0.5)')
+  grd.addColorStop(0,'rgba(255,100,0,0.2)')
+  grd.addColorStop(1,'rgba(150,150,200,0.2)')
 
 // Fill with gradient
   c.fillStyle = grd
@@ -225,7 +233,7 @@ function draw(){
 	switch(md){
 	  default: diff=0; break
 	  case 1: diff=(arr[i][5]-200-arr[i][1])*10; break // 20~30=0~100%
-	  case 2: diff=(arr[i][1]-380-arr[i][5])*5; break
+	  case 2: diff=(arr[i][1]-380-arr[i][5])*3; break
 	}
 	if(diff<0) diff=0
 	if(diff>1000) diff=1000
@@ -413,28 +421,27 @@ function setVar(varName, value)
 
 function secsToTime(elap)
 {
-	d=0
+	dy=0
 	m=0
 	h=Math.floor(elap/3600)
-	if(h >23)
+	if(h>23)
 	{
-		d=Math.floor(h/24)
-		h-=(d*24)
+		dy=Math.floor(h/24)
+		h-=(dy*24)
+		elap-=dy*3600*24
 	}
-	else
+	
+	m=Math.floor((elap-(h*3600))/60)
+	s=elap-(h*3600)-(m*60)
+	if(s<10) s='0'+s
+	if(h==0&&dy==0)
 	{
-		m=Math.floor((elap-(h*3600))/60)
-		s=elap-(h*3600)-(m*60)
-		if(s<10) s='0'+s
-		if(h==0)
-		{
-			if( m < 10) m='  '+m
-			return '    '+m +':'+s
-		}
+		if(m<10) m='  '+m
+		return '    '+m +':'+s
 	}
 	if(m<10) m='0'+m
 	if(h<10) h='  '+h
-	if(d) return d+'d '+h+'h'
+	if(dy) return dy+'d '+h+':'+m+'m'
 	return h+':'+m+':'+s
 }
 
@@ -545,17 +552,17 @@ function draw_scale(ar,w,h,o,p,ct)
 
 		if(i==ct)
 		{
-			ctx.strokeStyle="#000"
+			ctx.strokeStyle="#fff"
 			ctx.lineWidth=1
 			ctx.beginPath()
-		    ctx.moveTo(x+2,o+h-20)
-		    ctx.lineTo(x+2,o)
+		    ctx.moveTo(x-1,o+h-20)
+		    ctx.lineTo(x-1,o)
 			ctx.stroke()
 			ctx.lineWidth=lw
 		}
 		if(mbh<25) mbh=25
-		costE=+((ppkwh*ar[i][0]*(cw/3600000))+(ppkwh*ar[i][2]*(fw/3600000))+(ppkwh*ar[i][1]*(frnw/3600000))).toFixed(2)
-		costG=+(ccf*ar[i][1]*(cfm/60)).toFixed(2)
+		costE=+(ppkwh*ar[i][0]*(cw/3600000))+(ppkwh*ar[i][2]*(fw/3600000))+(ppkwh*ar[i][1]*(frnw/3600000))
+		costG=+(ccf*ar[i][1]*cfm)/3600
 		tot[3]+=costE
 		tot[4]+=costG
 		if(ar[i][0]||ar[i][1]||ar[i][2])
@@ -565,10 +572,10 @@ function draw_scale(ar,w,h,o,p,ct)
 			y2: (o+h),
 			x2: x+ctx.lineWidth*1.5,
 			tip: 'AC'+secsToTime(ar[i][0]),
-			tip2: 'NG'+secsToTime(ar[i][1]),
-			tip3: 'FAN'+secsToTime(ar[i][2]),
-			tip4: 'Ele $'+costE,
-			tip5: 'NG $'+costG
+			tip2: 'NG\t\t'+secsToTime(ar[i][1]),
+			tip3: 'FAN\t\t'+secsToTime(ar[i][2]),
+			tip4: 'Elec   $'+costE.toFixed(2),
+			tip5: 'NG     $'+costG.toFixed(2)
 		})
 	}
 	ctx.textAlign="right"
@@ -576,6 +583,145 @@ function draw_scale(ar,w,h,o,p,ct)
 	ctx.fillText(secsToTime(tot[1]),w-1,o+21)
 	ctx.fillText('$'+tot[3].toFixed(2),w-1,o+32)
 	ctx.fillText('$'+tot[4].toFixed(2),w-1,o+43)
+}
+
+function drawFC(){
+  graph2 = $('#graph2')
+  c=graph2[0].getContext('2d')
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  c.clearRect(0, 0, graph2.width(), graph2.height())
+  canvasOffset=graph2.offset()
+  offsetX=canvasOffset.left
+  offsetY=canvasOffset.top
+
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
+
+  c.beginPath() // borders
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,graph2.height()-18)
+  c.lineTo(graph2.width()-xPadding, graph2.height()-18)
+  c.lineTo(graph2.width()-xPadding, 0)
+  c.stroke()
+
+  c.lineWidth = 1
+  min=150
+  max=-30
+  cnt=0
+  for(i=0;i<fc.length;i++)
+  {
+  	if(fc[i][0]){
+	  	if(min>fc[i][1]) min=fc[i][1]
+	  	if(max<fc[i][1]) max=fc[i][1]
+	  	cnt++
+  	}
+  }
+  max++
+  yRange=max-min
+  min2=150
+  max2=-30
+  cnt2=0
+  for(i=fco;i<fcr;i++)
+  {
+  	if(fc[i][0]){
+	  	if(min2>fc[i][1]) min2=fc[i][1]
+	  	if(max2<fc[i][1]) max2=fc[i][1]
+	  	cnt2++
+  	}
+  }
+  yRange2=max2-min2
+
+  // value range
+  c.textAlign = "right"
+  c.textBaseline = "middle"
+  c.fillStyle='black'
+
+  for(i = min; i<max; i+=(yRange/8) )
+    c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
+  c.fillText('Out', graph2.width()-6, 6)
+
+  c.textAlign = "left"
+//  iMax+=ct;
+//  iMin-=ct+400;
+  iRng=iMax-iMin
+  c.fillText(iMax/10, 6, getYPixel3(iMax))
+  c.fillText(iMin/10, 6, getYPixel3(iMin))
+
+  c.fillStyle='#40404050'
+  w=graph2.width()-xPadding*2
+  c.fillRect(xPadding,getYPixel3(iMax),w,getYPixel3(iMin)-getYPixel3(iMax))
+
+  // temp lines
+  c.fillStyle = "red"
+  date = new Date(fc[0][0]*1000)
+  dt = date.getDate()
+  for(i=1; i<cnt; i++){
+	c.strokeStyle = fc[i][1]<32?"blue":"red"
+	c.beginPath()
+	c.moveTo(getXPixel2(i), getYPixel2(fc[i][1]))
+	c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1][1]))
+	c.stroke()
+	date = new Date(fc[i][0]*1000)
+	if(dt != date.getDate())
+	{
+	  dt = date.getDate()
+	  c.strokeStyle = '#555'
+	  c.beginPath() // borders
+	  c.moveTo(getXPixel2(i),0)
+	  c.lineTo(getXPixel2(i),graph2.height()-18)
+	  c.stroke()
+
+	  c.fillStyle = '#000'
+	  c.textAlign = "left"
+	  date = new Date(fc[i][0]*1000)
+	  c.fillText(date.toLocaleString().substr(0,8),getXPixel2(i),graph2.height()-8)
+	}
+  }
+  c.fillStyle = "#9040F080"
+  c.beginPath()
+  c.moveTo(getXPixel2(0-(fco/3)), getTT(0,fco,0))
+  for(i=fco; i<=fcr+fco; i++)
+  {
+    idx=fco+Math.floor(i/3)
+	c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,0))
+  }
+  for(i=fcr+fco; i>=fco; i--)
+  {
+    idx=fco+Math.floor(i/3)
+	c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,(md==2)?ct:-ct))
+  }
+  c.closePath()
+  c.fill()
+}
+function getXPixel2(val){
+	x=xPadding+((graph2.width()-xPadding*2)/cnt)*val
+	return x.toFixed()
+}
+
+function getYPixel2(val) {
+	y=graph2.height()-( ((graph2.height()-18)/yRange)*(val-min))-18
+	return y.toFixed()
+}
+function getYPixel3(val) {
+	y=graph2.height()/2-( (graph2.height()/2/iRng)*(val-iMin))
+	return y+30
+}
+function getTT(i,o,th)
+{
+/*  min2=150
+  max2=-30
+  for(j=o;j<o+fcr;j++)
+  {
+  	if(j<fc.length&&fc[j][0]){
+	  	if(min2>fc[j][1]) min2=fc[j][1]
+	  	if(max2<fc[j][1]) max2=fc[j][1]
+  	}
+  }*/
+  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
+  return graph2.height()/2-(graph2.height()/2/iRng*(tt-iMin))+30
 }
 </script>
 <style type="text/css">
@@ -609,6 +755,18 @@ function draw_scale(ar,w,h,o,p,ct)
   top: 0;
   left: 0;
 }
+#wrapper3 {
+  width: 100%;
+  height: 170px;
+  position: relative;
+}
+#graph2 {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
 .style1 {
 	border-style: solid;
 	border-width: 1px;
@@ -618,10 +776,21 @@ function draw_scale(ar,w,h,o,p,ct)
 <body>
 <div id="wrapper">
 <canvas id="graph" width="700" height="400"></canvas>
-<div id="popup"><canvas id="tip" width="70" height="78"></canvas></div>
+<div id="popup"><canvas id="tip" width="90" height="78"></canvas></div>
 </div>
 <div id="wrapper2">
 <canvas id="chart" width="700" height="200"></canvas>
+</div>
+<table><tr>
+<td>Offset:<input type=text size=1 id="fco" onchange="{fco=+this.value;drawFC()}"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+ Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
+ High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
+ Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
+</td>
+<td></td>
+</tr></table>
+<div id="wrapper3">
+<canvas id="graph2" width="700" height="170"></canvas>
 </div>
 </body>
 </html>
