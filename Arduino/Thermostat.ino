@@ -216,21 +216,28 @@ void loop()
         if(hour_save == 0)
         {
           if(lastDay != -1)
+          {
             hvac.dayTotals(lastDay);
+            hvac.monthTotal(month() - 1, day());
+          }
           lastDay = day() - 1;
-          ee.iSecsDay[lastDay][0] = 0; // reset,
+          ee.iSecsDay[lastDay][0] = 0; // reset
           ee.iSecsDay[lastDay][1] = 0;
           ee.iSecsDay[lastDay][2] = 0;
           if(lastDay == 0) // new month
           {
             int m = (month() + 10) % 12; // last month: Dec = 10, Jan = 11, Feb = 0
-            hvac.monthTotal(m);
+            hvac.monthTotal(m, -1);
           }
         }
         if(eemem.check())
         {
-          ee.filterMinutes = hvac.m_filterMinutes;
-          eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+          if((hour_save & 1) == 0) // every other hour
+          {
+            ee.filterMinutes = hvac.m_filterMinutes;
+            eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+            WsSend( "print;EE saved" );
+          }
         }
       }
     }
