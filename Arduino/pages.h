@@ -591,631 +591,801 @@ const char page_settings[] PROGMEM =
    "</html>\n";
 
 
-const char page_chart[] PROGMEM =
-   "<!DOCTYPE html>\n"
-   "<html>\n"
-   "<head>\n"
-   "<title>HVAC Chart</title>\n"
-   "<style type=\"text/css\">\n"
-   "div,table,input{\n"
-   "border-radius: 5px;\n"
-   "margin-bottom: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -o-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);\n"
-   "background-image: linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-clip: padding-box;\n"
-   "}\n"
-   ".style3 {\n"
-   "border-radius: 5px;\n"
-   "margin-bottom: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);\n"
-   "background-image: linear-gradient(top, #4f4f4f, #50a0a0);\n"
-   "background-clip: padding-box;\n"
-   "}\n"
-   ".style4 {\n"
-   "border-radius: 5px;\n"
-   "margin-bottom: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-image: linear-gradient(top, #4f4f4f, #50a0ff);\n"
-   "background-clip: padding-box;\n"
-   "}\n"
-   ".style5 {\n"
-   "border-radius: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);\n"
-   "background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);\n"
-   "background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);\n"
-   "background-image: linear-gradient(top, #ff00ff, #ffa0ff);\n"
-   "}\n"
-   "body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}\n"
-   "</style>\n"
-   "<script src=\"http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js\" type=\"text/javascript\" charset=\"utf-8\"></script>\n"
-   "<script type=\"text/javascript\">\n"
-   "var graph;\n"
-   "xPadding=30\n"
-   "yPadding=50\n"
-   "drawOut=false\n"
-   "var yRange\n"
-   "var Json\n"
-   "var a=document.all\n"
-   "var ws\n"
-   "added=false\n"
-   "$(document).ready(function()\n"
-   "{\n"
-   " myStorage1 = localStorage.getItem('myStoredText1')\n"
-   " if(myStorage1  != null) myToken=myStorage1\n"
-   " ws = new WebSocket(\"ws://\"+window.location.host+\"/ws\")\n"
-   "// ws = new WebSocket(\"ws://192.168.31.125/ws\")\n"
-   " ws.onopen=function(evt){ws.send('cmd;{sum:0}')}\n"
-   " ws.onclose=function(evt){alert(\"Connection closed.\")}\n"
-   " ws.onmessage = function(evt){\n"
-   "console.log(evt.data)\n"
-   "lines = evt.data.split(';')\n"
-   "event=lines[0]\n"
-   "data=lines[1]\n"
-   "Json=JSON.parse(data)\n"
-   "switch(event)\n"
-   "{\n"
-   "case 'settings':\n"
-   "ppkwh=+Json.ppk/1000\n"
-   "ccf=+Json.ccf/1000\n"
-   "cfm=+Json.cfm/1000\n"
-   "cw=+Json.cw\n"
-   "fw=+Json.fw\n"
-   "frnw=+Json.frnw\n"
-   "md=+Json.m\n"
-   "dl=+Json.dl\n"
-   "break\n"
-   "case 'state':\n"
-   "sJson=Json\n"
-   "//date=new Date()\n"
-   "//i=date.getDate()-1;\n"
-   "//div=document.getElementById(\"d\"+i)\n"
-   "//div.innerHTML=(i+1)+'&emsp; $'+Json.ce.toFixed(2)+'&emsp; $'+Json.cg.toFixed(2)\n"
-   "cyc=secsToTime(+Json.ct)\n"
-   "draw()\n"
-   "break\n"
-   "case 'alert':\n"
-   "alert(data)\n"
-   "break\n"
-   "case 'print':\n"
-   "break\n"
-   "case 'sum':\n"
-   "ws.send('cmd;{data:0}')\n"
-   "dys=Json.day\n"
-   "mns=Json.mon\n"
-   "draw_bars()\n"
-   "break\n"
-   "case 'update':\n"
-   "switch(Json.type)\n"
-   "{\n"
-   "  case 'day':\n"
-   "    dys[Json.e][0]=+Json.d0\n"
-   "    dys[Json.e][1]=+Json.d1\n"
-   "    dys[Json.e][2]=+Json.d2\n"
-   "    break\n"
-   "}\n"
-   "draw_bars()\n"
-   "break\n"
-   "case 'ref':\n"
-   "tb=Json.tb\n"
-   "th=Json.th\n"
-   "tm=Json.tm\n"
-   "lm=Json.lm\n"
-   "rm=Json.rm\n"
-   "om=Json.om\n"
-   "arr=new Array()\n"
-   "break\n"
-   "case 'data':\n"
-   "for(i=0;i<Json.d.length;i++){\n"
-   "Json.d[i][0]=(tb-Json.d[i][0]*10)*1000\n"
-   "Json.d[i][1]+=tm\n"
-   "Json.d[i][2]+=rm\n"
-   "Json.d[i][3]+=lm\n"
-   "Json.d[i][5]+=om\n"
-   "}\n"
-   "arr=arr.concat(Json.d)\n"
-   "draw()\n"
-   "break\n"
-   "case 'data2':\n"
-   "for(i=0;i<Json.d.length;i++)\n"
-   "Json.d[i][0]*=1000\n"
-   "arr=Json.d.concat(arr)\n"
-   "case 'draw':\n"
-   "draw()\n"
-   "break\n"
-   "}\n"
-   " }\n"
-   " setInterval(function(){\n"
-   "  s=0\n"
-   "  if(arr.length) s=(arr[0][0]/1000).toFixed()\n"
-   "  ws.send('cmd;{data:'+s+'}'); }, 60000);\n"
-   "});\n"
-   "\n"
-   "function draw(){\n"
-   "  graph = $('#graph')\n"
-   "  c=graph[0].getContext('2d')\n"
-   "\n"
-   "  tipCanvas=document.getElementById(\"tip\")\n"
-   "  tipCtx=tipCanvas.getContext(\"2d\")\n"
-   "  tipDiv=document.getElementById(\"popup\")\n"
-   "\n"
-   "  c.fillStyle='black'\n"
-   "  c.strokeStyle='black'\n"
-   "  c.clearRect(0, 0, graph.width(), graph.height())\n"
-   "  canvasOffset=graph.offset()\n"
-   "  offsetX=canvasOffset.left\n"
-   "  offsetY=canvasOffset.top\n"
-   "\n"
-   "  c.lineWidth=2\n"
-   "  c.font='italic 8pt sans-serif'\n"
-   "  c.textAlign=\"left\"\n"
-   "\n"
-   "  c.beginPath() // borders\n"
-   "  c.moveTo(xPadding,0)\n"
-   "  c.lineTo(xPadding,graph.height()-yPadding)\n"
-   "  c.lineTo(graph.width()-xPadding, graph.height()-yPadding)\n"
-   "  c.lineTo(graph.width()-xPadding, 0)\n"
-   "  c.stroke()\n"
-   "\n"
-   "  c.lineWidth = 1\n"
-   "  // dates\n"
-   "  step = Math.floor(arr.length / 15)\n"
-   "  if(step == 0) step = 1\n"
-   "  for(var i=0; i<arr.length-1; i+=step){\n"
-   "c.save()\n"
-   "c.translate(getXPixel(i), graph.height()-yPadding+5)\n"
-   "c.rotate(0.9)\n"
-   "date = new Date(arr[i][0])\n"
-   "c.fillText(date.toLocaleTimeString(),0,0)\n"
-   "c.restore()\n"
-   "  }\n"
-   "\n"
-   "  yRange = getMaxY() - getMinY()\n"
-   "  // value range\n"
-   "  c.textAlign = \"right\"\n"
-   "  c.textBaseline = \"middle\"\n"
-   "\n"
-   "  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) )\n"
-   "    c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))\n"
-   "\n"
-   "  c.fillText('Temp', graph.width()-6, 6)\n"
-   "  c.fillStyle = +sJson.r?(md==2?\"red\":\"blue\"):(+sJson.fr?\"green\":\"gray\")\n"
-   "  c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )\n"
-   " // cycle\n"
-   "  c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)\n"
-   "\n"
-   "  c.fillStyle=\"green\"\n"
-   "  c.fillText('Rh', xPadding-6, 6)\n"
-   "\n"
-   "  // rh scale\n"
-   "  for(i=0;i<10;i++){\n"
-   "    pos=graph.height()-8-(((graph.height()-yPadding)/10)*i)-yPadding\n"
-   "    c.fillText(i*10,xPadding-4,pos)\n"
-   "  }\n"
-   "\n"
-   "  // in-out diff\n"
-   "  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding)\n"
-   "  grd.addColorStop(0,'rgba(255,0,0,0.5)')\n"
-   "  grd.addColorStop(1,'rgba(100,100,200,0.5)')\n"
-   "\n"
-   "// Fill with gradient\n"
-   "  c.fillStyle = grd\n"
-   "  c.beginPath()\n"
-   "  c.moveTo(graph.width()-xPadding, graph.height()-yPadding)\n"
-   "  for(i=0;i<arr.length;i++){\n"
-   "switch(md){\n"
-   "  default: diff=0; break\n"
-   "  case 1: diff=(arr[i][5]-200-arr[i][1])*10; break // 20~30=0~100%\n"
-   "  case 2: diff=(arr[i][1]-380-arr[i][5])*5; break\n"
-   "}\n"
-   "if(diff<0) diff=0\n"
-   "if(diff>1000) diff=1000\n"
-   "c.lineTo(getXPixel(i),getRHPixel(diff))\n"
-   "  }\n"
-   "  c.lineTo(getXPixel(i),graph.height()-yPadding)\n"
-   "  c.closePath()\n"
-   "  c.fill()\n"
-   "\n"
-   "  //threshold\n"
-   "  c.fillStyle = 'rgba(100,100,180,0.25)'\n"
-   "  c.beginPath()\n"
-   "  c.moveTo(getXPixel(0),getYPixel(arr[0][3]+th))\n"
-   "\n"
-   "  for(i=1;i<arr.length-1;i++)\n"
-   "    c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))\n"
-   "  for(i=arr.length-2;i>=0;i--)\n"
-   "    c.lineTo(getXPixel(i),getYPixel(arr[i][3]))\n"
-   "  c.closePath()\n"
-   "  c.fill()\n"
-   "\n"
-   "  // temp lines\n"
-   "  date = new Date(arr[0][0])\n"
-   "  dt = date.getDate()\n"
-   "  for(i = 1; i < arr.length; i++){\n"
-   "c.strokeStyle = stateColor(arr[i][4])\n"
-   "c.beginPath()\n"
-   "c.moveTo(getXPixel(i), getYPixel(arr[i][1]))\n"
-   "c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))\n"
-   "c.stroke()\n"
-   "date = new Date(arr[i][0])\n"
-   "if(dt != date.getDate())\n"
-   "{\n"
-   "  dt = date.getDate()\n"
-   "  c.strokeStyle = '#000'\n"
-   "  c.beginPath() // borders\n"
-   "  c.moveTo(getXPixel(i),0)\n"
-   "  c.lineTo(getXPixel(i),graph.height()-yPadding)\n"
-   "  c.stroke()\n"
-   "}\n"
-   "  }\n"
-   "  // out temp\n"
-   "  c.strokeStyle = '#fa0'\n"
-   "  if(drawOut) for(i=1;i<arr.length;i++){\n"
-   "c.beginPath()\n"
-   "c.moveTo(getXPixel(i),getYPixel(arr[i][5]))\n"
-   "c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][5]))\n"
-   "c.stroke()\n"
-   "  }\n"
-   "\n"
-   "  // rh lines\n"
-   "  c.strokeStyle = '#0f0'\n"
-   "  c.beginPath()\n"
-   "  c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))\n"
-   "  for(var i=1;i<arr.length-1;i ++)\n"
-   "c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))\n"
-   "  c.stroke()\n"
-   "\n"
-   "  var dots = []\n"
-   "for(i = 0; i < arr.length; i ++) {\n"
-   "date = new Date(arr[i][0])\n"
-   "dots.push({\n"
-   "x: getXPixel(i),\n"
-   "y: getYPixel(arr[i][1]),\n"
-   "r: 4,\n"
-   "rXr: 16,\n"
-   "color: \"red\",\n"
-   "tip: date.toLocaleTimeString()+' ',\n"
-   "tip2: arr[i][1]/10,\n"
-   "tip3: arr[i][2]/10,\n"
-   "tip4: arr[i][5]/10\n"
-   "})\n"
-   "}\n"
-   "\n"
-   "// request mousemove events\n"
-   "graph.mousemove(function(e){handleMouseMove(e);})\n"
-   "\n"
-   "// show tooltip when mouse hovers over dot\n"
-   "function handleMouseMove(e){\n"
-   "mouseX=parseInt(e.clientX-offsetX)\n"
-   "mouseY=parseInt(e.clientY-offsetY)\n"
-   "\n"
-   "// Put your mousemove stuff here\n"
-   "var hit = false\n"
-   "for (i = 0; i < dots.length; i++) {\n"
-   "dot = dots[i]\n"
-   "dx = mouseX - dot.x\n"
-   "dy = mouseY - dot.y\n"
-   "if (dx * dx + dy * dy < dot.rXr) {\n"
-   "tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)\n"
-   "tipCtx.lineWidth = 2\n"
-   "tipCtx.fillStyle = \"#000000\"\n"
-   "tipCtx.strokeStyle = '#333'\n"
-   "tipCtx.font = 'italic 8pt sans-serif'\n"
-   "tipCtx.textAlign = \"left\"\n"
-   "\n"
-   "tipCtx.fillText( dot.tip, 4, 15)\n"
-   "tipCtx.fillText( dot.tip2+'F', 4, 29)\n"
-   "tipCtx.fillText( dot.tip3+'%', 4, 44)\n"
-   "tipCtx.fillText( dot.tip4 + 'F', 4, 58)\n"
-   "hit = true\n"
-   "popup = document.getElementById(\"popup\")\n"
-   "popup.style.top = dot.y + \"px\"\n"
-   "popup.style.left = (dot.x-60) + \"px\"\n"
-   "}\n"
-   "}\n"
-   "if (!hit) { popup.style.left = \"-200px\" }\n"
-   "}\n"
-   "\n"
-   "mousePos={x:0,y:0}\n"
-   "lastPos=mousePos\n"
-   "if(added==false)\n"
-   "{\n"
-   "graph[0].addEventListener(\"mousedown\",function(e){\n"
-   "lastPos=getMousePos(graph[0],e)\n"
-   "drawOut=!drawOut\n"
-   "draw()\n"
-   "},false)\n"
-   "added=true\n"
-   "}\n"
-   "function getMousePos(cDom, mEv){\n"
-   "rect = cDom.getBoundingClientRect();\n"
-   "return{\n"
-   " x: mEv.clientX-rect.left,\n"
-   " y: mEv.clientY-rect.top\n"
-   "}\n"
-   "}\n"
-   "}\n"
-   "\n"
-   "function getMaxY(){\n"
-   "var max = 0\n"
-   "\n"
-   "for(i=0; i<arr.length-1; i++)\n"
-   "{\n"
-   "if(arr[i][1] > max)\n"
-   "  max=arr[i][1]\n"
-   "if(arr[i][3]+th>max)\n"
-   "  max=arr[i][3]+th\n"
-   "if(drawOut&&arr[i][5]>max)\n"
-   "  max=arr[i][5]\n"
-   "}\n"
-   "return Math.ceil(max)\n"
-   "}\n"
-   "\n"
-   "function getMinY(){\n"
-   "var min = 1500\n"
-   "\n"
-   "for(i=0; i<arr.length; i++)\n"
-   "{\n"
-   "if(arr[i][1]<min)\n"
-   "  min=arr[i][1]\n"
-   "if(arr[i][3]<min)\n"
-   "  min=arr[i][3]\n"
-   "if(drawOut&&arr[i][5]<min)\n"
-   "  min=arr[i][5]\n"
-   "}\n"
-   "return Math.floor(min)\n"
-   "}\n"
-   " \n"
-   "function getXPixel(val){\n"
-   "x=(graph.width()-xPadding)-((graph.width()-26-xPadding)/arr.length)*val\n"
-   "return x.toFixed()\n"
-   "}\n"
-   "\n"
-   "function getYPixel(val) {\n"
-   "y=graph.height()-( ((graph.height()-yPadding)/yRange)*(val-getMinY()))-yPadding\n"
-   "return y.toFixed()\n"
-   "}\n"
-   "\n"
-   "function getRHPixel(val) {\n"
-   "  return graph.height()-(((graph.height()-yPadding)/1000)*val)-yPadding\n"
-   "}\n"
-   "\n"
-   "function stateColor(s)\n"
-   "{\n"
-   "  sts=Array('gray','blue','red','red')\n"
-   "  if(s==1) return 'cyan'\n"
-   "  return sts[s>>1]\n"
-   "}\n"
-   "\n"
-   "function setVar(varName, value)\n"
-   "{\n"
-   " ws.send('cmd;{\"key\":\"'+myToken+'\",\"'+varName+'\":'+value+'}')\n"
-   "}\n"
-   "\n"
-   "function secsToTime(elap)\n"
-   "{\n"
-   "d=0\n"
-   "m=0\n"
-   "h=Math.floor(elap/3600)\n"
-   "if(h >23)\n"
-   "{\n"
-   "d=Math.floor(h/24)\n"
-   "h-=(d*24)\n"
-   "}\n"
-   "else\n"
-   "{\n"
-   "m=Math.floor((elap-(h*3600))/60)\n"
-   "s=elap-(h*3600)-(m*60)\n"
-   "if(s<10) s='0'+s\n"
-   "if(h==0)\n"
-   "{\n"
-   "if( m < 10) m='  '+m\n"
-   "return '    '+m +':'+s\n"
-   "}\n"
-   "}\n"
-   "if(m<10) m='0'+m\n"
-   "if(h<10) h='  '+h\n"
-   "if(d) return d+'d '+h+'h'\n"
-   "return h+':'+m+':'+s\n"
-   "}\n"
-   "\n"
-   "function draw_bars()\n"
-   "{\n"
-   "    graph = $('#chart')\n"
-   "var c=document.getElementById('chart')\n"
-   "rect=c.getBoundingClientRect()\n"
-   "canvasX=rect.x\n"
-   "canvasY=rect.y\n"
-   "\n"
-   "    tipCanvas=document.getElementById(\"tip\")\n"
-   "    tipCtx=tipCanvas.getContext(\"2d\")\n"
-   "    tipDiv=document.getElementById(\"popup\")\n"
-   "\n"
-   "ctx=c.getContext(\"2d\")\n"
-   "ht=c.height/2\n"
-   "ctx.fillStyle=\"#FFF\"\n"
-   "ctx.font=\"10px sans-serif\"\n"
-   "\n"
-   "    dots2=[]\n"
-   "    date=new Date()\n"
-   "ctx.lineWidth=6\n"
-   "draw_scale(dys,c.width-4,ht,2,1,date.getDate()-1)\n"
-   "ctx.lineWidth=14\n"
-   "draw_scale(mns,c.width-4,ht-2,ht+2,1,date.getMonth())\n"
-   "\n"
-   "// request mousemove events\n"
-   "graph.mousemove(function(e){handleMouseMove(e);})\n"
-   "\n"
-   "// show tooltip when mouse hovers over dot\n"
-   "function handleMouseMove(e){\n"
-   "rect=c.getBoundingClientRect()\n"
-   "mouseX=e.clientX-rect.x\n"
-   "mouseY=e.clientY-rect.y\n"
-   "var hit = false\n"
-   "for(i=0;i<dots2.length;i++){\n"
-   "dot=dots2[i]\n"
-   "if(mouseX>=dot.x && mouseX<=dot.x2 && mouseY>=dot.y && mouseY<=dot.y2){\n"
-   "tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)\n"
-   "tipCtx.fillStyle = \"#000000\"\n"
-   "tipCtx.strokeStyle = '#333'\n"
-   "tipCtx.font = 'italic 8pt sans-serif'\n"
-   "tipCtx.textAlign = \"left\"\n"
-   "tipCtx.fillText(dot.tip, 4,15)\n"
-   "tipCtx.fillText(dot.tip2,4,29)\n"
-   "tipCtx.fillText(dot.tip3,4,44)\n"
-   "tipCtx.fillText(dot.tip4,4,59)\n"
-   "tipCtx.fillText(dot.tip5,4,75)\n"
-   "hit = true\n"
-   "popup = document.getElementById(\"popup\")\n"
-   "popup.style.top =(dot.y+rect.y+window.pageYOffset)+\"px\"\n"
-   "x=dot.x+rect.x-60\n"
-   "if(x<10)x=10\n"
-   "popup.style.left=x+\"px\"\n"
-   "}\n"
-   "}\n"
-   "if(!hit){popup.style.left=\"-200px\"}\n"
-   "}\n"
-   "\n"
-   "function getMousePos(cDom, mEv){\n"
-   "rect = cDom.getBoundingClientRect();\n"
-   "return{\n"
-   " x: mEv.clientX-rect.left,\n"
-   " y: mEv.clientY-rect.top\n"
-   "}\n"
-   "}\n"
-   "}\n"
-   "\n"
-   "function draw_scale(ar,w,h,o,p,ct)\n"
-   "{\n"
-   "ctx.fillStyle=\"#336\"\n"
-   "ctx.fillRect(2,o,w,h-3)\n"
-   "ctx.fillStyle=\"#FFF\"\n"
-   "max=[0,0,0]\n"
-   "tot=[0,0,0,0,0]\n"
-   "for(i=0;i<ar.length;i++)\n"
-   "{\n"
-   "if(ar[i][0]>max[0]) max[0]=ar[i][0]\n"
-   "if(ar[i][1]>max[1]) max[1]=ar[i][1]\n"
-   "if(ar[i][2]>max[0]) max[0]=ar[i][2]\n"
-   "tot[0]+=ar[i][0]\n"
-   "tot[1]+=ar[i][1]\n"
-   "tot[2]+=ar[i][2]\n"
-   "}\n"
-   "max[2]=max[0]\n"
-   "ctx.textAlign=\"center\"\n"
-   "lw=ctx.lineWidth\n"
-   "clr=['#55F','#F55','#5F5']\n"
-   "mbh=0\n"
-   "for(i=0;i<ar.length;i++)\n"
-   "{\n"
-   "x=i*((w-40)/ar.length)+10\n"
-   "for(j=0;j<3;j++)\n"
-   "{\n"
-   "ctx.strokeStyle=clr[j]\n"
-   "    bh=ar[i][j]*(h-20)/max[j]\n"
-   "    if(mbh<bh) mbh=bh\n"
-   "    y=(o+h-20)-bh\n"
-   "ctx.beginPath()\n"
-   "    ctx.moveTo(x,o+h-20)\n"
-   "    ctx.lineTo(x,y)\n"
-   "ctx.stroke()\n"
-   "x+=lw\n"
-   "}\n"
-   "ctx.strokeStyle=\"#FFF\"\n"
-   "ctx.fillText(i+p,x-lw*2,o+h-7)\n"
-   "\n"
-   "if(i==ct)\n"
-   "{\n"
-   "ctx.strokeStyle=\"#000\"\n"
-   "ctx.lineWidth=1\n"
-   "ctx.beginPath()\n"
-   "    ctx.moveTo(x+2,o+h-20)\n"
-   "    ctx.lineTo(x+2,o)\n"
-   "ctx.stroke()\n"
-   "ctx.lineWidth=lw\n"
-   "}\n"
-   "if(mbh<25) mbh=25\n"
-   "costE=+((ppkwh*ar[i][0]*(cw/3600000))+(ppkwh*ar[i][2]*(fw/3600000))+(ppkwh*ar[i][1]*(frnw/3600000))).toFixed(2)\n"
-   "costG=+(ccf*ar[i][1]*(cfm/60)).toFixed(2)\n"
-   "tot[3]+=costE\n"
-   "tot[4]+=costG\n"
-   "if(ar[i][0]||ar[i][1]||ar[i][2])\n"
-   "  dots2.push({\n"
-   "x: x-lw*3,\n"
-   "y: (o+h-20)-mbh,\n"
-   "y2: (o+h),\n"
-   "x2: x+ctx.lineWidth*1.5,\n"
-   "tip: 'AC'+secsToTime(ar[i][0]),\n"
-   "tip2: 'NG'+secsToTime(ar[i][1]),\n"
-   "tip3: 'FAN'+secsToTime(ar[i][2]),\n"
-   "tip4: 'Ele $'+costE,\n"
-   "tip5: 'NG $'+costG\n"
-   "})\n"
-   "}\n"
-   "ctx.textAlign=\"right\"\n"
-   "ctx.fillText(secsToTime(tot[0]),w-1,o+10)\n"
-   "ctx.fillText(secsToTime(tot[1]),w-1,o+21)\n"
-   "ctx.fillText('$'+tot[3].toFixed(2),w-1,o+32)\n"
-   "ctx.fillText('$'+tot[4].toFixed(2),w-1,o+43)\n"
-   "}\n"
-   "</script>\n"
-   "<style type=\"text/css\">\n"
-   "#wrapper {\n"
-   "  width: 100%;\n"
-   "  height: 400px;\n"
-   "  position: relative;\n"
-   "}\n"
-   "#graph {\n"
-   "  width: 100%;\n"
-   "  height: 100%;\n"
-   "  position: absolute;\n"
-   "  top: 0;\n"
-   "  left: 0;\n"
-   "}\n"
-   "#popup {\n"
-   "  position: absolute;\n"
-   "  top: 150px;\n"
-   "  left: -150px;\n"
-   "  z-index: 10;\n"
-   "}\n"
-   "#wrapper2{\n"
-   "  width: 100%;\n"
-   "  height: 200px;\n"
-   "  position: relative;\n"
-   "}\n"
-   "#chart{\n"
-   "  width: 100%;\n"
-   "  height: 100%;\n"
-   "  position: absolute;\n"
-   "  top: 0;\n"
-   "  left: 0;\n"
-   "}\n"
-   ".style1 {\n"
-   "border-style: solid;\n"
-   "border-width: 1px;\n"
-   "}\n"
-   "</style>\n"
-   "</head>\n"
-   "<body>\n"
-   "<div id=\"wrapper\">\n"
-   "<canvas id=\"graph\" width=\"700\" height=\"400\"></canvas>\n"
-   "<div id=\"popup\"><canvas id=\"tip\" width=\"70\" height=\"78\"></canvas></div>\n"
-   "</div>\n"
-   "<div id=\"wrapper2\">\n"
-   "<canvas id=\"chart\" width=\"700\" height=\"200\"></canvas>\n"
-   "</div>\n"
-   "</body>\n"
-   "</html>\n";
+const char page_chart[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+<title>HVAC Chart</title>
+<style type="text/css">
+div,table,input{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -ms-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
+background-image: linear-gradient(top, #ffffff, #a0a0a0);
+background-clip: padding-box;
+}
+.style3 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: linear-gradient(top, #4f4f4f, #50a0a0);
+background-clip: padding-box;
+}
+.style4 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: linear-gradient(top, #4f4f4f, #50a0ff);
+background-clip: padding-box;
+}
+.style5 {
+border-radius: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);
+background-image: linear-gradient(top, #ff00ff, #ffa0ff);
+}
+body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
+</style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="forecast"></script>
+<script type="text/javascript">
+var graph;
+xPadding=30
+yPadding=50
+drawOut=false
+var yRange
+var Json
+var a=document.all
+var ws
+added=false
+$(document).ready(function()
+{
+ myStorage1 = localStorage.getItem('myStoredText1')
+ if(myStorage1  != null) myToken=myStorage1
+ ws = new WebSocket("ws://"+window.location.host+"/ws")
+// ws = new WebSocket("ws://192.168.31.125/ws")
+ ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
+ ws.onclose=function(evt){alert("Connection closed.")}
+ ws.onmessage = function(evt){
+  console.log(evt.data)
+  lines = evt.data.split(';')
+  event=lines[0]
+  data=lines[1]
+  Json=JSON.parse(data)
+  switch(event)
+  {
+    case 'settings':
+      ppkwh=+Json.ppk/1000
+      ccf=+Json.ccf/1000
+      cfm=+Json.cfm/1000
+      cw=+Json.cw
+      fw=+Json.fw
+      frnw=+Json.frnw
+      md=+Json.m
+      dl=+Json.dl
+      a.fco.value=fco=+Json.fco
+      a.fcr.value=fcr=+Json.fcr
+      ct=+Json.ct
+      c0=+Json.c0
+      c1=+Json.c1
+      h0=+Json.h0
+      h1=+Json.h1
+      a.lo.value=(iMin=(md==2)?h0:c0)/10
+      a.hi.value=(iMax=(md==2)?h1:c1)/10
+      a.ct.value=ct/10
+      drawFC()
+      break
+    case 'state':
+      sJson=Json
+      cyc=secsToTime(+Json.ct)
+      draw()
+      break
+    case 'alert':
+      alert(data)
+      break
+    case 'print':
+      break
+    case 'sum':
+      ws.send('cmd;{data:0}')
+      dys=Json.day
+      mns=Json.mon
+      draw_bars()
+      break
+    case 'update':
+      switch(Json.type)
+      {
+        case 'day':
+          dys[Json.e][0]=+Json.d0
+          dys[Json.e][1]=+Json.d1
+          dys[Json.e][2]=+Json.d2
+          break
+      }
+      draw_bars()
+      break
+    case 'ref':
+      tb=Json.tb
+      th=Json.th
+      tm=Json.tm
+      lm=Json.lm
+      rm=Json.rm
+      om=Json.om
+      arr=new Array()
+      break
+    case 'data':
+      for(i=0;i<Json.d.length;i++){
+        Json.d[i][0]=(tb-Json.d[i][0]*10)*1000
+        Json.d[i][1]+=tm
+        Json.d[i][2]+=rm
+        Json.d[i][3]+=lm
+        Json.d[i][5]+=om
+      }
+      arr=arr.concat(Json.d)
+      draw()
+      break
+    case 'data2':
+      for(i=0;i<Json.d.length;i++)
+        Json.d[i][0]*=1000
+      arr=Json.d.concat(arr)
+    case 'draw':
+      draw()
+      break
+  }
+ }
+ setInterval(function(){
+  s=0
+  if(arr.length) s=(arr[0][0]/1000).toFixed()
+  ws.send('cmd;{data:'+s+'}'); }, 60000);
+});
+
+function draw(){
+  graph = $('#graph')
+  c=graph[0].getContext('2d')
+
+  tipCanvas=document.getElementById("tip")
+  tipCtx=tipCanvas.getContext("2d")
+  tipDiv=document.getElementById("popup")
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  c.clearRect(0, 0, graph.width(), graph.height())
+  canvasOffset=graph.offset()
+  offsetX=canvasOffset.left
+  offsetY=canvasOffset.top
+
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
+
+  c.beginPath() // borders
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,graph.height()-yPadding)
+  c.lineTo(graph.width()-xPadding, graph.height()-yPadding)
+  c.lineTo(graph.width()-xPadding, 0)
+  c.stroke()
+
+  c.lineWidth = 1
+  // dates
+  step = Math.floor(arr.length / 15)
+  if(step == 0) step = 1
+  for(var i=0; i<arr.length-1; i+=step){
+  c.save()
+  c.translate(getXPixel(i), graph.height()-yPadding+5)
+  c.rotate(0.9)
+  date = new Date(arr[i][0])
+  c.fillText(date.toLocaleTimeString(),0,0)
+  c.restore()
+  }
+
+  yRange = getMaxY() - getMinY()
+  // value range
+  c.textAlign = "right"
+  c.textBaseline = "middle"
+
+  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) )
+    c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))
+
+  c.fillText('Temp', graph.width()-6, 6)
+  c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"gray")
+  c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
+ // cycle
+  c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)
+
+  c.fillStyle="green"
+  c.fillText('Rh', xPadding-6, 6)
+
+  // rh scale
+  for(i=0;i<10;i++){
+    pos=graph.height()-8-(((graph.height()-yPadding)/10)*i)-yPadding
+    c.fillText(i*10,xPadding-4,pos)
+  }
+
+  // in-out diff
+  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding)
+  grd.addColorStop(0,'rgba(255,100,0,0.2)')
+  grd.addColorStop(1,'rgba(150,150,200,0.2)')
+
+// Fill with gradient
+  c.fillStyle = grd
+  c.beginPath()
+  c.moveTo(graph.width()-xPadding, graph.height()-yPadding)
+  for(i=0;i<arr.length;i++){
+  switch(md){
+    default: diff=0; break
+    case 1: diff=(arr[i][5]-200-arr[i][1])*10; break // 20~30=0~100%
+    case 2: diff=(arr[i][1]-380-arr[i][5])*3; break
+  }
+  if(diff<0) diff=0
+  if(diff>1000) diff=1000
+  c.lineTo(getXPixel(i),getRHPixel(diff))
+  }
+  c.lineTo(getXPixel(i),graph.height()-yPadding)
+  c.closePath()
+  c.fill()
+
+  //threshold
+  c.fillStyle = 'rgba(100,100,180,0.25)'
+  c.beginPath()
+  c.moveTo(getXPixel(0),getYPixel(arr[0][3]+th))
+
+  for(i=1;i<arr.length-1;i++)
+    c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))
+  for(i=arr.length-2;i>=0;i--)
+    c.lineTo(getXPixel(i),getYPixel(arr[i][3]))
+  c.closePath()
+  c.fill()
+
+  // temp lines
+  date = new Date(arr[0][0])
+  dt = date.getDate()
+  for(i = 1; i < arr.length; i++){
+  c.strokeStyle = stateColor(arr[i][4])
+  c.beginPath()
+  c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
+  c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
+  c.stroke()
+  date = new Date(arr[i][0])
+  if(dt != date.getDate())
+  {
+    dt = date.getDate()
+    c.strokeStyle = '#000'
+    c.beginPath() // borders
+    c.moveTo(getXPixel(i),0)
+    c.lineTo(getXPixel(i),graph.height()-yPadding)
+    c.stroke()
+  }
+  }
+  // out temp
+  c.strokeStyle = '#fa0'
+  if(drawOut) for(i=1;i<arr.length;i++){
+  c.beginPath()
+  c.moveTo(getXPixel(i),getYPixel(arr[i][5]))
+  c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][5]))
+  c.stroke()
+  }
+
+  // rh lines
+  c.strokeStyle = '#0f0'
+  c.beginPath()
+  c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))
+  for(var i=1;i<arr.length-1;i ++)
+  c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))
+  c.stroke()
+
+  var dots = []
+  for(i = 0; i < arr.length; i ++) {
+    date = new Date(arr[i][0])
+    dots.push({
+      x: getXPixel(i),
+      y: getYPixel(arr[i][1]),
+      r: 4,
+      rXr: 16,
+      color: "red",
+      tip: date.toLocaleTimeString()+' ',
+      tip2: arr[i][1]/10,
+      tip3: arr[i][2]/10,
+      tip4: arr[i][5]/10
+    })
+  }
+
+  // request mousemove events
+  graph.mousemove(function(e){handleMouseMove(e);})
+
+  // show tooltip when mouse hovers over dot
+  function handleMouseMove(e){
+    mouseX=parseInt(e.clientX-offsetX)
+    mouseY=parseInt(e.clientY-offsetY)
+    
+    // Put your mousemove stuff here
+    var hit = false
+    for (i = 0; i < dots.length; i++) {
+      dot = dots[i]
+      dx = mouseX - dot.x
+      dy = mouseY - dot.y
+      if (dx * dx + dy * dy < dot.rXr) {
+        tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
+        tipCtx.lineWidth = 2
+        tipCtx.fillStyle = "#000000"
+        tipCtx.strokeStyle = '#333'
+        tipCtx.font = 'italic 8pt sans-serif'
+        tipCtx.textAlign = "left"
+
+        tipCtx.fillText( dot.tip, 4, 15)
+        tipCtx.fillText( dot.tip2+'°F', 4, 29)
+        tipCtx.fillText( dot.tip3+'%', 4, 44)
+        tipCtx.fillText( dot.tip4 + '°F', 4, 58)
+        hit = true
+        popup = document.getElementById("popup")
+        popup.style.top = dot.y + "px"
+        popup.style.left = (dot.x-60) + "px"
+      }
+    }
+    if (!hit) { popup.style.left = "-200px" }
+  }
+
+  mousePos={x:0,y:0}
+  lastPos=mousePos
+  if(added==false)
+  {
+    graph[0].addEventListener("mousedown",function(e){
+      lastPos=getMousePos(graph[0],e)
+      drawOut=!drawOut
+      draw()
+    },false)
+    added=true
+  }
+  function getMousePos(cDom, mEv){
+    rect = cDom.getBoundingClientRect();
+    return{
+     x: mEv.clientX-rect.left,
+     y: mEv.clientY-rect.top
+    }
+  }
+}
+
+function getMaxY(){
+  var max = 0
+  
+  for(i=0; i<arr.length-1; i++)
+  {
+    if(arr[i][1] > max)
+      max=arr[i][1]
+    if(arr[i][3]+th>max)
+      max=arr[i][3]+th
+    if(drawOut&&arr[i][5]>max)
+      max=arr[i][5]
+  }
+  return Math.ceil(max)
+}
+
+function getMinY(){
+  var min = 1500
+
+  for(i=0; i<arr.length; i++)
+  {
+    if(arr[i][1]<min)
+      min=arr[i][1]
+    if(arr[i][3]<min)
+      min=arr[i][3]
+    if(drawOut&&arr[i][5]<min)
+      min=arr[i][5]
+  }
+  return Math.floor(min)
+}
+ 
+function getXPixel(val){
+  x=(graph.width()-xPadding)-((graph.width()-26-xPadding)/arr.length)*val
+  return x.toFixed()
+}
+
+function getYPixel(val) {
+  y=graph.height()-( ((graph.height()-yPadding)/yRange)*(val-getMinY()))-yPadding
+  return y.toFixed()
+}
+
+function getRHPixel(val) {
+  return graph.height()-(((graph.height()-yPadding)/1000)*val)-yPadding
+}
+
+function stateColor(s)
+{
+  sts=Array('gray','blue','red','red')
+  if(s==1) return 'cyan'
+  return sts[s>>1]
+}
+
+function setVar(varName, value)
+{
+ ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+}
+
+function secsToTime(elap)
+{
+  dy=0
+  m=0
+  h=Math.floor(elap/3600)
+  if(h>23)
+  {
+    dy=Math.floor(h/24)
+    h-=(dy*24)
+    elap-=dy*3600*24
+  }
+  
+  m=Math.floor((elap-(h*3600))/60)
+  s=elap-(h*3600)-(m*60)
+  if(s<10) s='0'+s
+  if(h==0&&dy==0)
+  {
+    if(m<10) m='  '+m
+    return '    '+m +':'+s
+  }
+  if(m<10) m='0'+m
+  if(h<10) h='  '+h
+  if(dy) return dy+'d '+h+':'+m+'m'
+  return h+':'+m+':'+s
+}
+
+function draw_bars()
+{
+    graph = $('#chart')
+  var c=document.getElementById('chart')
+  rect=c.getBoundingClientRect()
+  canvasX=rect.x
+  canvasY=rect.y
+
+    tipCanvas=document.getElementById("tip")
+    tipCtx=tipCanvas.getContext("2d")
+    tipDiv=document.getElementById("popup")
+
+  ctx=c.getContext("2d")
+  ht=c.height/2
+  ctx.fillStyle="#FFF"
+  ctx.font="10px sans-serif"
+
+    dots2=[]
+    date=new Date()
+  ctx.lineWidth=6
+  draw_scale(dys,c.width-4,ht,2,1,date.getDate()-1)
+  ctx.lineWidth=14
+  draw_scale(mns,c.width-4,ht-2,ht+2,1,date.getMonth())
+
+  // request mousemove events
+  graph.mousemove(function(e){handleMouseMove(e);})
+
+  // show tooltip when mouse hovers over dot
+  function handleMouseMove(e){
+    rect=c.getBoundingClientRect()
+    mouseX=e.clientX-rect.x
+    mouseY=e.clientY-rect.y
+    var hit = false
+    for(i=0;i<dots2.length;i++){
+      dot=dots2[i]
+      if(mouseX>=dot.x && mouseX<=dot.x2 && mouseY>=dot.y && mouseY<=dot.y2){
+        tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
+        tipCtx.fillStyle = "#000000"
+        tipCtx.strokeStyle = '#333'
+        tipCtx.font = 'italic 8pt sans-serif'
+        tipCtx.textAlign = "left"
+        tipCtx.fillText(dot.tip, 4,15)
+        tipCtx.fillText(dot.tip2,4,29)
+        tipCtx.fillText(dot.tip3,4,44)
+        tipCtx.fillText(dot.tip4,4,59)
+        tipCtx.fillText(dot.tip5,4,75)
+        hit = true
+        popup = document.getElementById("popup")
+        popup.style.top =(dot.y+rect.y+window.pageYOffset)+"px"
+        x=dot.x+rect.x-60
+        if(x<10)x=10
+        popup.style.left=x+"px"
+      }
+    }
+    if(!hit){popup.style.left="-200px"}
+  }
+
+  function getMousePos(cDom, mEv){
+    rect = cDom.getBoundingClientRect();
+    return{
+     x: mEv.clientX-rect.left,
+     y: mEv.clientY-rect.top
+    }
+  }
+}
+
+function draw_scale(ar,w,h,o,p,ct)
+{
+  ctx.fillStyle="#336"
+  ctx.fillRect(2,o,w,h-3)
+  ctx.fillStyle="#FFF"
+  max=[0,0,0]
+  tot=[0,0,0,0,0]
+  for(i=0;i<ar.length;i++)
+  {
+    if(ar[i][0]>max[0]) max[0]=ar[i][0]
+    if(ar[i][1]>max[1]) max[1]=ar[i][1]
+    if(ar[i][2]>max[0]) max[0]=ar[i][2]
+    tot[0]+=ar[i][0]
+    tot[1]+=ar[i][1]
+    tot[2]+=ar[i][2]
+  }
+  max[2]=max[0]
+  ctx.textAlign="center"
+  lw=ctx.lineWidth
+  clr=['#55F','#F55','#5F5']
+  mbh=0
+  for(i=0;i<ar.length;i++)
+  {
+    x=i*((w-40)/ar.length)+10
+    for(j=0;j<3;j++)
+    {
+      ctx.strokeStyle=clr[j]
+        bh=ar[i][j]*(h-20)/max[j]
+        if(mbh<bh) mbh=bh
+        y=(o+h-20)-bh
+      ctx.beginPath()
+        ctx.moveTo(x,o+h-20)
+        ctx.lineTo(x,y)
+      ctx.stroke()
+      x+=lw
+    }
+    ctx.strokeStyle="#FFF"
+    ctx.fillText(i+p,x-lw*2,o+h-7)
+
+    if(i==ct)
+    {
+      ctx.strokeStyle="#fff"
+      ctx.lineWidth=1
+      ctx.beginPath()
+        ctx.moveTo(x-1,o+h-20)
+        ctx.lineTo(x-1,o)
+      ctx.stroke()
+      ctx.lineWidth=lw
+    }
+    if(mbh<25) mbh=25
+    costE=+(ppkwh*ar[i][0]*(cw/3600000))+(ppkwh*ar[i][2]*(fw/3600000))+(ppkwh*ar[i][1]*(frnw/3600000))
+    costG=+(ccf*ar[i][1]*cfm)/3600
+    tot[3]+=costE
+    tot[4]+=costG
+    if(ar[i][0]||ar[i][1]||ar[i][2])
+      dots2.push({
+      x: x-lw*3,
+      y: (o+h-20)-mbh,
+      y2: (o+h),
+      x2: x+ctx.lineWidth*1.5,
+      tip: 'AC'+secsToTime(ar[i][0]),
+      tip2: 'NG\t\t'+secsToTime(ar[i][1]),
+      tip3: 'FAN\t\t'+secsToTime(ar[i][2]),
+      tip4: 'Elec   $'+costE.toFixed(2),
+      tip5: 'NG     $'+costG.toFixed(2)
+    })
+  }
+  ctx.textAlign="right"
+  ctx.fillText(secsToTime(tot[0]),w-1,o+10)
+  ctx.fillText(secsToTime(tot[1]),w-1,o+21)
+  ctx.fillText('$'+tot[3].toFixed(2),w-1,o+32)
+  ctx.fillText('$'+tot[4].toFixed(2),w-1,o+43)
+}
+
+function drawFC(){
+  graph2 = $('#graph2')
+  c=graph2[0].getContext('2d')
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  c.clearRect(0, 0, graph2.width(), graph2.height())
+  canvasOffset=graph2.offset()
+  offsetX=canvasOffset.left
+  offsetY=canvasOffset.top
+
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
+
+  c.beginPath() // borders
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,graph2.height()-18)
+  c.lineTo(graph2.width()-xPadding, graph2.height()-18)
+  c.lineTo(graph2.width()-xPadding, 0)
+  c.stroke()
+
+  c.lineWidth = 1
+  min=150
+  max=-30
+  cnt=0
+  for(i=0;i<fc.length;i++)
+  {
+    if(fc[i][0]){
+      if(min>fc[i][1]) min=fc[i][1]
+      if(max<fc[i][1]) max=fc[i][1]
+      cnt++
+    }
+  }
+  max++
+  yRange=max-min
+  min2=150
+  max2=-30
+  cnt2=0
+  for(i=fco;i<fcr;i++)
+  {
+    if(fc[i][0]){
+      if(min2>fc[i][1]) min2=fc[i][1]
+      if(max2<fc[i][1]) max2=fc[i][1]
+      cnt2++
+    }
+  }
+  yRange2=max2-min2
+
+  // value range
+  c.textAlign = "right"
+  c.textBaseline = "middle"
+  c.fillStyle='black'
+
+  for(i = min; i<max; i+=(yRange/8) )
+    c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
+  c.fillText('Out', graph2.width()-6, 6)
+
+  c.textAlign = "left"
+//  iMax+=ct;
+//  iMin-=ct+400;
+  iRng=iMax-iMin
+  c.fillText(iMax/10, 6, getYPixel3(iMax))
+  c.fillText(iMin/10, 6, getYPixel3(iMin))
+
+  c.fillStyle='#40404050'
+  w=graph2.width()-xPadding*2
+  c.fillRect(xPadding,getYPixel3(iMax),w,getYPixel3(iMin)-getYPixel3(iMax))
+
+  // temp lines
+  c.fillStyle = "red"
+  date = new Date(fc[0][0]*1000)
+  dt = date.getDate()
+  for(i=1; i<cnt; i++){
+  c.strokeStyle = fc[i][1]<32?"blue":"red"
+  c.beginPath()
+  c.moveTo(getXPixel2(i), getYPixel2(fc[i][1]))
+  c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1][1]))
+  c.stroke()
+  date = new Date(fc[i][0]*1000)
+  if(dt != date.getDate())
+  {
+    dt = date.getDate()
+    c.strokeStyle = '#555'
+    c.beginPath() // borders
+    c.moveTo(getXPixel2(i),0)
+    c.lineTo(getXPixel2(i),graph2.height()-18)
+    c.stroke()
+
+    c.fillStyle = '#000'
+    c.textAlign = "left"
+    date = new Date(fc[i][0]*1000)
+    c.fillText(date.toLocaleString().substr(0,8),getXPixel2(i),graph2.height()-8)
+  }
+  }
+  c.fillStyle = "#9040F080"
+  c.beginPath()
+  c.moveTo(getXPixel2(0-(fco/3)), getTT(0,fco,0))
+  for(i=fco; i<=fcr+fco; i++)
+  {
+    idx=fco+Math.floor(i/3)
+  c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,0))
+  }
+  for(i=fcr+fco; i>=fco; i--)
+  {
+    idx=fco+Math.floor(i/3)
+  c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,(md==2)?ct:-ct))
+  }
+  c.closePath()
+  c.fill()
+}
+function getXPixel2(val){
+  x=xPadding+((graph2.width()-xPadding*2)/cnt)*val
+  return x.toFixed()
+}
+
+function getYPixel2(val) {
+  y=graph2.height()-( ((graph2.height()-18)/yRange)*(val-min))-18
+  return y.toFixed()
+}
+function getYPixel3(val) {
+  y=graph2.height()/2-( (graph2.height()/2/iRng)*(val-iMin))
+  return y+30
+}
+function getTT(i,o,th)
+{
+/*  min2=150
+  max2=-30
+  for(j=o;j<o+fcr;j++)
+  {
+    if(j<fc.length&&fc[j][0]){
+      if(min2>fc[j][1]) min2=fc[j][1]
+      if(max2<fc[j][1]) max2=fc[j][1]
+    }
+  }*/
+  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
+  return graph2.height()/2-(graph2.height()/2/iRng*(tt-iMin))+30
+}
+</script>
+<style type="text/css">
+#wrapper {
+  width: 100%;
+  height: 400px;
+  position: relative;
+}
+#graph {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+#popup {
+  position: absolute;
+  top: 150px;
+  left: -150px;
+  z-index: 10;
+}
+#wrapper2{
+  width: 100%;
+  height: 200px;
+  position: relative;
+}
+#chart{
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+#wrapper3 {
+  width: 100%;
+  height: 170px;
+  position: relative;
+}
+#graph2 {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.style1 {
+  border-style: solid;
+  border-width: 1px;
+}
+</style>
+</head>
+<body>
+<div id="wrapper">
+<canvas id="graph" width="700" height="400"></canvas>
+<div id="popup"><canvas id="tip" width="90" height="78"></canvas></div>
+</div>
+<div id="wrapper2">
+<canvas id="chart" width="700" height="200"></canvas>
+</div>
+<table><tr>
+<td>Offset:<input type=text size=1 id="fco" onchange="{fco=+this.value;drawFC()}"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+ Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
+ High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
+ Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
+</td>
+<td></td>
+</tr></table>
+<div id="wrapper3">
+<canvas id="graph2" width="700" height="170"></canvas>
+</div>
+</body>
+</html>
+)rawliteral";
