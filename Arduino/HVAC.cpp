@@ -272,6 +272,7 @@ void HVAC::costAdd(int secs, int mode, int hm)
       break;
   }
   dayTotals(day() - 1);
+  monthTotal(month() - 1, day());
 }
 
 bool HVAC::stateChange()
@@ -1166,10 +1167,12 @@ void HVAC::dayTotals(int d)
 
 static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
 
-void HVAC::monthTotal(int m)
+void HVAC::monthTotal(int m, int dys)
 {
-  uint32_t sec[3];
-  for(int i = 0; i < monthDays[m]; i++) // Todo: leap year
+  uint32_t sec[3] = {0}; // This doesn't clear if not implied
+  if(dys == -1) // use days of month
+    dys = monthDays[m];
+  for(int i = 0; i < dys; i++) // Todo: leap year
   {
     sec[0] += ee.iSecsDay[i][0];
     sec[1] += ee.iSecsDay[i][1];
