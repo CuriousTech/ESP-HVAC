@@ -6,7 +6,7 @@ int Nextion::service(char *pBuf)
   dimmer();
   if(!Serial.available())
     return 0;
-  int len = Serial.readBytesUntil(0xFF, pBuf, 63);
+  int len = Serial.readBytesUntil(0xFF, pBuf, 62);
 
   if(len < 3) // could be the other 2 FFs
     return 0;
