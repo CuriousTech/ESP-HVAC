@@ -472,7 +472,7 @@ void appendDump(int startTime)
 
 String forecastJson()
 {
-  String out = "fc;{\"d\":[";
+  String out = "fc=[";
   bool bC = false;
 
   for(int i = 0; i < FC_CNT; i++)
@@ -485,9 +485,9 @@ String forecastJson()
     out += display.m_fcData[i].temp;
     out += "]";
   }
-  if(bC) // don't send blank
-    out += "]";
-  out += "}";
+//  if(bC) // don't send blank
+//    out += "]";
+  out += "]";
   return out;
 }
 
@@ -548,9 +548,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         {
           if(i) out += ",";
           out += "[";
-//          out += ee.fCostE[i];
-//          out += ",";
- //         out += ee.fCostG[i];
           out += ee.iSecsMon[i][0];
           out += ",";
           out += ee.iSecsMon[i][1];
@@ -563,9 +560,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         {
           if(i) out += ",";
           out += "[";
-//          out += ee.fCostDay[i][0];
-//          out += ",";
-//          out += ee.fCostDay[i][1];
           out += ee.iSecsDay[i][0];
           out += ",";
           out += ee.iSecsDay[i][1];
