@@ -54,7 +54,7 @@ Like any setting, it can be automated with something like Tasker.  To turn on wo
 ![remotepage](http://www.curioustech.net/images/hvacweb.png)  
 
 The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, rh is green, the target/threshold is at 3.0, and probably adjusted in the middle.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit.  The daily/monthly cost summary will be changed to a chart.  
-![chartpage](http://www.curioustech.net/images/hvacchart.png)  
+![chartpage](http://www.curioustech.net/images/hvacchart2.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
 
