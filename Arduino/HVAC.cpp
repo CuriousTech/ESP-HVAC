@@ -114,6 +114,23 @@ void HVAC::service()
       m_furnaceFan--;
   }
 
+  if(ee.Mode && !m_bRunning && !m_bFanRunning && m_fanIdleTimer < 0xFFFF)
+  {
+    m_fanIdleTimer++;               // fan not running timer
+    if(ee.fanIdleMax && ee.fanAutoRun && m_fanIdleTimer >= ee.fanIdleMax * 60)
+    {
+      fanSwitch(true);
+      m_fanIdleTimer = 0;
+      m_fanAutoRunTimer = ee.fanAutoRun * 60;
+    }
+  }
+
+  if(m_fanAutoRunTimer)
+  {
+    if(--m_fanAutoRunTimer == 0)
+      fanSwitch(false);
+  }
+
   if(m_bHumidRunning)
     m_humidTimer++;
 
@@ -170,6 +187,7 @@ void HVAC::service()
   if(m_bStart && !m_bRunning)             // Start signal occurred
   {
     m_bStart = false;
+    m_fanAutoRunTimer = 0; // disable fan autorun
 
     switch(mode)
     {
@@ -260,8 +278,6 @@ void HVAC::costAdd(int secs, int mode, int hm)
           m_iSecs[0] += secs;
           break;
         case Heat_NG:
-//          watts = ee.furnaceWatts; // cost / 1000 = $, /1000CF = $ per cubic foot, cfm/1000=float cfm, /60=cfs
-//          m_fCostG += ((float)ee.ccf/100000) * secs * ((float)ee.cfm/1000/60);
           m_iSecs[1] += secs;
           break;
       }
@@ -823,6 +839,9 @@ String HVAC::settingsJson()
   js.Var("ffp", ee.furnacePost);
   js.Var("dl",  ee.diffLimit);
   js.Var("fco", ee.fcOffset[m_modeShadow == Mode_Heat]);
+  js.Var("fim", ee.fanIdleMax);
+  js.Var("far", ee.fanAutoRun);
+  js.Var("sm", ee.nSchedMode);
   return js.Close();
 }
 
@@ -884,7 +903,7 @@ const char *cmdList[] = { "cmd",
   "sum",
   "bin",
 
-  "fanmode",
+  "fanmode", // 0
   "mode",
   "heatmode",
   "resettotal",
@@ -894,7 +913,7 @@ const char *cmdList[] = { "cmd",
   "cyclemax",
   "idlemin",
   "cyclethresh",
-  "cooltempl",
+  "cooltempl", // 10
   "cooltemph",
   "heattempl",
   "heattemph",
@@ -904,7 +923,7 @@ const char *cmdList[] = { "cmd",
   "humidmode",
   "humidl",
   "humidh",
-  "adj",
+  "adj",      // 20
   "fanpretime",
   "fancycletime",
   "rmtflgs",
@@ -914,8 +933,8 @@ const char *cmdList[] = { "cmd",
   "ppk",
   "ccf",
   "cfm",
-  "ce",
-  "cg",
+  "fim",       // 30
+  "far",
   "fcrange",
   "fcdisp",
   "save",
@@ -924,12 +943,13 @@ const char *cmdList[] = { "cmd",
   "fw",
   "frnw",
   "hfw",
-  "ffp",
+  "ffp",    // 40
   "dl",
   "fco",
   "rmtid",
   "rmttemp",
   "rmtrh",
+  "sm",
   NULL
 };
 
@@ -1079,11 +1099,11 @@ void HVAC::setVar(String sCmd, int val)
     case 29:
       ee.cfm = val; // CFM / 1000
       break;
-    case 30: // ce cost in cents/100
-//      m_fCostE = val / 10000;
+    case 30:
+      ee.fanIdleMax = val;
       break;
-    case 31: // cg cost in cents/100
-//      m_fCostG = val / 10000;
+    case 31:
+      ee.fanAutoRun = val;
       break;
     case 32: // fcrange
       ee.fcRange = constrain(val, 1, 46);
@@ -1143,6 +1163,9 @@ void HVAC::setVar(String sCmd, int val)
       break;
     case 45: // rmtrh
       m_rmtSensor[m_rmtIdx].rh = val;
+      break;
+    case 46: // sm
+      ee.nSchedMode = constrain(val, 0, 2);
       break;
   }
 }
