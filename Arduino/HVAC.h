@@ -131,8 +131,6 @@ public:
   bool     m_bRemoteDisconnect;
   bool     m_bLocalTempDisplay;
   int8_t   m_outMin, m_outMax;
-//  float    m_fCostE;        // cost total (elec)
-//  float    m_fCostG;        // cost total (gas)
   uint16_t m_iSecs[3];
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
@@ -169,6 +167,8 @@ private:
   uint16_t m_fanPostTimer;  // timer for delay
   uint16_t m_fanPreTimer;   // timer for fan pre-run
   uint16_t m_idleTimer = 3*60; // time not running
+  uint16_t m_fanIdleTimer; // time fan not running
+  uint16_t m_fanAutoRunTimer; // auto fan time
   int      m_overrideTimer; // countdown for override in seconds
   int8_t   m_ovrTemp;       // override delta of target
   uint16_t m_remoteTimeout; // timeout for remote sensor
