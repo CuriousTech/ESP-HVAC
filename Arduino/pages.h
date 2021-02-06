@@ -366,231 +366,240 @@ const char page_index[] PROGMEM =
    "</body>\n"
    "</html>\n";
 
-const char page_settings[] PROGMEM = 
-   "<!DOCTYPE html>\n"
-   "<html>\n"
-   "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
-   "<head>\n"
-   "\n"
-   "<title>ESP-HVAC</title>\n"
-   "<style type=\"text/css\">\n"
-   "table{\n"
-   "border-radius: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -o-linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);\n"
-   "background-image: linear-gradient(top, #ffffff, #50a0ff);\n"
-   "background-clip: padding-box;\n"
-   "}\n"
-   "input{\n"
-   "border-radius: 4px;\n"
-   "box-shadow: 3px 3px 10px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);\n"
-   "background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);\n"
-   "background-image: -o-linear-gradient(top, #00ffff, #50a0ff);\n"
-   "background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);\n"
-   "background-image: linear-gradient(top, #00ffff, #50a0ff);\n"
-   "background-clip: padding-box;\n"
-   "text-align: right;\n"
-   "}\n"
-   ".style1{border-width: 0;}\n"
-   ".style2{text-align: right;}\n"
-   ".style5{\n"
-   "border-radius: 5px;\n"
-   "box-shadow: 2px 2px 12px #000000;\n"
-   "background-image: -moz-linear-gradient(top, #ff00ff, #ffa0a0);\n"
-   "background-image: -ms-linear-gradient(top, #ff00ff, #ffa0a0);\n"
-   "background-image: -o-linear-gradient(top, #ff00ff, #ffa0a0);\n"
-   "background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);\n"
-   "background-image: linear-gradient(top, #ff00ff, #ffa0a0);\n"
-   "}\n"
-   "body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}\n"
-   "</style>\n"
-   "\n"
-   "<script type=\"text/javascript\">\n"
-   "<!--\n"
-   "\n"
-   "var Json,ovrActive,away,rmtMode\n"
-   "var a=document.all\n"
-   "var states = new Array('Idle','Cooling','HP Heat','NG Heat')\n"
-   "var ws\n"
-   "function startEvents()\n"
-   "{\n"
-   "ws = new WebSocket(\"ws://\"+window.location.host+\"/ws\")\n"
-   "//ws = new WebSocket(\"ws://192.168.31.125/ws\")\n"
-   "ws.onopen = function(evt) { }\n"
-   "ws.onclose = function(evt) { alert(\"Connection closed.\"); }\n"
-   "\n"
-   "ws.onmessage = function(evt) {\n"
-   "// console.log(evt.data)\n"
-   " lines = evt.data.split(';')\n"
-   " event=lines[0]\n"
-   " data=lines[1]\n"
-   " Json=JSON.parse(data)\n"
-   " if(event == 'settings')\n"
-   " {\n"
-   "a.humidl.value= +Json.rh0/10\n"
-   "a.humidh.value= +Json.rh1/10\n"
-   "a.idlemin.value= s2t(+Json.im)\n"
-   "a.cycmin.value= s2t(+Json.cn)\n"
-   "a.cycmax.value= s2t(+Json.cx)\n"
-   "a.thresh.value= +Json.ct/10\n"
-   "a.fandelay.value= s2t(+Json.fd)\n"
-   "a.fanpre.value= s2t(+Json.fp)\n"
-   "a.awaytime.value= s2t(+Json.at)\n"
-   "a.heatthr.value= +Json.ht\n"
-   "a.ppkwh.value= +Json.ppk/1000\n"
-   "a.ccf.value= +Json.ccf/1000\n"
-   "a.cfm.value= +Json.cfm/1000\n"
-   "a.fcr.value= +Json.fcr\n"
-   "a.fcd.value= +Json.fcd\n"
-   "a.fco.value= +Json.fco\n"
-   "a.acth.value= +Json.dl/10\n"
-   "rmtMode=+Json.ar\n"
-   "setAtt()\n"
-   " }\n"
-   " else if(event == 'state')\n"
-   " {\n"
-   "away=+Json.aw\n"
-   "setAtt()\n"
-   " }\n"
-   " else if(event == 'alert')\n"
-   " {\n"
-   "alert(data)\n"
-   " }\n"
-   "}\n"
-   "}\n"
-   "\n"
-   "function setVar(varName, value)\n"
-   "{\n"
-   " ws.send('cmd;{\"key\":\"'+a.myToken.value+'\",\"'+varName+'\":'+value+'}')\n"
-   "}\n"
-   "\n"
-   "function setAway()\n"
-   "{\n"
-   "away=!away\n"
-   "setVar('away',away?1:0)\n"
-   "setAtt()\n"
-   "}\n"
-   "\n"
-   "function setAtt()\n"
-   "{\n"
-   "a.rmth1.setAttribute('class',(rmtMode&10)==8?'style5':'')\n"
-   "a.rmth2.setAttribute('class',(rmtMode&10)==10?'style5':'')\n"
-   "a.rmth3.setAttribute('class',(rmtMode&10)==2?'style5':'')\n"
-   "a.rmtl1.setAttribute('class',(rmtMode&5)==4?'style5':'')\n"
-   "a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')\n"
-   "a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')\n"
-   "}\n"
-   "\n"
-   "function setRmt(v)\n"
-   "{\n"
-   "switch(v)\n"
-   "{\n"
-   "case 1: rmtMode&=0xFD;rmtMode|=8;break;\n"
-   "case 2: rmtMode|=10;break;\n"
-   "case 3: rmtMode&=0xF7;rmtMode|=2;break;\n"
-   "case 4: rmtMode&=0xFE;rmtMode|=4;break;\n"
-   "case 5: rmtMode|=5;break;\n"
-   "case 6: rmtMode&=0xFB;rmtMode|=1;break;\n"
-   "}\n"
-   "setVar('rmtflgs',rmtMode)\n"
-   "setAtt()\n"
-   "}\n"
-   "\n"
-   "function secsToTime( elap )\n"
-   "{\n"
-   "d=0\n"
-   "m=0\n"
-   "h=Math.floor(elap/3600)\n"
-   "if(h >23)\n"
-   "{\n"
-   "d=Math.floor(h/24)\n"
-   "h-=(d*24)\n"
-   "}\n"
-   "else\n"
-   "{\n"
-   "m=Math.floor((elap-(h*3600))/60)\n"
-   "s=elap-(h*3600)-(m*60)\n"
-   "if(s<10) s='0'+s\n"
-   "if(h==0)\n"
-   "{\n"
-   "if( m < 10) m='  '+m\n"
-   "return '    '+m +':'+s\n"
-   "}\n"
-   "}\n"
-   "if(m<10) m='0'+m\n"
-   "if(h<10) h='  '+h\n"
-   "if(d) return d+'d '+h+'h'\n"
-   "return h+':'+m+':'+s\n"
-   "}\n"
-   "\n"
-   "function s2t(elap)\n"
-   "{\n"
-   "m=Math.floor(elap/60)\n"
-   "s=elap-(m*60)\n"
-   "if(m==0) return s\n"
-   "if(s<10) s='0'+s\n"
-   "return m+':'+s\n"
-   "}\n"
-   "\n"
-   "function t2s(v)\n"
-   "{\n"
-   "if(typeof v == 'string') v = (+v.substr(0, v.indexOf(':'))*60) + (+v.substr(v.indexOf(':')+1))\n"
-   "return v\n"
-   "}\n"
-   "//--></script>\n"
-   "</head>\n"
-   "<body onload=\"{\n"
-   " myStorage1 = localStorage.getItem('myStoredText1')\n"
-   " if(myStorage1  != null){\n"
-   "document.getElementById('myToken').value=myStorage1\n"
-   " }\n"
-   " startEvents()\n"
-   "}\" align=\"center\">\n"
-   "<strong><em>CuriousTech HVAC Settings</em></strong><br><br>\n"
-   "<table style=\"width: 240px\" cellspacing=0 cellpadding=0>\n"
-   "<tr>\n"
-   "<td style=\"width: 81px\">Threshold</td>\n"
-   "<td style=\"width: 44px\"><input type=text size=4 id=\"thresh\" onchange=\"{setVar('cyclethresh',(+this.value*10).toFixed())}\"></td>\n"
-   "<td style=\"width: 20px\"></td>\n"
-   "<td>\n"
-   "<input type=\"submit\" value=\" Home \" onClick=\"window.location='/iot';\">\n"
-   "</td>\n"
-   "</tr>\n"
-   "<tr><td>Heat Thrsh</td><td><input type=text size=4 id=\"heatthr\" onchange=\"{setVar('eheatthresh',+this.value)}\"></td><td></td><td></td></tr>\n"
-   "<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id=\"acth\" onchange=\"{setVar('dl',(+this.value*10).toFixed())}\"></td><td></td><td></td></tr>\n"
-   "<tr><td>Rh Low</td><td><input type=text size=4 id=\"humidl\" onchange=\"{setVar('humidl',(+this.value*10).toFixed())}\"></td><td>High</td><td><input type=text size=3 id=\"humidh\" onchange=\"{setVar('humidh',(+this.value*10).toFixed())}\"></td></tr>\n"
-   "<tr><td>Fan Pre</td><td><input type=text size=4 id=\"fanpre\" onchange=\"{setVar('fanpretime',t2s(this.value))}\"></td><td>Post</td><td><input type=text size=3 id=\"fandelay\" onchange=\"{setVar('fanpostdelay',t2s(this.value))}\"></td></tr>\n"
-   "<tr><td>cycle Min</td><td><input type=text size=4 id=\"cycmin\" onchange=\"{setVar('cyclemin',t2s(this.value))}\"></td><td>Max</td><td><input type=text size=3 id=\"cycmax\" onchange=\"{setVar('cyclemax',t2s(this.value))}\"></td></tr>\n"
-   "<tr><td>Idle Min</td><td><input type=text size=4 id=\"idlemin\" onchange=\"{setVar('idlemin',t2s(this.value))}\"></td><td>PKW</td><td><input type=text size=3 id=\"ppkwh\" onchange=\"{setVar('ppk',(+this.value*1000).toFixed())}\"></td></tr>\n"
-   "<tr><td>Away Lmt</td><td><input type=text size=4 id=\"awaytime\" onchange=\"{setVar('awaytime',t2s(this.value))}\"></td><td>CFM</td><td><input type=text size=3 id=\"cfm\" onchange=\"{setVar('cfm',(+this.value*1000).toFixed())}\"></td></tr>\n"
-   "<tr><td>FC Shift</td><td><input type=text size=4 id=\"fco\" onchange=\"{setVar('fco',this.value)}\"></td><td>CCF</td><td><input type=text size=3 id=\"ccf\" onchange=\"{setVar('ccf',(+this.value*1000).toFixed())}\"></td></tr>\n"
-   "<tr><td>Lookahead</td><td><input type=text size=4 id=\"fcr\" onchange=\"{setVar('fcrange',this.value)}\"></td><td>Disp</td><td><input type=text size=3 id=\"fcd\" onchange=\"{setVar('fcdisp',this.value)}\"></td></tr>\n"
-   "<tr><td>Remote Hi</td><td><input type=\"button\" value=\"Remote\" name=\"rmth1\" onClick=\"{setRmt(1)}\"></td>\n"
-   "<td><input type=\"button\" value=\"Avg\" name=\"rmth2\" onClick=\"{setRmt(2)}\"></td><td><input type=\"button\" value=\" Main  \" name=\"rmth3\" onClick=\"{setRmt(3)}\">\n"
-   "</td></tr>\n"
-   "<tr><td>Remote Lo</td><td><input type=\"button\" value=\"Remote\" name=\"rmtl1\" onClick=\"{setRmt(4)}\"></td>\n"
-   "<td><input type=\"button\" value=\"Avg\" name=\"rmtl2\" onClick=\"{setRmt(5)}\"></td><td><input type=\"button\" value=\" Main  \" name=\"rmtl3\" onClick=\"{setRmt(6)}\">\n"
-   "</td></tr>\n"
-   "</table>\n"
-   "<p>\n"
-   "<table style=\"width: 240px\">\n"
-   "<tr><td>Password</td><td><input id=\"myToken\" name=\"access_token\" type=text size=40 placeholder=\"e6bba7456a7c9\" style=\"width: 98px\"\n"
-   " onChange=\"{\n"
-   " localStorage.setItem('myStoredText1', a.myToken.value)\n"
-   " alert(a.myToken.value+' Has been stored')\n"
-   "}\">\n"
-   "</td>\n"
-   "</tr>\n"
-   "</table></p>\n"
-   "<small>Copyright &copy 2016 CuriousTech.net</small>\n"
-   "</body>\n"
-   "</html>\n";
+///////////////////////
+const char page_settings[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<head>
 
+<title>ESP-HVAC</title>
+<style type="text/css">
+table{
+border-radius: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
+background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-clip: padding-box;
+}
+input{
+border-radius: 4px;
+box-shadow: 3px 3px 10px #000000;
+background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -o-linear-gradient(top, #00ffff, #50a0ff);
+background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);
+background-image: linear-gradient(top, #00ffff, #50a0ff);
+background-clip: padding-box;
+text-align: right;
+}
+.style1{border-width: 0;}
+.style2{text-align: right;}
+.style5{
+border-radius: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0a0);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0a0);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0a0);
+background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
+background-image: linear-gradient(top, #ff00ff, #ffa0a0);
+}
+body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
+</style>
 
+<script type="text/javascript">
+<!--
+
+var Json,ovrActive,away,rmtMode
+var a=document.all
+var states = new Array('Idle','Cooling','HP Heat','NG Heat')
+var ws
+function startEvents()
+{
+ws = new WebSocket("ws://"+window.location.host+"/ws")
+//ws = new WebSocket("ws://192.168.31.125/ws")
+ws.onopen = function(evt) { }
+ws.onclose = function(evt) { alert("Connection closed."); }
+
+ws.onmessage = function(evt) {
+// console.log(evt.data)
+ lines = evt.data.split(';')
+ event=lines[0]
+ data=lines[1]
+ Json=JSON.parse(data)
+ if(event == 'settings')
+ {
+  a.humidl.value= +Json.rh0/10
+  a.humidh.value= +Json.rh1/10
+  a.idlemin.value= s2t(+Json.im)
+  a.cycmin.value= s2t(+Json.cn)
+  a.cycmax.value= s2t(+Json.cx)
+  a.thresh.value= +Json.ct/10
+  a.fandelay.value= s2t(+Json.fd)
+  a.fanpre.value= s2t(+Json.fp)
+  a.awaytime.value= s2t(+Json.at)
+  a.heatthr.value= +Json.ht
+  a.ppkwh.value= +Json.ppk/1000
+  a.ccf.value= +Json.ccf/1000
+  a.cfm.value= +Json.cfm/1000
+  a.fcr.value= +Json.fcr
+  a.fcd.value= +Json.fcd
+  a.fco.value= +Json.fco
+  a.acth.value= +Json.dl/10
+  a.fim.value=s2t(+Json.fim)
+  a.far.value=s2t(+Json.far)
+  rmtMode=+Json.ar
+  setAtt()
+ }
+ else if(event == 'state')
+ {
+  away=+Json.aw
+  setAtt()
+ }
+ else if(event == 'alert')
+ {
+  alert(data)
+ }
+ else if(event == 'print')
+ {
+//  a.console.value += data
+ }
+}
+}
+
+function setVar(varName, value)
+{
+ ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+}
+
+function setAway()
+{
+away=!away
+setVar('away',away?1:0)
+setAtt()
+}
+
+function setAtt()
+{
+a.rmth1.setAttribute('class',(rmtMode&10)==8?'style5':'')
+a.rmth2.setAttribute('class',(rmtMode&10)==10?'style5':'')
+a.rmth3.setAttribute('class',(rmtMode&10)==2?'style5':'')
+a.rmtl1.setAttribute('class',(rmtMode&5)==4?'style5':'')
+a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')
+a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
+}
+
+function setRmt(v)
+{
+  switch(v)
+  {
+    case 1: rmtMode&=0xFD;rmtMode|=8;break;
+    case 2: rmtMode|=10;break;
+    case 3: rmtMode&=0xF7;rmtMode|=2;break;
+    case 4: rmtMode&=0xFE;rmtMode|=4;break;
+    case 5: rmtMode|=5;break;
+    case 6: rmtMode&=0xFB;rmtMode|=1;break;
+  }
+  setVar('rmtflgs',rmtMode)
+  setAtt()
+}
+
+function secsToTime( elap )
+{
+  d=0
+  m=0
+  h=Math.floor(elap/3600)
+  if(h >23)
+  {
+    d=Math.floor(h/24)
+    h-=(d*24)
+  }
+  else
+  {
+    m=Math.floor((elap-(h*3600))/60)
+    s=elap-(h*3600)-(m*60)
+    if(s<10) s='0'+s
+    if(h==0)
+    {
+      if( m < 10) m='  '+m
+      return '    '+m +':'+s
+    }
+  }
+  if(m<10) m='0'+m
+  if(h<10) h='  '+h
+  if(d) return d+'d '+h+'h'
+  return h+':'+m+':'+s
+}
+
+function s2t(elap)
+{
+  m=Math.floor(elap/60)
+  s=elap-(m*60)
+  if(m==0) return s
+  if(s<10) s='0'+s
+  return m+':'+s
+}
+
+function t2s(v)
+{
+  if(typeof v == 'string') v = (+v.substr(0, v.indexOf(':'))*60) + (+v.substr(v.indexOf(':')+1))
+  return v
+}
+//--></script>
+</head>
+<body onload="{
+ myStorage1 = localStorage.getItem('myStoredText1')
+ if(myStorage1  != null){
+  document.getElementById('myToken').value=myStorage1
+ }
+ startEvents()
+}" align="center">
+<strong><em>CuriousTech HVAC Settings</em></strong><br><br>
+<table style="width: 240px" cellspacing=0 cellpadding=0>
+<tr>
+<td style="width: 81px">Threshold</td>
+<td style="width: 44px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
+<td style="width: 20px"></td>
+<td>
+<input type="submit" value=" Home " onClick="window.location='/iot';">
+</td>
+</tr>
+<tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
+<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
+<tr><td>Rh Low</td><td><input type=text size=4 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}"></td><td>High</td><td><input type=text size=3 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td></tr>
+<tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
+<tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
+<tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime" onchange="{setVar('awaytime',t2s(this.value))}"></td><td>CFM</td><td><input type=text size=3 id="cfm" onchange="{setVar('cfm',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
+<tr><td>Fan Auto</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
+<tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
+<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value=" Main  " name="rmth3" onClick="{setRmt(3)}">
+</td></tr>
+<tr><td>Remote Lo</td><td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
+<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"></td><td><input type="button" value=" Main  " name="rmtl3" onClick="{setRmt(6)}">
+</td></tr>
+</table>
+<p>
+<table style="width: 240px">
+<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 98px"
+ onChange="{
+ localStorage.setItem('myStoredText1', a.myToken.value)
+ alert(a.myToken.value+' Has been stored')
+}">
+</td>
+</tr>
+</table></p>
+<small>Copyright &copy 2016 CuriousTech.net</small>
+</body>
+</html>
+)rawliteral";
+
+//////////////////////
 const char page_chart[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -800,7 +809,7 @@ function draw(){
     c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))
 
   c.fillText('Temp', graph.width()-6, 6)
-  c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"gray")
+  c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"slategray")
   c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
  // cycle
   c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)
@@ -1190,6 +1199,7 @@ function drawFC(){
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
 
+  if(fcr>fc.length) fcr=fc.length
   c.lineWidth=2
   c.font='italic 8pt sans-serif'
   c.textAlign="left"
@@ -1204,30 +1214,13 @@ function drawFC(){
   c.lineWidth = 1
   min=150
   max=-30
-  cnt=0
   for(i=0;i<fc.length;i++)
   {
-    if(fc[i][0]){
-      if(min>fc[i][1]) min=fc[i][1]
-      if(max<fc[i][1]) max=fc[i][1]
-      cnt++
-    }
+    if(min>fc[i][1]) min=fc[i][1]
+    if(max<fc[i][1]) max=fc[i][1]
   }
   max++
   yRange=max-min
-  min2=150
-  max2=-30
-  cnt2=0
-  for(i=fco;i<fcr;i++)
-  {
-    if(fc[i][0]){
-      if(min2>fc[i][1]) min2=fc[i][1]
-      if(max2<fc[i][1]) max2=fc[i][1]
-      cnt2++
-    }
-  }
-  yRange2=max2-min2
-
   // value range
   c.textAlign = "right"
   c.textBaseline = "middle"
@@ -1238,8 +1231,6 @@ function drawFC(){
   c.fillText('Out', graph2.width()-6, 6)
 
   c.textAlign = "left"
-//  iMax+=ct;
-//  iMin-=ct+400;
   iRng=iMax-iMin
   c.fillText(iMax/10, 6, getYPixel3(iMax))
   c.fillText(iMin/10, 6, getYPixel3(iMin))
@@ -1252,47 +1243,52 @@ function drawFC(){
   c.fillStyle = "red"
   date = new Date(fc[0][0]*1000)
   dt = date.getDate()
-  for(i=1; i<cnt; i++){
-  c.strokeStyle = fc[i][1]<32?"blue":"red"
+  cPos=0
+  xOff=(w/(fc.length*3*60))*fco
+  for(i=1; i<fc.length; i++){
+  c.strokeStyle = (fc[i][1]<32)?"blue":"red"
   c.beginPath()
   c.moveTo(getXPixel2(i), getYPixel2(fc[i][1]))
   c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1][1]))
   c.stroke()
   date = new Date(fc[i][0]*1000)
-  if(dt != date.getDate())
+  if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
   {
-    dt = date.getDate()
+    cPos=i-1;
+    c.strokeStyle = '#222'
+    c.beginPath()
+    c.moveTo(getXPixel2(i-1),getYPixel3(iMax))
+    c.lineTo(getXPixel2(i-1),getYPixel3(iMin))
+    c.stroke()
+    c.fillStyle = '#000'
+    c.textAlign = "center"
+    c.fillText("Now",getXPixel2(i-1),getYPixel3(iMax)-8)
+  }
+  if(dt!=date.getDate()){
+    dt=date.getDate()
     c.strokeStyle = '#555'
-    c.beginPath() // borders
+    c.beginPath()
     c.moveTo(getXPixel2(i),0)
     c.lineTo(getXPixel2(i),graph2.height()-18)
     c.stroke()
-
     c.fillStyle = '#000'
     c.textAlign = "left"
-    date = new Date(fc[i][0]*1000)
     c.fillText(date.toLocaleString().substr(0,8),getXPixel2(i),graph2.height()-8)
   }
   }
   c.fillStyle = "#9040F080"
   c.beginPath()
-  c.moveTo(getXPixel2(0-(fco/3)), getTT(0,fco,0))
-  for(i=fco; i<=fcr+fco; i++)
-  {
-    idx=fco+Math.floor(i/3)
-  c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,0))
-  }
-  for(i=fcr+fco; i>=fco; i--)
-  {
-    idx=fco+Math.floor(i/3)
-  c.lineTo(getXPixel2(i-(fco/3)), getTT(i,idx,(md==2)?ct:-ct))
-  }
+  c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
+  for(i=cPos+1; i<fcr; i++)
+  c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
+  for(i=fcr-1; i>=cPos; i--)
+  c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
 }
 function getXPixel2(val){
-  x=xPadding+((graph2.width()-xPadding*2)/cnt)*val
-  return x.toFixed()
+  x=xPadding+((graph2.width()-xPadding*2)/fc.length)*val
+  return +x.toFixed()
 }
 
 function getYPixel2(val) {
@@ -1303,17 +1299,17 @@ function getYPixel3(val) {
   y=graph2.height()/2-( (graph2.height()/2/iRng)*(val-iMin))
   return y+30
 }
-function getTT(i,o,th)
+function getTT(i,th)
 {
-/*  min2=150
+  min2=150
   max2=-30
-  for(j=o;j<o+fcr;j++)
+  for(j=i;j<i+fcr;j++)
   {
     if(j<fc.length&&fc[j][0]){
       if(min2>fc[j][1]) min2=fc[j][1]
       if(max2<fc[j][1]) max2=fc[j][1]
     }
-  }*/
+  }
   tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
   return graph2.height()/2-(graph2.height()/2/iRng*(tt-iMin))+30
 }
