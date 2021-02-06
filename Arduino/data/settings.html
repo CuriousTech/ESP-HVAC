@@ -79,6 +79,8 @@ ws.onmessage = function(evt) {
 	a.fcd.value= +Json.fcd
 	a.fco.value= +Json.fco
 	a.acth.value= +Json.dl/10
+	a.fim.value=s2t(+Json.fim)
+	a.far.value=s2t(+Json.far)
 	rmtMode=+Json.ar
 	setAtt()
  }
@@ -90,6 +92,10 @@ ws.onmessage = function(evt) {
  else if(event == 'alert')
  {
 	alert(data)
+ }
+ else if(event == 'print')
+ {
+// 	a.console.value += data
  }
 }
 }
@@ -200,6 +206,7 @@ function t2s(v)
 <tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime" onchange="{setVar('awaytime',t2s(this.value))}"></td><td>CFM</td><td><input type=text size=3 id="cfm" onchange="{setVar('cfm',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
+<tr><td>Fan Auto</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
 <tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
 <td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value=" Main  " name="rmth3" onClick="{setRmt(3)}">
 </td></tr>
