@@ -475,7 +475,7 @@ String forecastJson()
   String out = "fc=[";
   bool bC = false;
 
-  for(int i = 0; i < FC_CNT; i++)
+  for(int i = 0; i < FC_CNT && display.m_fcData[i].tm; i++)
   {
     if(bC) out += ",";
     bC = true;
@@ -485,8 +485,6 @@ String forecastJson()
     out += display.m_fcData[i].temp;
     out += "]";
   }
-//  if(bC) // don't send blank
-//    out += "]";
   out += "]";
   return out;
 }
