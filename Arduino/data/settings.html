@@ -8,11 +8,11 @@
 table{
 border-radius: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
-background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-image: -moz-linear-gradient(top, #efffff, #505050);
+background-image: -ms-linear-gradient(top, #efffff, #505050);
+background-image: -o-linear-gradient(top, #efffff, #505050);
+background-image: -webkit-linear-gradient(top, #efffff, #505050);
+background-image: linear-gradient(top, #efffff, #505050);
 background-clip: padding-box;
 }
 input{
@@ -62,8 +62,6 @@ ws.onmessage = function(evt) {
  Json=JSON.parse(data)
  if(event == 'settings')
  {
-	a.humidl.value= +Json.rh0/10
-	a.humidh.value= +Json.rh1/10
 	a.idlemin.value= s2t(+Json.im)
 	a.cycmin.value= s2t(+Json.cn)
 	a.cycmax.value= s2t(+Json.cx)
@@ -199,7 +197,6 @@ function t2s(v)
 </tr>
 <tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
 <tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
-<tr><td>Rh Low</td><td><input type=text size=4 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}"></td><td>High</td><td><input type=text size=3 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
