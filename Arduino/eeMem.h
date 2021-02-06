@@ -50,13 +50,10 @@ struct eeSet // EEPROM backed data
   uint8_t  fcDisplay; // number in forecasts (3 hours)
   uint16_t iSecsDay[32][3];
   uint32_t iSecsMon[12][3]; // compressor,gas,fan
-//  float    fCostE[12];        // cost total (elec) per month
-//  float    fCostG[12];        // cost total (gas)
-//  float    fCostDay[32][2];   // cost total day (e,g)
   uint16_t cfm;         // cubic feet per minute
   uint16_t compressorWatts;
   uint16_t fanWatts;
-  uint16_t furnaceWatts;
+  uint16_t furnaceWatts; // inducer motor mostly
   uint16_t humidWatts;
   uint16_t furnacePost;
   uint8_t remoteIP[4]; // future use
@@ -64,9 +61,12 @@ struct eeSet // EEPROM backed data
   char     remotePath[32];
   uint16_t diffLimit;  // in/out thermal differential limit
   int16_t  fcOffset[2]; // forecast offset adjust
+  uint16_t fanIdleMax; // in minutes
+  uint16_t fanAutoRun;
+  uint8_t  nSchedMode;
+  char resvered[119];
 //#define MAX_SCHED 8
 //  Sched   schedule[MAX_SCHED];  // 22x8 bytes
-  char resvered[124];
 }; // ~750 bytes
 
 extern eeSet ee;
