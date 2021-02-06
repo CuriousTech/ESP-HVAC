@@ -34,17 +34,12 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   1210,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.21)
   23,           // forecast range for in mapping to out mix/max (in hours * 3)
   46,           // forecast range for display (5 of 7 day max)
-//  { 10.55, 7.49, 6.07, 4.46,6.87,17.66,53.21,40.00,19.02,20.92,4.65,5.19},       // fCostE month costs
-//  {82.13,53.05,37.82,23.45, 8.26, 0.40,0.0,0.0,0.0,7.54,39.38,42.55},       // fCostG
-//  {0},          // fCostDay day costs
-//  {{1.86,0.0},{1.44,0},{0.11,0},{1.35,0},{1.00,0},{0.59,0},{0.41,0},{0.13,0},{0.56,0},{0.40,0},{0.79,0},{1.73,0},{1.84,0},{2.06,0.00},{0.54,0.00},{0.00,0},{0.68,0},{1.38,0},{0.76,0},{0.33,0},
-//  {1.12,0},{2.08,0.0},{1.11,0.0},{0.56,0.0},{0.19,0.0},{0.19,0.0},{0.0,0.0},{0.99,0.0},{0.0,0.0},{0.0,0.0},{0.0,0.0},{0.0,0.0}},
   {0},
   {0},
   920,          // cubic feet per minute * 1000 of furnace (0.92)
   2600,         // compressorWatts
   250,          // fanWatts
-  100,          // furnaceWatts
+  220,          // furnaceWatts (1.84A inducer)
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
   {0,0,0,0},    // remoteIP
@@ -52,6 +47,9 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   {0},          // remote path
   300,          // set to 30 deg differential cooling limit
   {-180,0},     // forecast offset in minutes (cool, heat)
+  120,          // fan idle max
+  10,           // fan auto run
+  0,            // schedule mode
 };
 
 eeMem::eeMem()
