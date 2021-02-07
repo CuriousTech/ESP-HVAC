@@ -618,11 +618,11 @@ function drawFC(){
   }
   max++
   yRange=max-min
-  // value range
   c.textAlign = "right"
   c.textBaseline = "middle"
   c.fillStyle='black'
 
+  // right legend
   for(i = min; i<max; i+=(yRange/8) )
     c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
   c.fillText('Out', graph2.width()-6, 6)
@@ -651,15 +651,17 @@ function drawFC(){
 	date = new Date(fc[i][0]*1000)
 	if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
 	{
+		dif=(date.valueOf()-(new Date().valueOf()))/60000
+		xOff2=(w/(fc.length*3*60))*dif
 		cPos=i-1;
 		c.strokeStyle = '#222'
 		c.beginPath()
-		c.moveTo(getXPixel2(i-1),getYPixel3(iMax))
-		c.lineTo(getXPixel2(i-1),getYPixel3(iMin))
+		c.moveTo(getXPixel2(cPos)+xOff2,getYPixel3(iMax))
+		c.lineTo(getXPixel2(cPos)+xOff2,getYPixel3(iMin))
 		c.stroke()
 		c.fillStyle = '#000'
 		c.textAlign = "center"
-		c.fillText("Now",getXPixel2(i-1),getYPixel3(iMax)-8)
+		c.fillText("Now",getXPixel2(cPos)+xOff2,getYPixel3(iMax)-8)
 	}
 	if(dt!=date.getDate()){
 		dt=date.getDate()
@@ -670,7 +672,7 @@ function drawFC(){
 		c.stroke()
 		c.fillStyle = '#000'
 		c.textAlign = "left"
-		c.fillText(date.toLocaleString().substr(0,8),getXPixel2(i),graph2.height()-8)
+		c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
 	}
   }
   c.fillStyle = "#9040F080"
