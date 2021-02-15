@@ -384,11 +384,11 @@ const char page_settings[] PROGMEM = R"rawliteral(
 table{
 border-radius: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
-background-image: linear-gradient(top, #ffffff, #50a0ff);
+background-image: -moz-linear-gradient(top, #efffff, #505050);
+background-image: -ms-linear-gradient(top, #efffff, #505050);
+background-image: -o-linear-gradient(top, #efffff, #505050);
+background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
+background-image: linear-gradient(top, #efffff, #505050);
 background-clip: padding-box;
 }
 input{
@@ -419,27 +419,26 @@ body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 <script type="text/javascript">
 <!--
 
-var Json,ovrActive,away,rmtMode
+var Json,ovrActive,rmtMode
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
+snd=new Array()
 var ws
 function startEvents()
 {
-ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.125/ws")
-ws.onopen = function(evt) { }
-ws.onclose = function(evt) { alert("Connection closed."); }
+ws=new WebSocket("ws://"+window.location.host+"/ws")
+//ws=new WebSocket("ws://192.168.31.125/ws")
+ws.onopen=function(evt){}
+ws.onclose=function(evt){alert("Connection closed.");}
 
-ws.onmessage = function(evt) {
+ws.onmessage = function(evt){
 // console.log(evt.data)
- lines = evt.data.split(';')
+ lines=evt.data.split(';')
  event=lines[0]
  data=lines[1]
  Json=JSON.parse(data)
  if(event == 'settings')
  {
-  a.humidl.value= +Json.rh0/10
-  a.humidh.value= +Json.rh1/10
   a.idlemin.value= s2t(+Json.im)
   a.cycmin.value= s2t(+Json.cn)
   a.cycmax.value= s2t(+Json.cx)
@@ -457,13 +456,13 @@ ws.onmessage = function(evt) {
   a.acth.value= +Json.dl/10
   a.fim.value=s2t(+Json.fim)
   a.far.value=s2t(+Json.far)
-  rmtMode=+Json.ar
-  setAtt()
  }
  else if(event == 'state')
  {
-  away=+Json.aw
-  setAtt()
+  a.it0.innerHTML= (+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
+  a.loc.innerHTML= (+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
+  snd=Json.snd
+  if(snd) setSenders()
  }
  else if(event == 'alert')
  {
@@ -476,41 +475,45 @@ ws.onmessage = function(evt) {
 }
 }
 
+function setSenders()
+{
+ for(i=0;i<5;i++)
+ {
+  item=document.getElementById('snd'+i)
+  item.setAttribute('style',i<snd.length?'':'visibility:collapse')
+ }
+ item=document.getElementById('int')
+ item.setAttribute('style',snd.length?'':'visibility:collapse')
+
+ for(i=0;i<snd.length;i++)
+ {
+  item=document.getElementById('s'+i)
+  item.innerHTML=snd[i][0]
+  item=document.getElementById('sndpri'+i)
+  item.setAttribute('class',snd[i][3]&1?'style5':'')
+  item=document.getElementById('snda'+i)
+  item.setAttribute('class',snd[i][3]&2?'style5':'')
+  item=document.getElementById('rt'+i)
+  item.innerHTML=(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%'
+ }
+}
+
 function setVar(varName, value)
 {
  ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
-function setAway()
-{
-away=!away
-setVar('away',away?1:0)
-setAtt()
-}
-
-function setAtt()
-{
-a.rmth1.setAttribute('class',(rmtMode&10)==8?'style5':'')
-a.rmth2.setAttribute('class',(rmtMode&10)==10?'style5':'')
-a.rmth3.setAttribute('class',(rmtMode&10)==2?'style5':'')
-a.rmtl1.setAttribute('class',(rmtMode&5)==4?'style5':'')
-a.rmtl2.setAttribute('class',(rmtMode&5)==5?'style5':'')
-a.rmtl3.setAttribute('class',(rmtMode&5)==1?'style5':'')
-}
-
-function setRmt(v)
+function setSnd(n,v)
 {
   switch(v)
   {
-    case 1: rmtMode&=0xFD;rmtMode|=8;break;
-    case 2: rmtMode|=10;break;
-    case 3: rmtMode&=0xF7;rmtMode|=2;break;
-    case 4: rmtMode&=0xFE;rmtMode|=4;break;
-    case 5: rmtMode|=5;break;
-    case 6: rmtMode&=0xFB;rmtMode|=1;break;
+    case 1: snd[n][3]^=1;break
+    case 2: snd[n][3]^=2;break
+    case 3: snd[n][3]^=4;break
   }
-  setVar('rmtflgs',rmtMode)
-  setAtt()
+  setVar('rmtid',snd[n][0])
+  setVar('rmtflg',snd[n][3])
+  setSenders()
 }
 
 function secsToTime( elap )
@@ -564,10 +567,10 @@ function t2s(v)
  startEvents()
 }" align="center">
 <strong><em>CuriousTech HVAC Settings</em></strong><br><br>
-<table style="width: 240px" cellspacing=0 cellpadding=0>
+<table style="width: 290px" cellspacing=0 cellpadding=0>
 <tr>
-<td style="width: 81px">Threshold</td>
-<td style="width: 44px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
+<td style="width: 100px">Threshold</td>
+<td style="width: 90px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
 <td style="width: 20px"></td>
 <td>
 <input type="submit" value=" Home " onClick="window.location='/iot';">
@@ -575,7 +578,6 @@ function t2s(v)
 </tr>
 <tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
 <tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
-<tr><td>Rh Low</td><td><input type=text size=4 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}"></td><td>High</td><td><input type=text size=3 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
@@ -583,15 +585,16 @@ function t2s(v)
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
-<tr><td>Remote Hi</td><td><input type="button" value="Remote" name="rmth1" onClick="{setRmt(1)}"></td>
-<td><input type="button" value="Avg" name="rmth2" onClick="{setRmt(2)}"></td><td><input type="button" value=" Main  " name="rmth3" onClick="{setRmt(3)}">
-</td></tr>
-<tr><td>Remote Lo</td><td><input type="button" value="Remote" name="rmtl1" onClick="{setRmt(4)}"></td>
-<td><input type="button" value="Avg" name="rmtl2" onClick="{setRmt(5)}"></td><td><input type="button" value=" Main  " name="rmtl3" onClick="{setRmt(6)}">
-</td></tr>
+<tr id="int" style="visibility:collapse"><td>Internal</td><td id="it0"></td><td id="loc" colspan=2></td><td></td></tr>
+<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,1)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,2)}"></td><td id="rt0" colspan=2></td><td></td></tr>
+<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,1)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,2)}"></td><td id="rt1" colspan=2></td><td></td></tr>
+<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,1)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,2)}"></td><td id="rt2" colspan=2></td><td></td></tr>
+<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,1)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,2)}"></td><td id="rt3" colspan=2></td><td></td></tr>
+<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,1)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,2)}"></td><td id="rt4" colspan=2></td><td></td></tr>
+<tr id="snd5" style="visibility:collapse"><td id="s5"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,1)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,2)}"></td><td id="rt5" colspan=2></td></tr>
 </table>
 <p>
-<table style="width: 240px">
+<table style="width: 290px">
 <tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 98px"
  onChange="{
  localStorage.setItem('myStoredText1', a.myToken.value)
@@ -600,7 +603,7 @@ function t2s(v)
 </td>
 </tr>
 </table></p>
-<small>Copyright &copy 2016 CuriousTech.net</small>
+<small>&copy 2016 CuriousTech.net</small>
 </body>
 </html>
 )rawliteral";
@@ -1227,11 +1230,11 @@ function drawFC(){
   }
   max++
   yRange=max-min
-  // value range
   c.textAlign = "right"
   c.textBaseline = "middle"
   c.fillStyle='black'
 
+  // right legend
   for(i = min; i<max; i+=(yRange/8) )
     c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
   c.fillText('Out', graph2.width()-6, 6)
@@ -1249,8 +1252,8 @@ function drawFC(){
   c.fillStyle = "red"
   date = new Date(fc[0][0]*1000)
   dt = date.getDate()
+  fl=(fc[fc.length-1][0]-fc[0][0])/60
   cPos=0
-  xOff=(w/(fc.length*3*60))*fco
   for(i=1; i<fc.length; i++){
   c.strokeStyle = (fc[i][1]<32)?"blue":"red"
   c.beginPath()
@@ -1260,15 +1263,17 @@ function drawFC(){
   date = new Date(fc[i][0]*1000)
   if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
   {
+    dif=(date.valueOf()-(new Date().valueOf()))/60000
+    xOff=w/fl*dif
     cPos=i-1;
     c.strokeStyle = '#222'
     c.beginPath()
-    c.moveTo(getXPixel2(i-1),getYPixel3(iMax))
-    c.lineTo(getXPixel2(i-1),getYPixel3(iMin))
+    c.moveTo(getXPixel2(cPos)+xOff,getYPixel3(iMax))
+    c.lineTo(getXPixel2(cPos)+xOff,getYPixel3(iMin))
     c.stroke()
     c.fillStyle = '#000'
     c.textAlign = "center"
-    c.fillText("Now",getXPixel2(i-1),getYPixel3(iMax)-8)
+    c.fillText("Now",getXPixel2(cPos)+xOff,getYPixel3(iMax)-8)
   }
   if(dt!=date.getDate()){
     dt=date.getDate()
@@ -1279,15 +1284,26 @@ function drawFC(){
     c.stroke()
     c.fillStyle = '#000'
     c.textAlign = "left"
-    c.fillText(date.toLocaleString().substr(0,8),getXPixel2(i),graph2.height()-8)
+    c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
   }
   }
-  c.fillStyle = "#9040F080"
+  xOff=w/fl*fco
+  c.fillStyle = "#70408040"
   c.beginPath()
   c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
-  for(i=cPos+1; i<fcr; i++)
+  maxpos=fc.length-fcr+cPos
+  for(i=cPos+1; i<maxpos; i++)
   c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
-  for(i=fcr-1; i>=cPos; i--)
+  for(i=maxpos-1; i>=cPos; i--)
+  c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
+  c.closePath()
+  c.fill()
+  c.fillStyle = "#9050F090"
+  c.beginPath()
+  c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
+  for(i=cPos+1; i<cPos+fcr; i++)
+  c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
+  for(i=cPos+fcr-1; i>=cPos; i--)
   c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
@@ -1311,13 +1327,14 @@ function getTT(i,th)
   max2=-30
   for(j=i;j<i+fcr;j++)
   {
-    if(j<fc.length&&fc[j][0]){
+    if(j<fc.length){
       if(min2>fc[j][1]) min2=fc[j][1]
       if(max2<fc[j][1]) max2=fc[j][1]
     }
   }
   tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
-  return graph2.height()/2-(graph2.height()/2/iRng*(tt-iMin))+30
+  h=graph2.height()/2
+  return h-(h/iRng*(tt-iMin))+30
 }
 </script>
 <style type="text/css">
