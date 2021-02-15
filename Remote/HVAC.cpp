@@ -14,9 +14,10 @@
 #include <TimeLib.h>
 #include "WebHandler.h"
 #include "eeMem.h"
+#include "JsonString.h"
 
-extern const char *controlPassword;
-extern uint8_t serverPort;
+extern void WscSend(String s); // remote WebSocket
+bool bValidData;
 
 HVAC::HVAC()
 {
@@ -40,6 +41,8 @@ void HVAC::service()
 {
   tempCheck();
 
+  if(!bValidData) // hasn't gotten data from host yet
+    return;
   static uint16_t old[4];
   if(m_remoteTimer) // let user change values for some time before sending
   {
@@ -59,15 +62,14 @@ void HVAC::service()
 // send a command as JSON: cmd {key:password, command:value}
 void HVAC::sendCmd(const char *szName, int value)
 {
-  String s = "{\"key\":\"";
+  String s = "cmd;{\"key\":\"";
   s += ee.password;
   s += "\",\"";
   s += szName;
   s += "\":";
   s += value;
   s += "}";
-
-  WscSend((char*)s.c_str(), "cmd");
+  WscSend(s);
 }
 
 void HVAC::enableRemote()
@@ -178,7 +180,7 @@ int8_t HVAC::getFan()
 // User:Set fan mode
 void HVAC::setFan(int8_t m)
 {
-  if(m == m_FanMode)     // requested fan operating mode change
+  if(m == m_FanMode || !bValidData)  // requested fan operating mode change
     return;
 
   sendCmd("fanmode", m);
@@ -253,11 +255,6 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   }
 }
 
-bool HVAC::showLocalTemp()
-{
-  return m_bLocalTempDisplay;
-}
-
 bool HVAC::isRemote()
 {
   return true;
@@ -273,6 +270,22 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   {
     m_inTemp = Temp + ee.adj;
     m_rh = rh;
+  }
+
+  static int16_t oldTemp;
+  static int16_t oldRh;
+  static uint8_t secs;
+
+  if(m_localTemp != oldTemp || ++secs > 30)
+  {
+    oldTemp = m_localTemp;
+    secs = 0;
+    sendCmd("rmttemp", m_localTemp);
+  }
+  if(m_localRh != oldRh)
+  {
+    oldRh = m_localRh;
+    sendCmd("rmtrh", m_localRh);
   }
 }
 
@@ -364,6 +377,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
   {
     case 0:
       m_setMode = ee.Mode = iValue;
+      bValidData = true;
       break;
     case 1:
       m_AutoMode = iValue;
@@ -424,53 +438,35 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 // Current control settings
 String HVAC::settingsJson()
 {
-  String s = "{";
-  s += "\"m\":";   s += ee.Mode;
-  s += ",\"ppk\":";  s += ee.ppkwh;
-  s += ",\"ccf\":";  s += ee.ccf;
-  s += ",\"cfm\":";  s += ee.cfm;
-  s += ",\"dl\":";  s += ee.diffLimit;
-  s += "\"rmt\":"; s += m_bRemoteStream;
-  s += "}";
-  return s;
+  jsonString js("settings");
+  js.Var("m", ee.Mode);
+  js.Var("ppk", ee.ppkwh);
+  js.Var("ccf", ee.ccf);
+  js.Var("cfm", ee.cfm);
+  js.Var("dl", ee.diffLimit);
+  js.Var("rmt", m_bRemoteStream);
+  return js.Close();
 }
 
 // Remote sensor values
 String HVAC::getPushData()
 {
-  String s = "{";
-  s += "\"t\":";  s += now() - ((ee.tz+m_DST) * 3600);
-  s += ",\"r\":" ;  s += m_bRunning;
-  s += ",\"fr\":";  s += getFanRunning();
-  s += ",\"it\":";  s += m_inTemp;
-  s += ",\"tempi\":"; s += m_localTemp;
-  s += ",\"rhi\":"; s += m_localRh;
-  s += ",\"ce\":\""; s += m_fCostE;  s += "\"";
-  s += ",\"cg\":\"";  s += m_fCostG;  s += "\"";
-  s += ",\"ct\":";  s += m_cycleTimer;
-  s += ",\"rmt\":"; s += m_bRemoteStream;
-  s += "}";
-  return s;
+  jsonString js("state");
+  js.Var("t", now() - ((ee.tz+m_DST) * 3600));
+  js.Var("r", m_bRunning);
+  js.Var("fr", getFanRunning() );
+  js.Var("it", m_inTemp );
+  js.Var("tempi", m_localTemp );
+  js.Var("rhi", m_localRh );
+  js.Var("ct", m_cycleTimer );
+  js.Var("rmt", m_bRemoteStream );
+  return js.Close();
 }
 
 void HVAC::dayTotals(int d)
 {
-  ee.fCostDay[d][0] = m_fCostE;
-  ee.fCostDay[d][1] = m_fCostG;
-  m_fCostE = 0;
-  m_fCostG = 0;
 }
 
-void HVAC::monthTotal(int m)
+void HVAC::monthTotal(int m, int dys)
 {
-  float e = 0;
-  float g = 0;
-  for(int i = 0; i < 31; i++)
-  {
-    e += ee.fCostDay[i][0];
-    g += ee.fCostDay[i][1];
-  }
-  ee.fCostE[m] = e;
-  ee.fCostG[m] = g;
-  memset(&ee.fCostDay, 0, sizeof(ee.fCostDay));
 }
