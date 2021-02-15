@@ -640,8 +640,8 @@ function drawFC(){
   c.fillStyle = "red"
   date = new Date(fc[0][0]*1000)
   dt = date.getDate()
+  fl=(fc[fc.length-1][0]-fc[0][0])/60
   cPos=0
-  xOff=(w/(fc.length*3*60))*fco
   for(i=1; i<fc.length; i++){
 	c.strokeStyle = (fc[i][1]<32)?"blue":"red"
 	c.beginPath()
@@ -652,16 +652,16 @@ function drawFC(){
 	if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
 	{
 		dif=(date.valueOf()-(new Date().valueOf()))/60000
-		xOff2=(w/(fc.length*3*60))*dif
+		xOff=w/fl*dif
 		cPos=i-1;
 		c.strokeStyle = '#222'
 		c.beginPath()
-		c.moveTo(getXPixel2(cPos)+xOff2,getYPixel3(iMax))
-		c.lineTo(getXPixel2(cPos)+xOff2,getYPixel3(iMin))
+		c.moveTo(getXPixel2(cPos)+xOff,getYPixel3(iMax))
+		c.lineTo(getXPixel2(cPos)+xOff,getYPixel3(iMin))
 		c.stroke()
 		c.fillStyle = '#000'
 		c.textAlign = "center"
-		c.fillText("Now",getXPixel2(cPos)+xOff2,getYPixel3(iMax)-8)
+		c.fillText("Now",getXPixel2(cPos)+xOff,getYPixel3(iMax)-8)
 	}
 	if(dt!=date.getDate()){
 		dt=date.getDate()
@@ -675,12 +675,23 @@ function drawFC(){
 		c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
 	}
   }
-  c.fillStyle = "#9040F080"
+  xOff=w/fl*fco
+  c.fillStyle = "#70408040"
   c.beginPath()
   c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
-  for(i=cPos+1; i<fcr; i++)
+  maxpos=fc.length-fcr+cPos
+  for(i=cPos+1; i<maxpos; i++)
 	c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
-  for(i=fcr-1; i>=cPos; i--)
+  for(i=maxpos-1; i>=cPos; i--)
+	c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
+  c.closePath()
+  c.fill()
+  c.fillStyle = "#9050F090"
+  c.beginPath()
+  c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
+  for(i=cPos+1; i<cPos+fcr; i++)
+	c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
+  for(i=cPos+fcr-1; i>=cPos; i--)
 	c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
@@ -704,13 +715,14 @@ function getTT(i,th)
   max2=-30
   for(j=i;j<i+fcr;j++)
   {
-  	if(j<fc.length&&fc[j][0]){
+  	if(j<fc.length){
 	  	if(min2>fc[j][1]) min2=fc[j][1]
 	  	if(max2<fc[j][1]) max2=fc[j][1]
   	}
   }
   tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
-  return graph2.height()/2-(graph2.height()/2/iRng*(tt-iMin))+30
+  h=graph2.height()/2
+  return h-(h/iRng*(tt-iMin))+30
 }
 </script>
 <style type="text/css">
