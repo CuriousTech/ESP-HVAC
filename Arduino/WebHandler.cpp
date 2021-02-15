@@ -53,6 +53,7 @@ uint32_t lastIP;
 bool bKeyGood;
 int WsClientID;
 int WsRemoteID;
+int WsClientIPID;
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -75,9 +76,8 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
     case WS_EVT_ERROR:    //error was received from the other end
       if(hvac.m_bRemoteStream && client->id() == WsRemoteID) // stop remote
       {
-         hvac.m_bRemoteStream = false;
-         hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
-         hvac.m_notif = Note_RemoteOff;
+        hvac.m_bRemoteStream = false;
+        hvac.m_notif = Note_RemoteOff;
       }
       break;
     case WS_EVT_PONG:    //pong message was received (in response to a ping request maybe)
@@ -93,6 +93,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           if(pCmd == NULL || pData == NULL) break;
           bKeyGood = false; // for callback (all commands need a key)
           WsClientID = client->id();
+          WsClientIPID = client->remoteIP()[3];
           remoteParse.process(pCmd, pData);
         }
       }
@@ -100,7 +101,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   }
 }
 
-const char *jsonList1[] = { "state",  "temp", "rh", "tempi", "rhi", "rmt", NULL };
+const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", "rmt", NULL };
 extern const char *cmdList[];
 const char *jsonList3[] = { "alert", NULL };
 
@@ -346,6 +347,7 @@ void parseParams(AsyncWebServerRequest *request)
     }
     else
     {
+      WsClientIPID = request->client()->remoteIP()[3];
       hvac.setVar(p->name(), s.toInt() );
     }
   }
@@ -497,32 +499,30 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // temp
-          if(hvac.m_bRemoteStream)
-            hvac.m_inTemp = (int)(atof(psValue)*10);
+          hvac.setVar("rmttemp", iValue);
           break;
         case 1: // rh
-          if(hvac.m_bRemoteStream)
-            hvac.m_rh = (int)(atof(psValue)*10);
-          break;
-        case 2: // tempi
-          if(hvac.m_bRemoteStream)
-            hvac.m_inTemp = iValue;
-          break;
-        case 3: // rhi
-          if(hvac.m_bRemoteStream)
-            hvac.m_rh = iValue;
+          hvac.setVar("rmtrh", iValue);
           break;
         case 4: // rmt
-          if(hvac.m_bRemoteStream != (iValue ? true:false) )
+          if(hvac.m_bRemoteStream != (iValue ? true:false) ) // enable/disable reemote temp
           {
             WsRemoteID = WsClientID;
             hvac.m_bRemoteStream = (iValue ? true:false);
-            hvac.m_bLocalTempDisplay = !hvac.m_bRemoteStream; // switch to showing local/remote color
 
             if(hvac.m_bRemoteStream)
               hvac.m_notif = Note_RemoteOn;
             else
               hvac.m_notif = Note_RemoteOff;
+            for(int i = 0; i < SNS_CNT; i++)
+            {
+              if(hvac.m_Sensor[i].IPID == WsRemoteID)
+              {
+                hvac.m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI);
+                hvac.m_Sensor[i].flags |= hvac.m_bRemoteStream ? (SNS_EN | SNS_PRI) : 0;
+                break;
+              }
+            }
           }
           break;
       }
