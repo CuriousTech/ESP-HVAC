@@ -15,6 +15,7 @@
 #include "jsonstring.h"
 
 extern void WsSend(String s);
+extern int WsClientIPID;
 
 HVAC::HVAC()
 {
@@ -323,57 +324,45 @@ bool HVAC::tempChange()
 // Control switching of system by temp
 void HVAC::tempCheck()
 {
-  if(m_inTemp == 0 || m_bEnabled == false)    // hasn't been set yet
+  if(m_bEnabled == false)    // hasn't been set yet
     return;
 
   int8_t mode = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode;
 
-  int16_t tempL = m_inTemp;
-  int16_t tempH = m_inTemp;
-  int8_t sensCnt = 0;
-  int16_t sensTemp = 0;
-/*
-  for(int8_t i = 0; i < RMTSND_CNT; i++)
+  int16_t tempL = m_localTemp;
+  int16_t tempH = m_localTemp;
+  int8_t sensCnt = 1;
+  int16_t sensTemp = m_localTemp;
+  bool bSensPriority = false;
+
+  for(int8_t i = 0; i < SNS_CNT; i++)
   {
-    if(m_rmtSensor[i].ID)
+    if(m_Sensor[i].IPID)
     {
-      if(now() - m_rmtSensor[i].time > 60*5) // disregard expired sensor data 
-        m_rmtSensor[i].ID = 0;
-      else
+      if(now() - m_Sensor[i].tm > 70 || m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard expired or invalid sensor data
       {
-         sensTemp += m_rmtSensor[i].temp;
+        m_Sensor[i].flags &= ~SNS_EN; // make it inactive
+        m_Sensor[i].temp = m_Sensor[i].rh = 0;
+      }
+      else if((m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
+      {
+         sensTemp = m_Sensor[i].temp;
+         sensCnt = 1;
+         bSensPriority = true;
+         break;
+      }
+      else if(m_Sensor[i].flags & SNS_EN)
+      {
+         sensTemp += m_Sensor[i].temp;
          sensCnt++;
       }
     }
   }
-  if(sensCnt)
-  {
-    if(sensCnt > 1) sensTemp /= sensCnt; // average
-  }
-*/
-  if(m_bRemoteStream && m_RemoteFlags)
-  {
-    if(m_RemoteFlags & RF_ML)
-      tempL = m_localTemp; // main low
-    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
-      tempL = (m_inTemp + m_localTemp) / 2; // use avg for low
-    if(m_RemoteFlags & RF_MH)
-      tempH = m_localTemp; // main high
-    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
-      tempH = (m_inTemp + m_localTemp) / 2; // use avg for high
-  }
-  else if(sensCnt)
-  {
-    m_inTemp = sensTemp; // override local with remote
-    if(m_RemoteFlags & RF_ML)
-      tempL = m_localTemp; // main low
-    if((m_RemoteFlags & (RF_RL|RF_ML)) == (RF_RL|RF_ML))
-      tempL = (sensTemp + m_localTemp) / 2; // use avg for low
-    if(m_RemoteFlags & RF_MH)
-      tempH = m_localTemp; // main high
-    if((m_RemoteFlags & (RF_RH|RF_MH)) == (RF_RH|RF_MH))
-      tempH = (sensTemp + m_localTemp) / 2; // use avg for high
-  }
+  if(sensCnt > 1)
+    sensTemp /= sensCnt; // average
+  tempL = tempH = sensTemp;
+  m_inTemp = sensTemp;
+  m_rh = m_localRh; // TODO: average?
 
   if(m_bRunning)
   {
@@ -488,7 +477,7 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
         calcTargetTemp(Mode_Heat);
         if(ee.heatMode == Heat_Auto)
         {
-          if(m_outTemp < (ee.eHeatThresh * 10))  // Use gas when efficiency too low for pump
+          if(m_outTemp < ee.eHeatThresh)  // Use gas when efficiency too low for pump
             m_AutoHeat = Heat_NG;
           else
             m_AutoHeat = Heat_HP;
@@ -706,11 +695,6 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   }
 }
 
-bool HVAC::showLocalTemp()
-{
-  return m_bLocalTempDisplay; // should be displaying local temp
-}
-
 bool HVAC::isRemote()
 {
   return false;
@@ -723,7 +707,6 @@ void HVAC::enableRemote()
     m_bRemoteDisconnect = true;
     m_bRemoteStream = false;
     m_notif = Note_None;
-    m_bLocalTempDisplay = true;
   }
 }
 
@@ -733,11 +716,6 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   m_localTemp = Temp + ee.adj; // Using remote vars for local here
   m_localRh = rh;
 
-  if( m_bRemoteStream == false ) // don't update if external temp sensor used
-  {
-    m_inTemp = Temp + ee.adj;
-    m_rh = rh;
-  }
   // Auto1 == auto humidifier when running, Auto2 = even when not running (turns fan on)
   if(ee.humidMode >= HM_Auto1)
   {
@@ -824,7 +802,6 @@ String HVAC::settingsJson()
   js.Var("rh1", ee.rhLevel[1]);
   js.Var("fp",  ee.fanPreTime[m_modeShadow == Mode_Heat]);
   js.Var("fct", ee.fanCycleTime);
-  js.Var("ar",  m_RemoteFlags);
   js.Var("at",  ee.awayTime);
   js.Var("ad",  ee.awayDelta[m_modeShadow == Mode_Heat]);
   js.Var("ppk", ee.ppkwh);
@@ -852,9 +829,9 @@ String HVAC::settingsJsonMod()
   bool bSend = false;
   static int8_t AutoMode, FanMode, RemoteFlags, ovrTemp;
 
-  if(AutoMode != m_AutoMode || FanMode != m_FanMode || RemoteFlags != m_RemoteFlags || ovrTemp != m_ovrTemp)
+  if(AutoMode != m_AutoMode || FanMode != m_FanMode || ovrTemp != m_ovrTemp)
   {
-    AutoMode = m_AutoMode; FanMode = m_FanMode; RemoteFlags = m_RemoteFlags; ovrTemp = m_ovrTemp;
+    AutoMode = m_AutoMode; FanMode = m_FanMode; ovrTemp = m_ovrTemp;
     bSend = true;
   }
 
@@ -888,12 +865,9 @@ String HVAC::getPushData()
   js.Var("rt", m_runTotal);
   js.Var("h",  m_bHumidRunning);
   js.Var("aw", m_bAway);
-  if(m_bRemoteDisconnect)
-  {
-    js.Var("rmt", 0);
-    m_bRemoteDisconnect = false;
-    m_bLocalTempDisplay = true;
-  }
+
+  js.Array("snd", m_Sensor);
+
   return js.Close();
 }
 
@@ -926,7 +900,7 @@ const char *cmdList[] = { "cmd",
   "adj",      // 20
   "fanpretime",
   "fancycletime",
-  "rmtflgs",
+  "notused",
   "awaytime",
   "awaydelta",
   "away",
@@ -949,6 +923,7 @@ const char *cmdList[] = { "cmd",
   "rmtid",
   "rmttemp",
   "rmtrh",
+  "rmtflg",
   "sm",
   NULL
 };
@@ -969,6 +944,7 @@ int HVAC::CmdIdx(String s )
 void HVAC::setVar(String sCmd, int val)
 {
   if(ee.bLock) return;
+  int i;
 
   switch( CmdIdx( sCmd ) )
   {
@@ -1062,10 +1038,7 @@ void HVAC::setVar(String sCmd, int val)
     case 22: // fancycletime
       ee.fanCycleTime = val;
       break;
-    case 23: // rmtflgs  0xC=(RF_RL|RF_RH) = use remote, 0x3=(RF_ML|RF_MH)= use main, 0xF = use both averaged
-      if(val & (RF_RL|RF_ML) == 0) val |= RF_RL;
-      if(val & (RF_RH|RF_MH) == 0) val |= RF_RH;
-      m_RemoteFlags = val;
+    case 23: // rmtflgs
       break;
     case 24: // awaytime
       ee.awayTime = val; // no limit
@@ -1138,36 +1111,47 @@ void HVAC::setVar(String sCmd, int val)
     case 42: // fco
       ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
       break;
-    case 43: // rmtid (?rmtid=100&rmttemp=750&rmtrh=500)
-      {
-        int i;
-        for(i = 0; i < RMTSND_CNT; i++) // find ID
-        {
-          if(m_rmtSensor[i].ID == val)
-            break;
-        }
-        if(i == RMTSND_CNT) // not found
-          for(i = 0; i < RMTSND_CNT; i++)
-          {
-            if(m_rmtSensor[i].ID == 0)
-              break;
-          }
-        if(i < RMTSND_CNT)
-          m_rmtSensor[i].ID = val;
-        m_rmtIdx = i;
-      }
+    case 43: // rmtid (?rmtid=100&rmtflg=1)
+      m_snsIdx = getSensorID(val);
       break;
     case 44: // rmttemp
-      m_rmtSensor[m_rmtIdx].temp = constrain(val, 650, 860);
-      m_rmtSensor[m_rmtIdx].time = now();
+      m_snsIdx = getSensorID(WsClientIPID);
+      m_Sensor[m_snsIdx].temp = constrain(val, 600, 990);
+      m_Sensor[m_snsIdx].tm = now();
       break;
     case 45: // rmtrh
-      m_rmtSensor[m_rmtIdx].rh = val;
+      m_snsIdx = getSensorID(WsClientIPID);
+      m_Sensor[m_snsIdx].rh = val;
       break;
-    case 46: // sm
+    case 46: // rmtflg
+      m_Sensor[m_snsIdx].flags = val;
+      break;
+    case 47: // sm
       ee.nSchedMode = constrain(val, 0, 2);
       break;
   }
+}
+
+int HVAC::getSensorID(int val)
+{
+  int i;
+  for(i = 0; i < SNS_CNT; i++) // find ID
+  {
+    if(m_Sensor[i].IPID == val)
+      break;
+  }
+  if(i == SNS_CNT) // not found
+    for(i = 0; i < SNS_CNT; i++)
+    {
+      if(m_Sensor[i].IPID == 0)
+        break;
+    }
+  if(i < SNS_CNT)
+  {
+    m_Sensor[i].IPID = val;
+    return i;
+  }
+  return 0;
 }
 
 void HVAC::dayTotals(int d)
