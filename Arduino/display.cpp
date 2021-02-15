@@ -195,7 +195,6 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
             case 3: // in
             case 4: // rh
-              hvac.m_bLocalTempDisplay = !hvac.m_bLocalTempDisplay; // toggle remote temp display
               updateTemps();
               break;
             case 21: // humidifier indicator
@@ -273,23 +272,20 @@ void Display::updateTemps()
     return;
   }
 
-  if(bRmt != hvac.showLocalTemp())
+  if(bRmt != hvac.m_bRemoteStream)
   {
-    bRmt = hvac.showLocalTemp();
+    bRmt = hvac.m_bRemoteStream;
     nex.itemColor("f2", bRmt ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
     nex.itemColor("f3", bRmt ? rgb16(31, 0, 15) : rgb16(0, 63, 31));
   }
 
-  uint16_t temp = hvac.showLocalTemp() ? hvac.m_localTemp : hvac.m_inTemp;
-  uint16_t rh = hvac.showLocalTemp() ? hvac.m_localRh : hvac.m_rh;
-
-  if(last[0] != temp)               nex.itemFp(2, last[0] = temp);
-  if(last[1] != rh)                 nex.itemFp(3, last[1] = rh);
-  if(last[2] != hvac.m_targetTemp)  nex.itemFp(4, last[2] = hvac.m_targetTemp);
-  if(last[3] != ee.coolTemp[1])     nex.itemFp(5, last[3] = ee.coolTemp[1]);
-  if(last[4] != ee.coolTemp[0])     nex.itemFp(6, last[4] = ee.coolTemp[0]);
-  if(last[5] != ee.heatTemp[1])     nex.itemFp(7, last[5] = ee.heatTemp[1]);
-  if(last[6] != ee.heatTemp[0])     nex.itemFp(8, last[6] = ee.heatTemp[0]);
+  if(last[0] != hvac.m_inTemp)     nex.itemFp(2, last[0] = hvac.m_inTemp);
+  if(last[1] != hvac.m_rh)         nex.itemFp(3, last[1] = hvac.m_rh);
+  if(last[2] != hvac.m_targetTemp) nex.itemFp(4, last[2] = hvac.m_targetTemp);
+  if(last[3] != ee.coolTemp[1])    nex.itemFp(5, last[3] = ee.coolTemp[1]);
+  if(last[4] != ee.coolTemp[0])    nex.itemFp(6, last[4] = ee.coolTemp[0]);
+  if(last[5] != ee.heatTemp[1])    nex.itemFp(7, last[5] = ee.heatTemp[1]);
+  if(last[6] != ee.heatTemp[0])    nex.itemFp(8, last[6] = ee.heatTemp[0]);
 }
 
 const char *_days_short[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
