@@ -139,6 +139,32 @@ public:
     m_cnt++;
   }
 
+  void Array(char *key, Sensor sns[])
+  {
+    if(m_cnt) s += ",";
+    s += "\"";
+    s += key;
+    s += "\":[";
+    for(int i = 0; i < SNS_CNT; i++)
+    {
+      if(sns[i].IPID)
+      {
+        if(i) s += ",";
+        s += "[";
+        s += sns[i].IPID;
+        s += ",";
+        s += sns[i].temp;
+        s += ",";
+        s += sns[i].rh;
+        s += ",";
+        s += sns[i].flags;
+        s += "]";
+      }
+    }
+    s += "]";
+    m_cnt++;
+  }
+
 protected:
   String s;
   int m_cnt;
