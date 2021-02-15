@@ -65,17 +65,18 @@ enum HumidifierMode
   HM_Auto2,
 };
 
-#define RF_ML (1 << 0)
-#define RF_MH (1 << 1)
-#define RF_RL (1 << 2)
-#define RF_RH (1 << 3)
+#define SNS_PRI (1 << 0)
+#define SNS_EN (1 << 1)
+#define SNS_LO  (1 << 2)
+#define SNS_HI  (1 << 3)
 
-struct remoteSensor
+struct Sensor
 {
-  uint16_t ID; // unique ID / valid
+  uint32_t tm;
+  uint8_t IPID; // .xx of IP
+  uint8_t flags;
   uint16_t temp;
   uint16_t rh;
-  uint32_t time;
 };
 
 class HVAC
@@ -101,7 +102,6 @@ public:
   int16_t getSetTemp(int mode, int hl); // get temp set for a mode (cool/heat, hi/lo)
   void    setTemp(int mode, int16_t Temp, int hl); // set temp for a mode
   void    enableRemote(void);
-  bool    showLocalTemp(void);
   bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
@@ -129,12 +129,13 @@ public:
   uint8_t  m_notif;
   bool     m_bRemoteStream; // remote is streaming temp/rh
   bool     m_bRemoteDisconnect;
-  bool     m_bLocalTempDisplay;
   int8_t   m_outMin, m_outMax;
   uint16_t m_iSecs[3];
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
+#define SNS_CNT 6
+  Sensor m_Sensor[SNS_CNT]; // 0=remote, 1+=sensors
 
 private:
   void  fanSwitch(bool bOn);
@@ -145,6 +146,7 @@ private:
   void  costAdd(int secs, int mode, int hm);
   int   CmdIdx(String s);
   void  sendCmd(const char *szName, int value);
+  int   getSensorID(int val);
 
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
   bool    m_bFanRunning;    // when fan is running
@@ -159,7 +161,6 @@ private:
   bool    m_bRecheck;       // recalculate target now
   bool    m_bEnabled;       // enables system
   bool    m_bAway;
-  uint8_t  m_RemoteFlags = RF_RL|RF_RH;
   uint16_t m_fanPreElap = 60*10;
   uint16_t m_runTotal;      // time HVAC has been running total since reset
   uint16_t m_fanOnTimer;    // time fan is running
@@ -175,9 +176,7 @@ private:
   uint16_t m_remoteTimer;   // in seconds
   uint16_t m_humidTimer;    // timer for humidifier cost
   int8_t   m_furnaceFan;    // fake fan timer
-#define RMTSND_CNT 5
-  remoteSensor m_rmtSensor[RMTSND_CNT];
-  uint8_t  m_rmtIdx;        // current remote sensor in use
+  uint8_t  m_snsIdx;        // current sensor in use
 };
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
