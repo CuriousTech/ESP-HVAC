@@ -203,7 +203,7 @@ void HVAC::service()
         m_bRunning = true;
         break;
     case Mode_Heat:
-        if(hm)  // gas
+        if(hm == Heat_NG)  // gas
         {
           if(digitalRead(P_COOL))
             WsSend("print;Error: NG heat start conflict");
@@ -212,11 +212,8 @@ void HVAC::service()
         }
         else
         {
-          WsSend("print;HP heat start");
           fanSwitch(true);
-          if(digitalRead(P_HEAT))
-            WsSend("print;Error: HP heat start conflict");
-          else
+          if(!digitalRead(P_HEAT))
           {
             if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if cools, reverse this)
             {
@@ -342,7 +339,7 @@ void HVAC::tempCheck()
       if(now() - m_Sensor[i].tm > 70 || m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard expired or invalid sensor data
       {
         m_Sensor[i].flags &= ~SNS_EN; // make it inactive
-        m_Sensor[i].temp = m_Sensor[i].rh = 0;
+        m_Sensor[i].temp = 0;
       }
       else if((m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
@@ -463,6 +460,13 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
     case Mode_Heat:
       calcTargetTemp(Mode_Heat);
       bRet = (tempL <= m_targetTemp);
+      if(ee.heatMode == Heat_Auto)
+      {
+        if(m_outTemp < ee.eHeatThresh * 10)  // Use gas when efficiency too low for pump
+          m_AutoHeat = Heat_NG;
+        else
+          m_AutoHeat = Heat_HP;
+      }
       break;
     case Mode_Auto:
       if(tempH >= ee.coolTemp[0])
@@ -477,7 +481,7 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
         calcTargetTemp(Mode_Heat);
         if(ee.heatMode == Heat_Auto)
         {
-          if(m_outTemp < ee.eHeatThresh)  // Use gas when efficiency too low for pump
+          if(m_outTemp < ee.eHeatThresh * 10)  // Use gas when efficiency too low for pump
             m_AutoHeat = Heat_NG;
           else
             m_AutoHeat = Heat_HP;
