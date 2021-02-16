@@ -104,8 +104,13 @@ void Display::checkNextion() // all the Nextion recieved commands
   {
     case 0x65: // button
       btn = cBuf[2];
-      nex.brightness(NEX_BRIGHT);
- 
+      if( m_backlightTimer == 0)
+      {
+        nex.brightness(NEX_BRIGHT); // backlight was off, ignore this input
+        m_backlightTimer = NEX_TIMEOUT;
+        return;
+      }
+
       switch(cBuf[1]) // page
       {
         case Page_Thermostat:
