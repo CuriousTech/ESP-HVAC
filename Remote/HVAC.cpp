@@ -274,15 +274,15 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 
   static int16_t oldTemp;
   static int16_t oldRh;
-  static uint8_t secs;
+  static uint32_t secs;
 
-  if(m_localTemp != oldTemp || ++secs > 30)
+  if(m_localTemp != oldTemp || now() - secs > 30)
   {
     oldTemp = m_localTemp;
-    secs = 0;
+    secs = now();
     sendCmd("rmttemp", m_localTemp);
   }
-  if(m_localRh != oldRh)
+  else if(m_localRh != oldRh)
   {
     oldRh = m_localRh;
     sendCmd("rmtrh", m_localRh);
