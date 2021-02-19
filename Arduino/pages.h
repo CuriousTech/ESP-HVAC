@@ -488,13 +488,13 @@ function setSenders()
  for(i=0;i<snd.length;i++)
  {
   item=document.getElementById('s'+i)
-  item.innerHTML=snd[i][0]
+  item.innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
   item=document.getElementById('sndpri'+i)
   item.setAttribute('class',snd[i][3]&1?'style5':'')
   item=document.getElementById('snda'+i)
   item.setAttribute('class',snd[i][3]&2?'style5':'')
   item=document.getElementById('rt'+i)
-  item.innerHTML=(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%'
+  item.innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
  }
 }
 
@@ -576,15 +576,15 @@ function t2s(v)
 <input type="submit" value=" Home " onClick="window.location='/iot';">
 </td>
 </tr>
-<tr><td>Heat Thrsh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
+<tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
 <tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
-<tr><td>Away Lmt</td><td><input type=text size=4 id="awaytime" onchange="{setVar('awaytime',t2s(this.value))}"></td><td>CFM</td><td><input type=text size=3 id="cfm" onchange="{setVar('cfm',(+this.value*1000).toFixed())}"></td></tr>
+<tr><td>Away Limit</td><td><input type=text size=4 id="awaytime" onchange="{setVar('awaytime',t2s(this.value))}"></td><td>CFM</td><td><input type=text size=3 id="cfm" onchange="{setVar('cfm',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
-<tr><td>Fan Auto</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
+<tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
 <tr id="int" style="visibility:collapse"><td>Internal</td><td id="it0"></td><td id="loc" colspan=2></td><td></td></tr>
 <tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,1)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,2)}"></td><td id="rt0" colspan=2></td><td></td></tr>
 <tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,1)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,2)}"></td><td id="rt1" colspan=2></td><td></td></tr>
