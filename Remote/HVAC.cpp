@@ -62,14 +62,10 @@ void HVAC::service()
 // send a command as JSON: cmd {key:password, command:value}
 void HVAC::sendCmd(const char *szName, int value)
 {
-  String s = "cmd;{\"key\":\"";
-  s += ee.password;
-  s += "\",\"";
-  s += szName;
-  s += "\":";
-  s += value;
-  s += "}";
-  WscSend(s);
+  jsonString js("cmd");
+  js.Var("key", ee.password);
+  js.Var((char *)szName, value);
+  WscSend(js.Close());
 }
 
 void HVAC::enableRemote()
@@ -286,6 +282,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   {
     oldRh = m_localRh;
     sendCmd("rmtrh", m_localRh);
+    sendCmd("rmtname", '1TMR'); // RMT1
   }
 }
 
