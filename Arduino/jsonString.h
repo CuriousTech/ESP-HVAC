@@ -158,7 +158,9 @@ public:
         s += sns[i].rh;
         s += ",";
         s += sns[i].flags;
-        s += "]";
+        s += ",\"";
+        s += (char*)&sns[i].ID;
+        s += "\"]";
       }
     }
     s += "]";
