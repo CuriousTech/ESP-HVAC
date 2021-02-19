@@ -73,10 +73,12 @@ enum HumidifierMode
 struct Sensor
 {
   uint32_t tm;
-  uint8_t IPID; // .xx of IP
+  uint8_t IPID; // .xxx of IP
   uint8_t flags;
   uint16_t temp;
   uint16_t rh;
+  uint32_t ID; // hex text?
+  uint8_t pad;
 };
 
 class HVAC
@@ -134,7 +136,7 @@ public:
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
-#define SNS_CNT 6
+#define SNS_CNT 7
   Sensor m_Sensor[SNS_CNT]; // 0=remote, 1+=sensors
 
 private:
