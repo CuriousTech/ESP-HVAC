@@ -309,13 +309,21 @@ bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
-  
-  if(nTemp == m_inTemp && nTarget == m_targetTemp)
-    return false;
+  static Sensor sns[SNS_CNT];
+  bool bRet = false;
 
-  nTemp = m_inTemp;
-  nTarget = m_targetTemp;
-  return true;
+/*  if(memcmp(&sns, m_Sensor, sizeof(sns)))
+  {
+    memcpy(&sns, m_Sensor, sizeof(sns));
+    bRet = true;
+  }*/
+  if(nTemp != m_inTemp || nTarget != m_targetTemp)
+  {
+    nTemp = m_inTemp;
+    nTarget = m_targetTemp;
+    bRet = true;
+  }
+  return bRet;
 }
 
 // Control switching of system by temp
@@ -928,6 +936,8 @@ const char *cmdList[] = { "cmd",
   "rmttemp",
   "rmtrh",
   "rmtflg",
+  "rmtname",
+  "rmt",
   "sm",
   NULL
 };
@@ -1116,7 +1126,7 @@ void HVAC::setVar(String sCmd, int val)
       ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
       break;
     case 43: // rmtid (?rmtid=100&rmtflg=1)
-      m_snsIdx = getSensorID(val);
+      m_snsIdx = getSensorID(val ? val:WsClientIPID); // use client ID if 0
       break;
     case 44: // rmttemp
       m_snsIdx = getSensorID(WsClientIPID);
@@ -1130,7 +1140,15 @@ void HVAC::setVar(String sCmd, int val)
     case 46: // rmtflg
       m_Sensor[m_snsIdx].flags = val;
       break;
-    case 47: // sm
+    case 47: // rmtname
+      m_Sensor[m_snsIdx].ID = val;
+      break;
+    case 48: // rmt
+      m_snsIdx = getSensorID(WsClientIPID);
+      m_Sensor[m_snsIdx].flags &= ~SNS_EN;
+      m_Sensor[m_snsIdx].flags |= val?SNS_EN:0;
+      break;
+    case 49: // sm
       ee.nSchedMode = constrain(val, 0, 2);
       break;
   }
