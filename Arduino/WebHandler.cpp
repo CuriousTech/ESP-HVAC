@@ -101,7 +101,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   }
 }
 
-const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", "rmt", NULL };
+const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
 extern const char *cmdList[];
 const char *jsonList3[] = { "alert", NULL };
 
@@ -174,8 +174,19 @@ void startServer()
     request->send_P(200, "text/html", page_chart);
 #endif
   });
+  server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
+  {
+    jsonString js;
+    js.Var("time", now() - ((ee.tz + hvac.m_DST) * 3600) );
+    js.Var("ppkw", ee.ppkwh );
+    request->send(200, "text/plain", js.Close());
+  });
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+#ifdef USE_SPIFFS
     request->send(SPIFFS, "/favicon.ico");
+#else
+    request->send_P(200, "text/html", page_favicon);
+#endif
 //    request->send(404);
   });
   server.onNotFound([](AsyncWebServerRequest *request){
@@ -503,27 +514,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           break;
         case 1: // rh
           hvac.setVar("rmtrh", iValue);
-          break;
-        case 4: // rmt
-          if(hvac.m_bRemoteStream != (iValue ? true:false) ) // enable/disable reemote temp
-          {
-            WsRemoteID = WsClientID;
-            hvac.m_bRemoteStream = (iValue ? true:false);
-
-            if(hvac.m_bRemoteStream)
-              hvac.m_notif = Note_RemoteOn;
-            else
-              hvac.m_notif = Note_RemoteOff;
-            for(int i = 0; i < SNS_CNT; i++)
-            {
-              if(hvac.m_Sensor[i].IPID == WsRemoteID)
-              {
-                hvac.m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI);
-                hvac.m_Sensor[i].flags |= hvac.m_bRemoteStream ? (SNS_EN | SNS_PRI) : 0;
-                break;
-              }
-            }
-          }
           break;
       }
       break;
