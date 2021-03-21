@@ -161,7 +161,6 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fS.setAttribute('class',fanMode==2?'style5':'')
 a.fan.innerHTML = "Fan "+((fanMode==1)?"On":(fan?"On":"Off"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
@@ -170,6 +169,7 @@ a.mOff.setAttribute('class',mode==0?'style5':'')
 a.mCool.setAttribute('class',mode==1?'style5':'')
 a.mHeat.setAttribute('class',mode==2?'style5':'')
 a.mAuto.setAttribute('class',mode==3?'style5':'')
+a.fCyc.setAttribute('class',mode==4?'style5':'')
 
 a.hHP.setAttribute('class',heatMode==0?'style5':'')
 a.hGas.setAttribute('class',heatMode==1?'style5':'')
@@ -187,28 +187,24 @@ function incCool(n)
 {
 a.coolh.value= +a.coolh.value+n
 a.cooll.value= +a.cooll.value+n
-
-setVar('cooltemph',(+a.coolh.value*10).toFixed())
-setVar('cooltempl',(+a.cooll.value*10).toFixed())
+setVars()
 }
 
 function incHeat(n)
 {
 a.heath.value= +a.heath.value+n
 a.heatl.value= +a.heatl.value+n
-
-setVar('heattemph',(+a.heath.value*10).toFixed())
-setVar('heattempl',(+a.heatl.value*10).toFixed())
+setVars()
 }
 
 function setOvrTemp()
 {
-  setVar('override',(+a.ovrtemp.value*10).toFixed())
+setVar('override',(+a.ovrtemp.value*10).toFixed())
 }
 
 function setOvrTemp()
 {
-  setVar('override',(+a.ovrtemp.value*10).toFixed())
+setVar('override',(+a.ovrtemp.value*10).toFixed())
 }
 
 function cancelOvr()
@@ -219,14 +215,10 @@ function cancelOvr()
 function setVars()
 {
  s='cmd;{"key":"'+myToken+'"'
- s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()
- s+=',"cooltempl":'+(+a.cooll.value*10).toFixed()
- s+=',"heattemph":'+(+a.heath.value*10).toFixed()
- s+=',"heattempl":'+(+a.heatl.value*10).toFixed()
- s+=',"overridetime":'+t2s(a.ovrtime.value)
- s+=',"fancycletime":'+t2s(a.fantime.value)
- s+=',"awaydelta":'+(+a.awaytemp.value*10).toFixed()
- s+='}'
+ s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()+',"cooltempl":'+(+a.cooll.value*10).toFixed()
+ s+=',"heattemph":'+(+a.heath.value*10).toFixed()+',"heattempl":'+(+a.heatl.value*10).toFixed()
+ s+=',"overridetime":'+t2s(a.ovrtime.value)+',"fancycletime":'+t2s(a.fantime.value)
+ s+=',"awaydelta":'+(+a.awaytemp.value*10).toFixed()+'}'
  ws.send(s)
 }
 
@@ -294,8 +286,8 @@ function t2s(v)
 <tr>
 <td id="fanCell"><div id="fan">Fan Off</div></td>
 <td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
-<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"><input type="button" value="Cycle" name="fS" onClick="{setfan(2)}"></td>
-<td width=300 align="right"><input type="submit" value="Settings" onClick="window.location='/settings';"></td>
+<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"></td>
+<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}"> &nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
@@ -367,7 +359,7 @@ function t2s(v)
 <td>Filter</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
-<small>Copyright &copy 2016 CuriousTech.net</small>
+<small>&copy 2016 CuriousTech.net</small>
 </body>
 </html>
 )rawliteral";
@@ -664,8 +656,8 @@ body{background:silver;width:700px;display:block;text-align:center;font-family: 
 <script type="text/javascript">
 var graph;
 xPadding=30
-yPadding=50
-drawOut=false
+yPadding=56
+drawMode=3
 var yRange
 var Json
 var a=document.all
@@ -711,6 +703,7 @@ $(document).ready(function()
     case 'state':
       sJson=Json
       cyc=secsToTime(+Json.ct)
+      snd=Json.snd
       draw()
       break
     case 'alert':
@@ -746,11 +739,15 @@ $(document).ready(function()
       break
     case 'data':
       for(i=0;i<Json.d.length;i++){
-        Json.d[i][0]=(tb-Json.d[i][0]*10)*1000
+        n=Json.d[i][0]      // time, temp, rh, thrsh, state outtemp
+        Json.d[i][0]=tb*1000
+        tb-=n
         Json.d[i][1]+=tm
         Json.d[i][2]+=rm
         Json.d[i][3]+=lm
         Json.d[i][5]+=om
+        for(j=6;j<Json.d[i].length;j++)
+         Json.d[i][j]+=tm
       }
       arr=arr.concat(Json.d)
       draw()
@@ -780,86 +777,56 @@ function draw(){
 
   c.fillStyle='black'
   c.strokeStyle='black'
-  c.clearRect(0, 0, graph.width(), graph.height())
   canvasOffset=graph.offset()
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
-
+  h=graph.height()-yPadding
   c.lineWidth=2
   c.font='italic 8pt sans-serif'
   c.textAlign="left"
-
-  c.beginPath() // borders
-  c.moveTo(xPadding,0)
-  c.lineTo(xPadding,graph.height()-yPadding)
-  c.lineTo(graph.width()-xPadding, graph.height()-yPadding)
-  c.lineTo(graph.width()-xPadding, 0)
-  c.stroke()
+  yPad=yPadding
+  doBorder(graph)
 
   c.lineWidth = 1
   // dates
   step = Math.floor(arr.length / 15)
   if(step == 0) step = 1
-  for(var i=0; i<arr.length-1; i+=step){
+  for(var i=0;i<arr.length-1;i+=step){
   c.save()
-  c.translate(getXPixel(i), graph.height()-yPadding+5)
+  c.translate(getXPixel(i),h+5)
   c.rotate(0.9)
   date = new Date(arr[i][0])
   c.fillText(date.toLocaleTimeString(),0,0)
   c.restore()
   }
 
-  yRange = getMaxY() - getMinY()
+  yRange=getMaxY()-getMinY()
   // value range
-  c.textAlign = "right"
-  c.textBaseline = "middle"
+  c.textAlign="right"
+  c.textBaseline="middle"
 
-  for(var i = getMinY(); i < getMaxY(); i += (yRange/8) )
-    c.fillText((i/10).toFixed(1), graph.width()-6, getYPixel(i))
+  for(var i=getMinY();i<getMaxY();i+=(yRange/8))
+  c.fillText((i/10).toFixed(1),graph.width()-6,getYPixel(i))
 
-  c.fillText('Temp', graph.width()-6, 6)
+  c.fillText('Temp', graph.width()-6,6)
   c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"slategray")
   c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
  // cycle
-  c.fillText(cyc,graph.width()-xPadding-7,graph.height()-yPadding-8)
+  c.fillText(cyc,graph.width()-xPadding-7,h-8)
 
   c.fillStyle="green"
   c.fillText('Rh', xPadding-6, 6)
 
   // rh scale
   for(i=0;i<10;i++){
-    pos=graph.height()-8-(((graph.height()-yPadding)/10)*i)-yPadding
+    pos=h-8-((h/10)*i)
     c.fillText(i*10,xPadding-4,pos)
   }
-
-  // in-out diff
-  grd=c.createLinearGradient(0,yPadding,0,graph.height()-yPadding)
-  grd.addColorStop(0,'rgba(255,100,0,0.2)')
-  grd.addColorStop(1,'rgba(150,150,200,0.2)')
-
-// Fill with gradient
-  c.fillStyle = grd
-  c.beginPath()
-  c.moveTo(graph.width()-xPadding, graph.height()-yPadding)
-  for(i=0;i<arr.length;i++){
-  switch(md){
-    default: diff=0; break
-    case 1: diff=(arr[i][5]-200-arr[i][1])*10; break // 20~30=0~100%
-    case 2: diff=(arr[i][1]-380-arr[i][5])*3; break
-  }
-  if(diff<0) diff=0
-  if(diff>1000) diff=1000
-  c.lineTo(getXPixel(i),getRHPixel(diff))
-  }
-  c.lineTo(getXPixel(i),graph.height()-yPadding)
-  c.closePath()
-  c.fill()
 
   //threshold
   c.fillStyle = 'rgba(100,100,180,0.25)'
   c.beginPath()
   c.moveTo(getXPixel(0),getYPixel(arr[0][3]+th))
-
   for(i=1;i<arr.length-1;i++)
     c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))
   for(i=arr.length-2;i>=0;i--)
@@ -868,52 +835,71 @@ function draw(){
   c.fill()
 
   // temp lines
-  date = new Date(arr[0][0])
-  dt = date.getDate()
-  for(i = 1; i < arr.length; i++){
-  c.strokeStyle = stateColor(arr[i][4])
-  c.beginPath()
-  c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
-  c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
-  c.stroke()
-  date = new Date(arr[i][0])
-  if(dt != date.getDate())
+  if(drawMode&1)
   {
+   date=new Date(arr[0][0])
+   dt=date.getDate()
+   for(i=1;i<arr.length;i++){
+   c.strokeStyle=stateColor(arr[i][4])
+   c.beginPath()
+   c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
+   c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
+   c.stroke()
+   date = new Date(arr[i][0])
+   if(dt != date.getDate())
+   {
     dt = date.getDate()
     c.strokeStyle = '#000'
     c.beginPath() // borders
     c.moveTo(getXPixel(i),0)
-    c.lineTo(getXPixel(i),graph.height()-yPadding)
+    c.lineTo(getXPixel(i),h)
     c.stroke()
-  }
-  }
-  // out temp
-  c.strokeStyle = '#fa0'
-  if(drawOut) for(i=1;i<arr.length;i++){
-  c.beginPath()
-  c.moveTo(getXPixel(i),getYPixel(arr[i][5]))
-  c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][5]))
-  c.stroke()
+   }
+   }
   }
 
-  // rh lines
+  if(arr[0].length>6)
+  {
+  if(drawMode&4) doLines('rgba(0,0,255,0.5)',6)
+  if(drawMode&8) doLines('rgba(200,180,0,0.7)',7)
+  if(drawMode&16) doLines('rgba(100,100,50,0.6)',8)
+  }
+  c.textAlign="left"
+  y=graph.height()
+  c.fillStyle='#000'
+  c.fillText('Temp',2,y-=10)
+  c.fillStyle='#0f0'
+  c.fillText('Rh',2,y-=10)
+  c.fillStyle='rgba(0,0,255)'
+  c.fillText('Internal',2,y-=10)
+  c.fillStyle='rgba(200,180,0)'
+  y-=10
+  if(snd[0]) c.fillText(snd[0][4],2,y)
+  c.fillStyle='rgba(100,100,50)'
+  y-=10
+  if(snd[1]) c.fillText(snd[1][4],2,y)
+  c.fillStyle='#fa0'
+  c.fillText('Out',2,y-=10)
+
+  // out temp
+  if(drawMode&32) doLines('#fa0',5,'Out')
+  if(drawMode&2){
   c.strokeStyle = '#0f0'
   c.beginPath()
   c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))
-  for(var i=1;i<arr.length-1;i ++)
+  for(var i=1;i<arr.length;i ++)
   c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))
   c.stroke()
-
-  var dots = []
-  for(i = 0; i < arr.length; i ++) {
-    date = new Date(arr[i][0])
+  }
+  var dots=[]
+  for(i=0;i<arr.length;i++){
     dots.push({
       x: getXPixel(i),
       y: getYPixel(arr[i][1]),
       r: 4,
       rXr: 16,
       color: "red",
-      tip: date.toLocaleTimeString()+' ',
+      tip: (new Date(arr[i][0])).toLocaleTimeString()+' ',
       tip2: arr[i][1]/10,
       tip3: arr[i][2]/10,
       tip4: arr[i][5]/10
@@ -927,14 +913,14 @@ function draw(){
   function handleMouseMove(e){
     mouseX=parseInt(e.clientX-offsetX)
     mouseY=parseInt(e.clientY-offsetY)
-    
+
     // Put your mousemove stuff here
     var hit = false
-    for (i = 0; i < dots.length; i++) {
+    for(i=0;i<dots.length;i++){
       dot = dots[i]
       dx = mouseX - dot.x
       dy = mouseY - dot.y
-      if (dx * dx + dy * dy < dot.rXr) {
+      if(dx*dx + dy*dy < dot.rXr) {
         tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
         tipCtx.lineWidth = 2
         tipCtx.fillStyle = "#000000"
@@ -952,16 +938,16 @@ function draw(){
         popup.style.left = (dot.x-60) + "px"
       }
     }
-    if (!hit) { popup.style.left = "-200px" }
+    if(!hit){popup.style.left="-200px"}
   }
 
   mousePos={x:0,y:0}
-  lastPos=mousePos
   if(added==false)
   {
     graph[0].addEventListener("mousedown",function(e){
-      lastPos=getMousePos(graph[0],e)
-      drawOut=!drawOut
+      mouseX=parseInt(e.clientX-offsetX)
+      mouseY=parseInt(e.clientY-offsetY)
+      drawMode^=1<<((graph[0].height-10-mouseY)/10).toFixed()
       draw()
     },false)
     added=true
@@ -972,6 +958,15 @@ function draw(){
      x: mEv.clientX-rect.left,
      y: mEv.clientY-rect.top
     }
+  }
+  function doLines(ss,os)
+  {
+    c.strokeStyle=ss
+    c.beginPath()
+    c.moveTo(getXPixel(0),getYPixel(arr[0][os]))
+    for(i=1;i<arr.length;i++)
+      c.lineTo(getXPixel(i),getYPixel(arr[i][os]))
+    c.stroke()
   }
 }
 
@@ -984,8 +979,11 @@ function getMaxY(){
       max=arr[i][1]
     if(arr[i][3]+th>max)
       max=arr[i][3]+th
-    if(drawOut&&arr[i][5]>max)
+    if(drawMode&32&&arr[i][5]>max)
       max=arr[i][5]
+    for(j=6;j<arr[i].length;j++)
+      if(arr[i][j]>max)
+      max=arr[i][j]
   }
   return Math.ceil(max)
 }
@@ -999,8 +997,11 @@ function getMinY(){
       min=arr[i][1]
     if(arr[i][3]<min)
       min=arr[i][3]
-    if(drawOut&&arr[i][5]<min)
+    if(drawMode&32&&arr[i][5]<min)
       min=arr[i][5]
+    for(j=6;j<arr[i].length;j++)
+      if(arr[i][j]<min)
+      min=arr[i][j]
   }
   return Math.floor(min)
 }
@@ -1197,28 +1198,34 @@ function draw_scale(ar,w,h,o,p,ct)
   ctx.fillText('$'+tot[4].toFixed(2),w-1,o+43)
 }
 
+function doBorder(g)
+{
+  c.clearRect(0, 0, g.width(), g.height())
+  c.beginPath()
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,g.height()-yPad)
+  c.lineTo(g.width()-xPadding, g.height()-yPad)
+  c.lineTo(g.width()-xPadding, 0)
+  c.stroke()
+}
+
 function drawFC(){
   graph2 = $('#graph2')
   c=graph2[0].getContext('2d')
 
   c.fillStyle='black'
   c.strokeStyle='black'
-  c.clearRect(0, 0, graph2.width(), graph2.height())
+//  c.clearRect(0, 0, graph2.width(), graph2.height())
   canvasOffset=graph2.offset()
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
-
+  yPad=18
   if(fcr>fc.length) fcr=fc.length
   c.lineWidth=2
   c.font='italic 8pt sans-serif'
   c.textAlign="left"
 
-  c.beginPath() // borders
-  c.moveTo(xPadding,0)
-  c.lineTo(xPadding,graph2.height()-18)
-  c.lineTo(graph2.width()-xPadding, graph2.height()-18)
-  c.lineTo(graph2.width()-xPadding, 0)
-  c.stroke()
+  doBorder(graph2)
 
   c.lineWidth = 1
   min=150
@@ -1408,3 +1415,4 @@ function getTT(i,th)
 </body>
 </html>
 )rawliteral";
+  
