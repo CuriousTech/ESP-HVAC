@@ -160,7 +160,6 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fS.setAttribute('class',fanMode==2?'style5':'')
 a.fan.innerHTML = "Fan "+((fanMode==1)?"On":(fan?"On":"Off"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
@@ -169,6 +168,7 @@ a.mOff.setAttribute('class',mode==0?'style5':'')
 a.mCool.setAttribute('class',mode==1?'style5':'')
 a.mHeat.setAttribute('class',mode==2?'style5':'')
 a.mAuto.setAttribute('class',mode==3?'style5':'')
+a.fCyc.setAttribute('class',mode==4?'style5':'')
 
 a.hHP.setAttribute('class',heatMode==0?'style5':'')
 a.hGas.setAttribute('class',heatMode==1?'style5':'')
@@ -186,28 +186,24 @@ function incCool(n)
 {
 a.coolh.value= +a.coolh.value+n
 a.cooll.value= +a.cooll.value+n
-
-setVar('cooltemph',(+a.coolh.value*10).toFixed())
-setVar('cooltempl',(+a.cooll.value*10).toFixed())
+setVars()
 }
 
 function incHeat(n)
 {
 a.heath.value= +a.heath.value+n
 a.heatl.value= +a.heatl.value+n
-
-setVar('heattemph',(+a.heath.value*10).toFixed())
-setVar('heattempl',(+a.heatl.value*10).toFixed())
+setVars()
 }
 
 function setOvrTemp()
 {
-	setVar('override',(+a.ovrtemp.value*10).toFixed())
+setVar('override',(+a.ovrtemp.value*10).toFixed())
 }
 
 function setOvrTemp()
 {
-	setVar('override',(+a.ovrtemp.value*10).toFixed())
+setVar('override',(+a.ovrtemp.value*10).toFixed())
 }
 
 function cancelOvr()
@@ -218,14 +214,10 @@ function cancelOvr()
 function setVars()
 {
  s='cmd;{"key":"'+myToken+'"'
- s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()
- s+=',"cooltempl":'+(+a.cooll.value*10).toFixed()
- s+=',"heattemph":'+(+a.heath.value*10).toFixed()
- s+=',"heattempl":'+(+a.heatl.value*10).toFixed()
- s+=',"overridetime":'+t2s(a.ovrtime.value)
- s+=',"fancycletime":'+t2s(a.fantime.value)
- s+=',"awaydelta":'+(+a.awaytemp.value*10).toFixed()
- s+='}'
+ s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()+',"cooltempl":'+(+a.cooll.value*10).toFixed()
+ s+=',"heattemph":'+(+a.heath.value*10).toFixed()+',"heattempl":'+(+a.heatl.value*10).toFixed()
+ s+=',"overridetime":'+t2s(a.ovrtime.value)+',"fancycletime":'+t2s(a.fantime.value)
+ s+=',"awaydelta":'+(+a.awaytemp.value*10).toFixed()+'}'
  ws.send(s)
 }
 
@@ -293,8 +285,8 @@ function t2s(v)
 <tr>
 <td id="fanCell"><div id="fan">Fan Off</div></td>
 <td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
-<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"><input type="button" value="Cycle" name="fS" onClick="{setfan(2)}"></td>
-<td width=300 align="right"><input type="submit" value="Settings" onClick="window.location='/settings';"></td>
+<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"></td>
+<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}"> &nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
@@ -366,6 +358,6 @@ function t2s(v)
 <td>Filter</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
-<small>Copyright &copy 2016 CuriousTech.net</small>
+<small>&copy 2016 CuriousTech.net</small>
 </body>
 </html>
