@@ -19,14 +19,13 @@ enum Mode
   Mode_Heat,
   Mode_Auto,
   Mode_Fan,
-  Mode_Humid,
+  Mode_Humid
 };
 
 enum FanMode
 {
   FM_Auto,
-  FM_On,
-  FM_Cycle,
+  FM_On
 };
 
 enum Notif
@@ -38,7 +37,7 @@ enum Notif
   Note_Forecast,
   Note_RemoteOff,
   Note_RemoteOn,
-  Note_Init,
+  Note_Init
 };
 
 enum HeatMode
@@ -75,7 +74,7 @@ struct Sensor
   uint32_t tm;
   uint8_t IPID; // .xxx of IP
   uint8_t flags;
-  uint16_t temp;
+  int16_t temp;
   uint16_t rh;
   uint32_t ID; // hex text?
   uint8_t pad;
@@ -111,7 +110,7 @@ public:
   bool    checkFilter(void);
   void    resetTotal(void);
   bool    tempChange(void);
-  void    setVar(String sCmd, int val); // remote settings
+  void    setVar(String sCmd, int val, IPAddress ip); // remote settings
   void    updateVar(int iName, int iValue); // host values
   void    setSettings(int iName, int iValue);// remote settings
   void    enable(void);
