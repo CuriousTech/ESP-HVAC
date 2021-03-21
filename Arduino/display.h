@@ -27,12 +27,21 @@ union gflags
   uint16_t u;
 };
 
+union temps
+{
+  struct
+  {
+    uint32_t t0:11;
+    uint32_t t1:10;
+    int32_t  t2:11;
+  } b;
+  uint32_t u;
+};
+
 struct gPoint{
   uint32_t time;
-  int16_t temp;
-  int16_t l;
-  int16_t h;
-  int16_t ot;
+  temps t;
+  temps t2;
   gflags bits;
 };
 
@@ -80,7 +89,7 @@ private:
   int  tween(int8_t t1, int8_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
-#define GPTS 680 // 320 px width - (10+10) padding
+#define GPTS 640 // 320 px width - (10+10) padding
   gPoint m_points[GPTS];
   uint16_t m_pointsIdx;
   uint16_t m_temp_counter = 2*60;
@@ -89,9 +98,10 @@ private:
 public:
 #define FC_CNT 68
   Forecast m_fcData[FC_CNT];
-  uint8_t  m_adjustMode; // which of 4 temps to adjust with rotary encoder
-  bool     m_bUpdateFcst;
-  bool     m_bUpdateFcstDone = true;
+  uint8_t m_adjustMode; // which of 4 temps to adjust with rotary encoder
+  bool    m_bUpdateFcst;
+  bool    m_bUpdateFcstDone = true;
+  int     m_fcLen; // length received from forecast source
 };
 
 #endif // DISPLAY_H
