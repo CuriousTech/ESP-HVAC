@@ -15,7 +15,6 @@
 #include "jsonstring.h"
 
 extern void WsSend(String s);
-extern int WsClientIPID;
 
 HVAC::HVAC()
 {
@@ -309,12 +308,12 @@ bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
-  static Sensor sns[SNS_CNT];
+//  static Sensor sns[SNS_CNT];
   bool bRet = false;
 
-/*  if(memcmp(&sns, m_Sensor, sizeof(sns)))
+/*  if(memcmp(&sns, m_Sensor, sizeof(Sensor)))
   {
-    memcpy(&sns, m_Sensor, sizeof(sns));
+    memcpy(&sns, m_Sensor, sizeof(Sensor));
     bRet = true;
   }*/
   if(nTemp != m_inTemp || nTarget != m_targetTemp)
@@ -349,7 +348,7 @@ void HVAC::tempCheck()
         m_Sensor[i].flags &= ~SNS_EN; // make it inactive
         m_Sensor[i].temp = 0;
       }
-      else if((m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
+      else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
          sensTemp = m_Sensor[i].temp;
          sensCnt = 1;
@@ -411,10 +410,7 @@ void HVAC::tempCheck()
       }
       else if(--m_fanPreTimer == 0) // timed out, didn't hit threshold (Mode_Cool)
       {
-        if(m_FanMode == FM_Cycle)
-          fanSwitch(false);
-        else
-          m_bStart = true;  // start the cycle
+        m_bStart = true;  // start the cycle
         return;
       }
     }
@@ -433,8 +429,6 @@ void HVAC::tempCheck()
         if( m_bFanRunning == false)
         {
           uint16_t t = ee.fanPreTime[mode == Mode_Heat];
-          if( m_FanMode == FM_Cycle )
-            t = ee.fanCycleTime;
           if(t && m_fanPreElap > ee.idleMin) // try to use fan to adjust temp first
           {
             m_fanPreTimer = t;
@@ -443,10 +437,6 @@ void HVAC::tempCheck()
           }
         } // else start immediately if fan running
       }
-    }
-    if( (m_FanMode == FM_Cycle) && m_bStart) // fan only cycle mode
-    {
-      m_bStart = false;
     }
   }
 }
@@ -596,7 +586,7 @@ int8_t HVAC::getSetMode()
 // User:Set a new control mode
 void HVAC::setMode(int mode)
 {
-  m_setMode = mode & 3;
+  m_setMode = mode % 4;
   if(!m_bRunning)
   {
     if(m_setMode == Mode_Off && m_FanMode != FM_On)
@@ -813,7 +803,7 @@ String HVAC::settingsJson()
   js.Var("rh0", ee.rhLevel[0]);
   js.Var("rh1", ee.rhLevel[1]);
   js.Var("fp",  ee.fanPreTime[m_modeShadow == Mode_Heat]);
-  js.Var("fct", ee.fanCycleTime);
+  js.Var("fct", 0);
   js.Var("at",  ee.awayTime);
   js.Var("ad",  ee.awayDelta[m_modeShadow == Mode_Heat]);
   js.Var("ppk", ee.ppkwh);
@@ -911,15 +901,15 @@ const char *cmdList[] = { "cmd",
   "humidh",
   "adj",      // 20
   "fanpretime",
-  "fancycletime",
-  "notused",
+  "fim",
+  "fco",
   "awaytime",
   "awaydelta",
   "away",
   "ppk",
   "ccf",
   "cfm",
-  "fim",       // 30
+  "notused",       // 30
   "far",
   "fcrange",
   "fcdisp",
@@ -931,7 +921,7 @@ const char *cmdList[] = { "cmd",
   "hfw",
   "ffp",    // 40
   "dl",
-  "fco",
+  "notused",
   "rmtid",
   "rmttemp",
   "rmtrh",
@@ -955,7 +945,7 @@ int HVAC::CmdIdx(String s )
 }
 
 // POST set params as "fanmode=1"
-void HVAC::setVar(String sCmd, int val)
+void HVAC::setVar(String sCmd, int val, IPAddress ip)
 {
   if(ee.bLock) return;
   int i;
@@ -963,14 +953,7 @@ void HVAC::setVar(String sCmd, int val)
   switch( CmdIdx( sCmd ) )
   {
     case 0:     // fanmode
-      if(val == 3) // "freshen"
-      {
-        if(m_bRunning || m_furnaceFan || m_bFanRunning) // don't run if system or fan is running
-          break;
-        m_fanPostTimer = ee.fanCycleTime; // use the post fan timer to shut off
-        fanSwitch(true);
-      }
-      else setFan( val );
+      setFan( val );
       break;
     case 1:     // mode
       setMode( val );
@@ -1049,10 +1032,11 @@ void HVAC::setVar(String sCmd, int val)
     case 21:     // fanPretime
       ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
       break;
-    case 22: // fancycletime
-      ee.fanCycleTime = val;
+    case 22: // fim
+      ee.fanIdleMax = val;
       break;
-    case 23: // rmtflgs
+    case 23: // fco
+      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
       break;
     case 24: // awaytime
       ee.awayTime = val; // no limit
@@ -1087,7 +1071,6 @@ void HVAC::setVar(String sCmd, int val)
       ee.cfm = val; // CFM / 1000
       break;
     case 30:
-      ee.fanIdleMax = val;
       break;
     case 31:
       ee.fanAutoRun = val;
@@ -1122,29 +1105,29 @@ void HVAC::setVar(String sCmd, int val)
     case 41: // dl
       ee.diffLimit = constrain(val, 150, 350);
       break;
-    case 42: // fco
-      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
+    case 42:
       break;
     case 43: // rmtid (?rmtid=100&rmtflg=1)
-      m_snsIdx = getSensorID(val ? val:WsClientIPID); // use client ID if 0
+      m_snsIdx = getSensorID(val ? val:ip[3]); // use client ID if 0
       break;
     case 44: // rmttemp
-      m_snsIdx = getSensorID(WsClientIPID);
-      m_Sensor[m_snsIdx].temp = constrain(val, 600, 990);
+      m_snsIdx = getSensorID(ip[3]);
+      m_Sensor[m_snsIdx].temp = val; // check later
       m_Sensor[m_snsIdx].tm = now();
       break;
     case 45: // rmtrh
-      m_snsIdx = getSensorID(WsClientIPID);
+      m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].rh = val;
       break;
-    case 46: // rmtflg
+    case 46: // rmtflg (uses rmtid)
       m_Sensor[m_snsIdx].flags = val;
       break;
     case 47: // rmtname
+      m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].ID = val;
       break;
     case 48: // rmt
-      m_snsIdx = getSensorID(WsClientIPID);
+      m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].flags &= ~SNS_EN;
       m_Sensor[m_snsIdx].flags |= val?SNS_EN:0;
       break;
@@ -1154,12 +1137,13 @@ void HVAC::setVar(String sCmd, int val)
   }
 }
 
-int HVAC::getSensorID(int val)
+int HVAC::getSensorID(int id)
 {
   int i;
+
   for(i = 0; i < SNS_CNT; i++) // find ID
   {
-    if(m_Sensor[i].IPID == val)
+    if(m_Sensor[i].IPID == id)
       break;
   }
   if(i == SNS_CNT) // not found
@@ -1170,7 +1154,7 @@ int HVAC::getSensorID(int val)
     }
   if(i < SNS_CNT)
   {
-    m_Sensor[i].IPID = val;
+    m_Sensor[i].IPID = id;
     return i;
   }
   return 0;
