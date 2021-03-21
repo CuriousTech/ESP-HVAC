@@ -111,14 +111,10 @@ function setSenders()
 
  for(i=0;i<snd.length;i++)
  {
-	item=document.getElementById('s'+i)
-	item.innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
-	item=document.getElementById('sndpri'+i)
-	item.setAttribute('class',snd[i][3]&1?'style5':'')
-	item=document.getElementById('snda'+i)
-	item.setAttribute('class',snd[i][3]&2?'style5':'')
-	item=document.getElementById('rt'+i)
-	item.innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
+	document.getElementById('s'+i).innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
+	document.getElementById('sndpri'+i).setAttribute('class',snd[i][3]&1?'style5':'')
+	document.getElementById('snda'+i).setAttribute('class',snd[i][3]&2?'style5':'')
+	document.getElementById('rt'+i).innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
  }
 }
 
@@ -129,12 +125,7 @@ function setVar(varName, value)
 
 function setSnd(n,v)
 {
-	switch(v)
-	{
-		case 1: snd[n][3]^=1;break
-		case 2: snd[n][3]^=2;break
-		case 3: snd[n][3]^=4;break
-	}
+	snd[n][3]^=1<<v;
 	setVar('rmtid',snd[n][0])
 	setVar('rmtflg',snd[n][3])
 	setSenders()
@@ -210,12 +201,11 @@ function t2s(v)
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
 <tr id="int" style="visibility:collapse"><td>Internal</td><td id="it0"></td><td id="loc" colspan=2></td><td></td></tr>
-<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,1)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,2)}"></td><td id="rt0" colspan=2></td><td></td></tr>
-<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,1)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,2)}"></td><td id="rt1" colspan=2></td><td></td></tr>
-<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,1)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,2)}"></td><td id="rt2" colspan=2></td><td></td></tr>
-<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,1)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,2)}"></td><td id="rt3" colspan=2></td><td></td></tr>
-<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,1)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,2)}"></td><td id="rt4" colspan=2></td><td></td></tr>
-<tr id="snd5" style="visibility:collapse"><td id="s5"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,1)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,2)}"></td><td id="rt5" colspan=2></td></tr>
+<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
+<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
+<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
+<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,0)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,1)}"></td><td id="rt3" colspan=2></td><td></td></tr>
+<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,0)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,1)}"></td><td id="rt4" colspan=2></td><td></td></tr>
 </table>
 <p>
 <table style="width: 290px">
