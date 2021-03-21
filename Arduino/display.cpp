@@ -1,6 +1,6 @@
+#include "HVAC.h"
 #include "display.h"
 #include "Nextion.h"
-#include "HVAC.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
@@ -53,7 +53,8 @@ void Display::oneSec()
   }
   if(m_bUpdateFcstDone)
   {
-    WsSend("print;Forecast success");
+    if(m_fcLen == 0)
+      WsSend("print;Forecast failed");
     screen(true);
     drawForecast(true);
     m_bUpdateFcstDone = false;
@@ -62,8 +63,6 @@ void Display::oneSec()
 
 void Display::buttonRepeat()
 {
- m_btnMode;
- m_btnDelay;
   int8_t m = (m_adjustMode < 2) ? Mode_Cool : Mode_Heat; // lower 2 are cool
   int8_t hilo = (m_adjustMode ^ 1) & 1; // hi or low of set
   int16_t t = hvac.getSetTemp(m, hilo );
@@ -110,7 +109,7 @@ void Display::checkNextion() // all the Nextion recieved commands
         m_backlightTimer = NEX_TIMEOUT;
         return;
       }
-
+ 
       switch(cBuf[1]) // page
       {
         case Page_Thermostat:
@@ -495,7 +494,7 @@ void Display::displayOutTemp()
   int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
   int outTempReal = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
   int outTempShift = outTempReal;
-  int fcOffset = ee.fcOffset[ee.Mode == Mode_Heat];
+  int fcOffset = ee.fcOffset[hvac.m_modeShadow == Mode_Heat];
 
   m += fcOffset % 60;
   if(m < 0) m+= 60;
@@ -671,9 +670,6 @@ void Display::cspoint(float &x2, float &y2, float x, float y, float angle, float
 
 void Display::updateModes() // update any displayed settings
 {
-  const char *sFan[] = {"Auto", "On"};
-  const char *sModes[] = {"Off", "Cool", "Heat", "Auto"};
-  const char *sHeatModes[] = {"HP", "NG", "Auto"};
   static bool bFan = true; // set these to something other than default to trigger them all
   static int8_t FanMode = 4;
   static uint8_t nMode = 10;
@@ -701,7 +697,10 @@ void Display::updateModes() // update any displayed settings
   if(nMode != hvac.getSetMode())
   {
     nMode = hvac.getSetMode();
-    nex.itemPic(7, nMode + 13);
+    if(nMode == Mode_Fan)
+      nex.itemPic(7, 10);
+    else
+      nex.itemPic(7, nMode + 13);
   }
 
   if(heatMode != hvac.getHeatMode())
@@ -879,23 +878,18 @@ void Display::addGraphPoints()
   gPoint *p = &m_points[m_pointsIdx];
   p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
-  p->temp = hvac.m_inTemp; // 66~90 scale to 0~220
+  p->t.b.t0 = hvac.m_inTemp; // 66~90 scale to 0~220
   if(hvac.m_modeShadow == Mode_Heat)
-  {
-    p->h = hvac.m_targetTemp + ee.cycleThresh[1];
-    p->l = hvac.m_targetTemp;
-  }
+    p->t.b.t1 = hvac.m_targetTemp;
   else // cool
-  {
-    p->h = hvac.m_targetTemp;
-    p->l = hvac.m_targetTemp - ee.cycleThresh[0];
-  }
-  p->ot = hvac.m_outTemp;
-//  p->ltemp = hvac.m_localTemp;
+    p->t.b.t1 = hvac.m_targetTemp - ee.cycleThresh[0];
+  p->t.b.t2 = hvac.m_outTemp;
   p->bits.b.rh = hvac.m_rh;
   p->bits.b.fan = hvac.getFanRunning();
   p->bits.b.state = hvac.getState(); 
-  p->bits.b.res = 0; // just clear the extra
+  p->t2.b.t0 = hvac.m_localTemp;
+  p->t2.b.t1 = hvac.m_Sensor[0].temp;
+  p->t2.b.t2 = hvac.m_Sensor[1].temp;
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
 }
@@ -920,7 +914,7 @@ void Display::fillGraph()
   while(x > 10)
   {
     nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
-    delay(1);
+    delay(2);
     nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
     x -= 12 * 6; // left 6 hours
     h -= 6;
@@ -930,6 +924,7 @@ void Display::fillGraph()
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   delay(3);
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
+  yield();
   delay(3);
   drawPointsTemp(); // off/cool/heat colors
   delay(3);
@@ -947,12 +942,13 @@ void Display::drawPoints(int w, uint16_t color)
   const int yOff = 240-10;
   int y, y2;
 
+  if(m_points[i].t.b.t1 == 0x3FF)
+    return; // not enough data
   switch(w)
   {
-    case 0: y2 = m_points[i].h; break;
-    case 1: y2 = m_points[i].l; break;
+    case 0: y2 = m_points[i].t.b.t1 + ee.cycleThresh[ (hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
+    case 1: y2 = m_points[i].t.b.t1; break;
   }
-  if(y2 == -1) return; // not enough data
 
   const int base = 660; // 66.0 base
   y2 = (constrain(y2, 660, 900) - base) * 101 / 110;
@@ -962,19 +958,20 @@ void Display::drawPoints(int w, uint16_t color)
     if(--i < 0)
       i = GPTS-1;
 
+    if(m_points[i].t.b.t1 == 0x3FF)
+      return;
     switch(w)
     {
-      case 0: y = m_points[i].h; break;
-      case 1: y = m_points[i].l; break;
+      case 0: y = m_points[i].t.b.t1 + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
+      case 1: y = m_points[i].t.b.t1; break;
     }
 
-    if(y == -1) return;
     y = (constrain(y, 660, 900) - base) * 101 / 110; // 660~900 scale to 0~220
 
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(2);
+      delay(3);
       y2 = y;
       x2 = x;
     }
@@ -1015,8 +1012,8 @@ void Display::drawPointsTemp()
   const int yOff = 240-10;
   int i = m_pointsIdx-1;
   if(i < 0) i = GPTS-1;
-  uint8_t y, y2 = m_points[i].temp;
-  if(y2 == -1) return;
+  uint8_t y, y2 = m_points[i].t.b.t0;
+  if(y2 == 0x7FF) return;
   int x2 = 310;
 
   const int base = 660; // 66.0 base
@@ -1026,13 +1023,13 @@ void Display::drawPointsTemp()
   {
     if(--i < 0)
       i = GPTS-1;
-    y = m_points[i].temp;
-    if(y == -1) break; // invalid data
+    y = m_points[i].t.b.t0;
+    if(y == 0x7FF) break; // invalid data
     y = (constrain(y, 660, 900) - base) * 101 / 110;
     if(y != y2)
     {
       nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
-      delay(2);
+      delay(3);
       y2 = y;
       x2 = x;
     }
@@ -1068,7 +1065,7 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
     return false;
   int idx = m_pointsIdx - 1 - n; // 0 = last entry
   if(idx < 0) idx += GPTS;
-  if(m_points[idx].temp == -1) // invalid data
+  if(m_points[idx].t.b.t0 == 0x7FF) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
 }
@@ -1080,15 +1077,16 @@ int Display::minPointVal(int n)
   for(int i = 0; i < GPTS; i++)
   {
     int val;
+    if(m_points[i].t.b.t0 == 0x7FF)
+      break;
     switch(n)
     {
-      default: val = m_points[i].temp; break;
-      case 1: val = m_points[i].l; break;
-      case 2: val = m_points[i].h; break;
+      default: val = m_points[i].t.b.t0; break;
+      case 1: val = m_points[i].t.b.t1; break;
+      case 2: val = m_points[i].t.b.t1 + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
       case 3: val = m_points[i].bits.b.rh; break;
-      case 4: val = m_points[i].ot; break;
+      case 4: val = m_points[i].t.b.t2; break;
     }
-    if(val == -1) break;
     if(minv > val) 
       minv = val;
   }
