@@ -53,7 +53,7 @@ uint32_t lastIP;
 bool bKeyGood;
 int WsClientID;
 int WsRemoteID;
-int WsClientIPID;
+IPAddress WsClientIP;
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -93,7 +93,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
           if(pCmd == NULL || pData == NULL) break;
           bKeyGood = false; // for callback (all commands need a key)
           WsClientID = client->id();
-          WsClientIPID = client->remoteIP()[3];
+          WsClientIP = client->remoteIP();
           remoteParse.process(pCmd, pData);
         }
       }
@@ -240,7 +240,7 @@ void handleServer()
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
-  yield();
+//  yield();
 #endif
 }
 
@@ -253,6 +253,8 @@ void secondsServer() // called once per second
 {
   if(nWrongPass)
     nWrongPass--;
+
+  ws.cleanupClients();
 
   if(hvac.stateChange() || hvac.tempChange())
     ws.textAll( dataJson() );
@@ -286,7 +288,7 @@ void secondsServer() // called once per second
           display.m_bUpdateFcstDone = true;
           break;
         case XML_TIMEOUT:
-          WsSend("print;Forcast timeout");
+          display.m_fcLen = 0;
           hvac.disable();
           hvac.m_notif = Note_Forecast;
           display.m_bUpdateFcstDone = true;
@@ -358,8 +360,7 @@ void parseParams(AsyncWebServerRequest *request)
     }
     else
     {
-      WsClientIPID = request->client()->remoteIP()[3];
-      hvac.setVar(p->name(), s.toInt() );
+      hvac.setVar(p->name(), s.toInt(), request->client()->remoteIP() );
     }
   }
 }
@@ -369,6 +370,8 @@ String dataJson()
 {
   return hvac.getPushData();
 }
+
+bool bExt;
 
 void historyDump(bool bStart)
 {
@@ -405,13 +408,15 @@ void historyDump(bool bStart)
     otMin = display.minPointVal(4);
   
     js.Var("tb", tb);
-    js.Var("th", gpt.h - gpt.l); // threshold
+    js.Var("th", ee.cycleThresh[ (hvac.m_modeShadow == Mode_Heat) ? 1:0] ); // threshold
     js.Var("tm", tempMin); // temp min
     js.Var("lm", lMin); // threshold low min
     js.Var("rm", rhMin); // rh min
     js.Var("om", otMin); // ot min
     ws.text(WsClientID, js.Close());
   }
+
+  bExt = false;
 
   String out;
 #define CHUNK_SIZE 800
@@ -422,21 +427,37 @@ void historyDump(bool bStart)
   bool bC = false;
   for(; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
   {
+    int len = out.length();
     if(bC) out += ",";
     bC = true;
-    out += "[";         // [seconds/10, temp, rh, lowThresh, state, outTemp],
-    out += (tb - (int32_t)gpt.time) / 10;
+    out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
+    out += tb - (int32_t)gpt.time;
+    tb = gpt.time;
     out += ",";
-    out += gpt.temp - tempMin;
+    out += gpt.t.b.t0 - tempMin;
     out += ",";
     out += gpt.bits.b.rh - rhMin;
     out += ",";
-    out += gpt.l - lMin;
+    out += gpt.t.b.t1 - lMin;
     out += ",";
     out += gpt.bits.u & 7;
     out += ",";
-    out += gpt.ot - otMin;
+    out += gpt.t.b.t2 - otMin;
+    if(gpt.t2.b.t1 || gpt.t2.b.t2)
+    {
+      out += ",";
+      out += gpt.t2.b.t0 - tempMin;
+      out += ",";
+      out += gpt.t2.b.t1 - tempMin;
+      if(gpt.t2.b.t2)
+      {
+        out += ",";
+        out += gpt.t2.b.t2 - tempMin;
+      }
+    }
     out += "]";
+    if( out.length() == len) // memory full
+      break;
   }
   if(bC) // don't send blank
   {
@@ -460,21 +481,36 @@ void appendDump(int startTime)
 
   for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
   {
+    int len = out.length();
     if(bC) out += ",";
     bC = true;
     out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
     out += gpt.time;
     out += ",";
-    out += gpt.temp;
+    out += gpt.t.b.t0;
     out += ",";
     out += gpt.bits.b.rh;
     out += ",";
-    out += gpt.l;
+    out += gpt.t.b.t1;
     out += ",";
     out += gpt.bits.u & 7;
     out += ",";
-    out += gpt.ot;
+    out += gpt.t.b.t2;
+    if(gpt.t2.b.t1 || gpt.t2.b.t2)
+    {
+      out += ",";
+      out += gpt.t2.b.t0;
+      out += ",";
+      out += gpt.t2.b.t1;
+      if(gpt.t2.b.t2)
+      {
+        out += ",";
+        out += gpt.t2.b.t2;
+      }
+    }
     out += "]";
+    if( out.length() == len) // memory full
+      break;
   }
   if(bC) // don't send blank
   {
@@ -510,10 +546,10 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // temp
-          hvac.setVar("rmttemp", iValue);
+          hvac.setVar("rmttemp", iValue, WsClientIP);
           break;
         case 1: // rh
-          hvac.setVar("rmtrh", iValue);
+          hvac.setVar("rmtrh", iValue, WsClientIP);
           break;
       }
       break;
@@ -560,6 +596,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       }
       else if(iName == 3) // 3 = bin
       {
+        WsRemoteID = WsClientID; // Only remote uses binary
         switch(iValue)
         {
           case 1: // forecast data
@@ -575,7 +612,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       else // 4+
       {
         if(bKeyGood)
-          hvac.setVar(cmdList[iName+1], iValue); // 5 is "fanmode"
+          hvac.setVar(cmdList[iName+1], iValue, WsClientIP); // 5 is "fanmode"
       }
       break;
     case 2: // alert
@@ -600,6 +637,7 @@ void fc_onConnect(AsyncClient* client)
 
   fc_client.add(s.c_str(), s.length());
   sfcBuffer = "";
+  display.m_fcLen = 0;
   sfcBuffer.reserve(1200);  // about 1010 bytes
 }
 
@@ -634,6 +672,7 @@ void fc_onDisconnect(AsyncClient* client)
     while(*p && *p != '\r' && *p != '\n') p ++;
     while(*p == '\r' || *p == '\n') p ++;
   }
+  display.m_fcLen = sfcBuffer.length();
   sfcBuffer = "";
   display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
@@ -705,6 +744,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       display.m_fcData[cnt].tm = makeTime(tm);
       cnt++;
       display.m_fcData[cnt].tm = 0; // end of data
+      display.m_fcLen = cnt;
       break;
     case 2:                  // temperature
       if(idx == 0)
@@ -737,5 +777,6 @@ void GetForecast()
   String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
 
   if(!xml.begin("forecast.weather.gov", 80, path))
-    WsSend("alet;Forecast failed");
+    WsSend("alert;Forecast URL invalid");
+  display.m_fcLen = 0;
 }
