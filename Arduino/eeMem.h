@@ -37,7 +37,7 @@ struct eeSet // EEPROM backed data
   uint16_t rhLevel[2];  // rh low/high
   int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
   uint16_t awayTime;    // time limit for away offset (in minutes)
-  uint16_t fanCycleTime; // for user fan cycles
+  uint16_t reserved1;
   uint8_t  hostIp[4];
   uint16_t  hostPort;
   char     zipCode[8];  // Your zipcode
