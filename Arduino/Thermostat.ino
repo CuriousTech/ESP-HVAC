@@ -97,7 +97,6 @@ bool EncoderCheck()
   int8_t hilo = (display.m_adjustMode ^ 1) & 1; // hi or low of set
   int16_t t = hvac.getSetTemp(m, hilo ); // 
 
-//  t += (r > 0) ? 1 : -1; // inc/dec by 1 only
   t += r; // inc/dec by any amount
 
   hvac.setTemp(m, t, hilo);
@@ -213,7 +212,7 @@ void loop()
         hour_save = hour();
         if(hour_save == 2)
           utime.start(); // update time daily at DST change
-        if(hour_save == 0)
+        if(hour_save == 0 && year() > 2020)
         {
           if(lastDay != -1)
           {
@@ -236,7 +235,6 @@ void loop()
           {
             ee.filterMinutes = hvac.m_filterMinutes;
             eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
-            WsSend( "print;EE saved" );
           }
         }
       }
