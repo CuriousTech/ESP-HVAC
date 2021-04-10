@@ -80,7 +80,7 @@ void HVAC::humidSwitch(bool bOn)
 void HVAC::filterInc()
 {
   static uint32_t nSecs = 0;
-  
+
   nSecs ++;  // add last run time to total counter
   if(nSecs >= 60)    // increment filter minutes
   {
@@ -107,14 +107,14 @@ void HVAC::service()
   if(m_bFanRunning || m_bRunning || m_furnaceFan)  // furance runs fan seperately
   {
     filterInc();
-    if(m_fanOnTimer < 0xFFFF)
-      m_fanOnTimer++;               // running time counter
+    m_fanOnTimer++;     // running time counter
 
-    if(m_furnaceFan)                // fake fan status for furnace fan
+    if(m_furnaceFan)      // fake fan status for furnace fan
       m_furnaceFan--;
+    m_fanIdleTimer = 0;   // fan auto run timer reset
   }
 
-  if(ee.Mode && !m_bRunning && !m_bFanRunning && m_fanIdleTimer < 0xFFFF)
+  if(ee.Mode && !m_bRunning && !m_bFanRunning)
   {
     m_fanIdleTimer++;               // fan not running timer
     if(ee.fanIdleMax && ee.fanAutoRun && m_fanIdleTimer >= ee.fanIdleMax * 60)
@@ -586,7 +586,7 @@ int8_t HVAC::getSetMode()
 // User:Set a new control mode
 void HVAC::setMode(int mode)
 {
-  m_setMode = mode % 4;
+  m_setMode = mode % 5;
   if(!m_bRunning)
   {
     if(m_setMode == Mode_Off && m_FanMode != FM_On)
