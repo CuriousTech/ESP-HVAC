@@ -164,12 +164,12 @@ private:
   bool    m_bAway;
   uint16_t m_fanPreElap = 60*10;
   uint16_t m_runTotal;      // time HVAC has been running total since reset
-  uint16_t m_fanOnTimer;    // time fan is running
+  uint32_t m_fanOnTimer;    // time fan is running
   uint16_t m_cycleTimer;    // time HVAC has been running
   uint16_t m_fanPostTimer;  // timer for delay
   uint16_t m_fanPreTimer;   // timer for fan pre-run
   uint16_t m_idleTimer = 3*60; // time not running
-  uint16_t m_fanIdleTimer; // time fan not running
+  uint32_t m_fanIdleTimer; // time fan not running
   uint16_t m_fanAutoRunTimer; // auto fan time
   int      m_overrideTimer; // countdown for override in seconds
   int8_t   m_ovrTemp;       // override delta of target
