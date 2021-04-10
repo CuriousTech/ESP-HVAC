@@ -3,40 +3,9 @@ const char page_index[] PROGMEM = R"rawliteral(
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
-
 <title>ESP-HVAC</title>
+<link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-table{
-border-radius: 3px;
-box-shadow: 2px 2px 8px #000000;
-background-image: -moz-linear-gradient(top, #efbfbf, #50a0ff);
-background-image: -ms-linear-gradient(top, #efbfbf, #50a0ff);
-background-image: -o-linear-gradient(top, #efbfbf, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efbfbf, #50a0ff);
-background-image: linear-gradient(top, #efbfbf, #50a0ff);
-background-clip: padding-box;
-}
-input{
-border-radius: 5px;
-box-shadow: 3px 3px 10px #000000;
-background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -o-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);
-background-image: linear-gradient(top, #00ffff, #50a0ff);
-background-clip: padding-box;
-}
-.style1{border-width: 0;}
-.style2{text-align: right;}
-.style5{
-border-radius: 4px;
-box-shadow: 3px 3px 10px #000000;
-background-image: -moz-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: -ms-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: -o-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: linear-gradient(top, #ff0000, #ffa0a0);
-}
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
@@ -370,44 +339,11 @@ const char page_settings[] PROGMEM = R"rawliteral(
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <head>
-
 <title>ESP-HVAC</title>
+<link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-table{
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #efffff, #505050);
-background-image: -ms-linear-gradient(top, #efffff, #505050);
-background-image: -o-linear-gradient(top, #efffff, #505050);
-background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
-background-image: linear-gradient(top, #efffff, #505050);
-background-clip: padding-box;
-}
-input{
-border-radius: 4px;
-box-shadow: 3px 3px 10px #000000;
-background-image: -moz-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -o-linear-gradient(top, #00ffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #00ffff, #50a0ff);
-background-image: linear-gradient(top, #00ffff, #50a0ff);
-background-clip: padding-box;
-text-align: right;
-}
-.style1{border-width: 0;}
-.style2{text-align: right;}
-.style5{
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0a0);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0a0);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0a0);
-background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0a0);
-}
 body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
-
 <script type="text/javascript">
 <!--
 
@@ -479,14 +415,10 @@ function setSenders()
 
  for(i=0;i<snd.length;i++)
  {
-  item=document.getElementById('s'+i)
-  item.innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
-  item=document.getElementById('sndpri'+i)
-  item.setAttribute('class',snd[i][3]&1?'style5':'')
-  item=document.getElementById('snda'+i)
-  item.setAttribute('class',snd[i][3]&2?'style5':'')
-  item=document.getElementById('rt'+i)
-  item.innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
+  document.getElementById('s'+i).innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
+  document.getElementById('sndpri'+i).setAttribute('class',snd[i][3]&1?'style5':'')
+  document.getElementById('snda'+i).setAttribute('class',snd[i][3]&2?'style5':'')
+  document.getElementById('rt'+i).innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
  }
 }
 
@@ -497,12 +429,7 @@ function setVar(varName, value)
 
 function setSnd(n,v)
 {
-  switch(v)
-  {
-    case 1: snd[n][3]^=1;break
-    case 2: snd[n][3]^=2;break
-    case 3: snd[n][3]^=4;break
-  }
+  snd[n][3]^=1<<v;
   setVar('rmtid',snd[n][0])
   setVar('rmtflg',snd[n][3])
   setSenders()
@@ -578,12 +505,11 @@ function t2s(v)
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
 <tr id="int" style="visibility:collapse"><td>Internal</td><td id="it0"></td><td id="loc" colspan=2></td><td></td></tr>
-<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,1)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,2)}"></td><td id="rt0" colspan=2></td><td></td></tr>
-<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,1)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,2)}"></td><td id="rt1" colspan=2></td><td></td></tr>
-<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,1)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,2)}"></td><td id="rt2" colspan=2></td><td></td></tr>
-<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,1)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,2)}"></td><td id="rt3" colspan=2></td><td></td></tr>
-<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,1)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,2)}"></td><td id="rt4" colspan=2></td><td></td></tr>
-<tr id="snd5" style="visibility:collapse"><td id="s5"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,1)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,2)}"></td><td id="rt5" colspan=2></td></tr>
+<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
+<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
+<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
+<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,0)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,1)}"></td><td id="rt3" colspan=2></td><td></td></tr>
+<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,0)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,1)}"></td><td id="rt4" colspan=2></td><td></td></tr>
 </table>
 <p>
 <table style="width: 290px">
@@ -606,8 +532,9 @@ const char page_chart[] PROGMEM = R"rawliteral(
 <html>
 <head>
 <title>HVAC Chart</title>
+<link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-div,table,input{
+div{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
@@ -617,37 +544,6 @@ background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
 background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
 background-image: linear-gradient(top, #ffffff, #a0a0a0);
 background-clip: padding-box;
-}
-.style3 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: linear-gradient(top, #4f4f4f, #50a0a0);
-background-clip: padding-box;
-}
-.style4 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: linear-gradient(top, #4f4f4f, #50a0ff);
-background-clip: padding-box;
-}
-.style5 {
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 }
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
@@ -1415,4 +1311,85 @@ function getTT(i,th)
 </body>
 </html>
 )rawliteral";
-  
+
+const char page_styles[] PROGMEM = R"rawliteral(
+table{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -ms-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -o-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
+background-image: linear-gradient(top, #efffff, #a0a0a0);
+background-clip: padding-box;
+}
+input{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -ms-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -o-linear-gradient(top, #efffff, #a0a0a0);
+background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
+background-image: linear-gradient(top, #efffff, #a0a0a0);
+background-clip: padding-box;
+}
+.style1{border-width: 0;}
+.style2{text-align: left;}
+.style3 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
+background-image: linear-gradient(top, #4f4f4f, #50a0a0);
+background-clip: padding-box;
+}
+.style4 {
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
+background-image: linear-gradient(top, #4f4f4f, #50a0ff);
+background-clip: padding-box;
+}
+.style5 {
+border-radius: 5px;
+box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
+background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);
+background-image: linear-gradient(top, #ff00ff, #ffa0ff);
+}
+)rawliteral";
+
+const uint8_t favicon[] PROGMEM = {
+  0x1F, 0x8B, 0x08, 0x08, 0x70, 0xC9, 0xE2, 0x59, 0x04, 0x00, 0x66, 0x61, 0x76, 0x69, 0x63, 0x6F, 
+  0x6E, 0x2E, 0x69, 0x63, 0x6F, 0x00, 0xD5, 0x94, 0x31, 0x4B, 0xC3, 0x50, 0x14, 0x85, 0x4F, 0x6B, 
+  0xC0, 0x52, 0x0A, 0x86, 0x22, 0x9D, 0xA4, 0x74, 0xC8, 0xE0, 0x28, 0x46, 0xC4, 0x41, 0xB0, 0x53, 
+  0x7F, 0x87, 0x64, 0x72, 0x14, 0x71, 0xD7, 0xB5, 0x38, 0x38, 0xF9, 0x03, 0xFC, 0x05, 0x1D, 0xB3, 
+  0x0A, 0x9D, 0x9D, 0xA4, 0x74, 0x15, 0x44, 0xC4, 0x4D, 0x07, 0x07, 0x89, 0xFA, 0x3C, 0x97, 0x9C, 
+  0xE8, 0x1B, 0xDA, 0x92, 0x16, 0x3A, 0xF4, 0x86, 0x8F, 0x77, 0x73, 0xEF, 0x39, 0xEF, 0xBD, 0xBC, 
+  0x90, 0x00, 0x15, 0x5E, 0x61, 0x68, 0x63, 0x07, 0x27, 0x01, 0xD0, 0x02, 0xB0, 0x4D, 0x58, 0x62, 
+  0x25, 0xAF, 0x5B, 0x74, 0x03, 0xAC, 0x54, 0xC4, 0x71, 0xDC, 0x35, 0xB0, 0x40, 0xD0, 0xD7, 0x24, 
+  0x99, 0x68, 0x62, 0xFE, 0xA8, 0xD2, 0x77, 0x6B, 0x58, 0x8E, 0x92, 0x41, 0xFD, 0x21, 0x79, 0x22, 
+  0x89, 0x7C, 0x55, 0xCB, 0xC9, 0xB3, 0xF5, 0x4A, 0xF8, 0xF7, 0xC9, 0x27, 0x71, 0xE4, 0x55, 0x38, 
+  0xD5, 0x0E, 0x66, 0xF8, 0x22, 0x72, 0x43, 0xDA, 0x64, 0x8F, 0xA4, 0xE4, 0x43, 0xA4, 0xAA, 0xB5, 
+  0xA5, 0x89, 0x26, 0xF8, 0x13, 0x6F, 0xCD, 0x63, 0x96, 0x6A, 0x5E, 0xBB, 0x66, 0x35, 0x6F, 0x2F, 
+  0x89, 0xE7, 0xAB, 0x93, 0x1E, 0xD3, 0x80, 0x63, 0x9F, 0x7C, 0x9B, 0x46, 0xEB, 0xDE, 0x1B, 0xCA, 
+  0x9D, 0x7A, 0x7D, 0x69, 0x7B, 0xF2, 0x9E, 0xAB, 0x37, 0x20, 0x21, 0xD9, 0xB5, 0x33, 0x2F, 0xD6, 
+  0x2A, 0xF6, 0xA4, 0xDA, 0x8E, 0x34, 0x03, 0xAB, 0xCB, 0xBB, 0x45, 0x46, 0xBA, 0x7F, 0x21, 0xA7, 
+  0x64, 0x53, 0x7B, 0x6B, 0x18, 0xCA, 0x5B, 0xE4, 0xCC, 0x9B, 0xF7, 0xC1, 0xBC, 0x85, 0x4E, 0xE7, 
+  0x92, 0x15, 0xFB, 0xD4, 0x9C, 0xA9, 0x18, 0x79, 0xCF, 0x95, 0x49, 0xDB, 0x98, 0xF2, 0x0E, 0xAE, 
+  0xC8, 0xF8, 0x4F, 0xFF, 0x3F, 0xDF, 0x58, 0xBD, 0x08, 0x25, 0x42, 0x67, 0xD3, 0x11, 0x75, 0x2C, 
+  0x29, 0x9C, 0xCB, 0xF9, 0xB9, 0x00, 0xBE, 0x8E, 0xF2, 0xF1, 0xFD, 0x1A, 0x78, 0xDB, 0x00, 0xEE, 
+  0xD6, 0x80, 0xE1, 0x90, 0xFF, 0x90, 0x40, 0x1F, 0x04, 0xBF, 0xC4, 0xCB, 0x0A, 0xF0, 0xB8, 0x6E, 
+  0xDA, 0xDC, 0xF7, 0x0B, 0xE9, 0xA4, 0xB1, 0xC3, 0x7E, 0x04, 0x00, 0x00, 
+};
