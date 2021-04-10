@@ -2,8 +2,9 @@
 <html>
 <head>
 <title>HVAC Chart</title>
+<link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-div,table,input{
+div{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
@@ -13,37 +14,6 @@ background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
 background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
 background-image: linear-gradient(top, #ffffff, #a0a0a0);
 background-clip: padding-box;
-}
-.style3 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: linear-gradient(top, #4f4f4f, #50a0a0);
-background-clip: padding-box;
-}
-.style4 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: linear-gradient(top, #4f4f4f, #50a0ff);
-background-clip: padding-box;
-}
-.style5 {
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 }
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
@@ -691,16 +661,6 @@ function drawFC(){
 	}
   }
   xOff=w/fl*fco
-  c.fillStyle = "#70408040"
-  c.beginPath()
-  c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
-  maxpos=fc.length-fcr+cPos
-  for(i=cPos+1; i<maxpos; i++)
-	c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
-  for(i=maxpos-1; i>=cPos; i--)
-	c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
-  c.closePath()
-  c.fill()
   c.fillStyle = "#9050F090"
   c.beginPath()
   c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
