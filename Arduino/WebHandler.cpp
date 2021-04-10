@@ -174,6 +174,13 @@ void startServer()
     request->send_P(200, "text/html", page_chart);
 #endif
   });
+  server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request){
+#ifdef USE_SPIFFS
+    request->send(SPIFFS, "/styles.css");
+#else
+    request->send_P(200, "text/html", page_styles);
+#endif
+  });
   server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
     jsonString js;
