@@ -20,7 +20,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   -5,           // timeZone
   0,            // temp reading offset adjust
   0,            // humidMode
-  {450, 550},   // rhLevel 45.0%, 55%
+  {450, 750},   // rhLevel 45.0%, 75%
   {40, -40},    // awayDelta cool, heat 4.0
   60*8,         // awayTime (minutes)
   60*30,        // fanCycleTime 30 mins
