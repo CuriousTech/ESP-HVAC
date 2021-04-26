@@ -26,6 +26,7 @@ HVAC::HVAC()
 void HVAC::init()
 {
   m_setMode = ee.Mode;
+  if(ee.Mode) m_modeShadow = ee.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
   m_setHeat = ee.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
@@ -312,7 +313,7 @@ void HVAC::resetTotal()
   sendCmd("resettotal", 0);
 }
 
-void HVAC::setVar(String sCmd, int val) // remote settings
+void HVAC::setVar(String sCmd, int val, IPAddress ip) // remote settings
 {
 }
 
@@ -374,6 +375,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
   {
     case 0:
       m_setMode = ee.Mode = iValue;
+      if(ee.Mode) m_modeShadow = ee.Mode;
       bValidData = true;
       break;
     case 1:
