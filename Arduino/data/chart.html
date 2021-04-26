@@ -622,13 +622,13 @@ function drawFC(){
   c.fillRect(xPadding,getYPixel3(iMax),w,getYPixel3(iMin)-getYPixel3(iMax))
 
   // temp lines
-  c.fillStyle = "red"
+  c.fillStyle="red"
   date = new Date(fc[0][0]*1000)
-  dt = date.getDate()
+  dt=date.getDate()
   fl=(fc[fc.length-1][0]-fc[0][0])/60
   cPos=0
   for(i=1; i<fc.length; i++){
-	c.strokeStyle = (fc[i][1]<32)?"blue":"red"
+	c.strokeStyle=(fc[i][1]<32)?"blue":"red"
 	c.beginPath()
 	c.moveTo(getXPixel2(i), getYPixel2(fc[i][1]))
 	c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1][1]))
@@ -638,36 +638,38 @@ function drawFC(){
 	{
 		dif=(date.valueOf()-(new Date().valueOf()))/60000
 		xOff=w/fl*dif
-		cPos=i-1;
-		c.strokeStyle = '#222'
+		cPos=i;
+		c.strokeStyle='#fff'
 		c.beginPath()
-		c.moveTo(getXPixel2(cPos)+xOff,getYPixel3(iMax))
-		c.lineTo(getXPixel2(cPos)+xOff,getYPixel3(iMin))
+		c.moveTo(getXPixel2(cPos)-xOff,getYPixel3(iMax))
+		c.lineTo(getXPixel2(cPos)-xOff,getYPixel3(iMin))
 		c.stroke()
-		c.fillStyle = '#000'
-		c.textAlign = "center"
-		c.fillText("Now",getXPixel2(cPos)+xOff,getYPixel3(iMax)-8)
+		c.fillStyle='#000'
+		c.textAlign="center"
+		c.fillText("Now",getXPixel2(cPos)-xOff,getYPixel3(iMax)-8)
 	}
 	if(dt!=date.getDate()){
 		dt=date.getDate()
-		c.strokeStyle = '#555'
+		c.strokeStyle='#555'
 		c.beginPath()
 		c.moveTo(getXPixel2(i),0)
 		c.lineTo(getXPixel2(i),graph2.height()-18)
 		c.stroke()
-		c.fillStyle = '#000'
-		c.textAlign = "left"
+		c.fillStyle='#000'
+		c.textAlign="left"
 		c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
 	}
   }
   xOff=w/fl*fco
   c.fillStyle = "#9050F090"
   c.beginPath()
-  c.moveTo(getXPixel2(cPos)+xOff, getTT(cPos,0))
-  for(i=cPos+1; i<cPos+fcr; i++)
-	c.lineTo(getXPixel2(i)+xOff, getTT(i,0))
-  for(i=cPos+fcr-1; i>=cPos; i--)
-	c.lineTo(getXPixel2(i)+xOff, getTT(i,(md==2)?ct:-ct))
+  strt=cPos-fcr
+  if(strt<0) strt=0
+  c.moveTo(getXPixel2(strt)-xOff, getTT(strt,0))
+  for(i=strt+1; i<=cPos+fcr; i++)
+  	c.lineTo(getXPixel2(i)-xOff, getTT(i,0))
+  for(i=cPos+fcr; i>=strt; i--)
+  	c.lineTo(getXPixel2(i)-xOff, getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
 }
@@ -688,7 +690,9 @@ function getTT(i,th)
 {
   min2=150
   max2=-30
-  for(j=i;j<i+fcr;j++)
+  strt1=i-fcr
+  if(strt1<0) strt1=0
+  for(j=strt1;j<i+fcr;j++)
   {
   	if(j<fc.length){
 	  	if(min2>fc[j][1]) min2=fc[j][1]
@@ -758,7 +762,7 @@ function getTT(i,th)
 <canvas id="chart" width="700" height="200"></canvas>
 </div>
 <table><tr>
-<td>Offset:<input type=text size=1 id="fco" onchange="{fco=+this.value;drawFC()}"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+<td>Shift:<input type=text size=1 id="fco" onchange="{fco=+this.value;drawFC()}"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
  Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
  High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
  Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
