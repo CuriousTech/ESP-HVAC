@@ -96,7 +96,7 @@ private:
   uint8_t m_btnMode;
   uint8_t m_btnDelay;
 public:
-#define FC_CNT 68
+#define FC_CNT 74
   Forecast m_fcData[FC_CNT];
   uint8_t m_adjustMode; // which of 4 temps to adjust with rotary encoder
   bool    m_bUpdateFcst;
