@@ -1036,7 +1036,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.fanIdleMax = val;
       break;
     case 23: // fco
-      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -360, 359); // 6 hours max
+      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -1080, 1079); // 18 hours max
       break;
     case 24: // awaytime
       ee.awayTime = val; // no limit
