@@ -53,30 +53,20 @@ void fcPage(AsyncWebServerRequest *request);
 int xmlState;
 void GetForecast(void);
 
-const char pageR[] PROGMEM = 
-   "<!DOCTYPE html>\n"
-   "<html>\n"
-   "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/>\n"
-   "<head>\n"
-   "\n"
-   "<title>ESP-HVAC Remote</title>\n"
-   "\n"
-   "<style type=\"text/css\">\n"
-   ".style1 {border-width: 0;}\n"
-   ".style2 {text-align: right;}\n"
-   ".style3 {background-color: #C0C0C0;}\n"
-   ".style4 {text-align: right;background-color: #C0C0C0;}\n"
-   ".style5 {background-color: #00D0D0;}\n"
-   ".style6 {border-style: solid;border-width: 1px;background-color: #C0C0C0;}\n"
-   "</style>\n"
-   "\n"
-   "</head>\n"
-   "<body\">\n"
-   "<strong><em>CuriousTech HVAC Remote</em></strong><br>\n"
-   "<input type=\"submit\" value=\"Chart\" onClick=\"window.location='/chart.html';\"><br>\n"
-   "<small>&copy 2016 CuriousTech.net</small>\n"
-   "</body>\n"
-   "</html>\n";
+const char page_index[] PROGMEM = R"rawliteral(
+const char pageR[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<head>
+<title>ESP-HVAC Remote</title>
+</head>
+<body">
+<strong><em>CuriousTech HVAC Remote</em></strong><br>
+<small>&copy 2016 CuriousTech.net</small>
+</body>
+</html>
+)rawliteral";
 
 // values sent at an interval of 30 seconds unless they change sooner
 const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
@@ -104,7 +94,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       }
       client->text(hvac.settingsJson());
       client->text(dataJson());
-      client->ping();
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
     case WS_EVT_ERROR:    //error was received from the other end
@@ -172,7 +161,6 @@ void startServer()
   server.addHandler(&ws);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-//    Serial.println("handleRoot");
     parseParams(request);
     if(wifi.isCfg())
       request->send( 200, "text/html", wifi.page() );
@@ -193,16 +181,6 @@ void startServer()
     String s = hvac.settingsJson();
     request->send( 200, "text/json", s + "\n");
   });
-
-  server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    parseParams(request);
-#ifdef USE_SPIFFS
-      request->send(SPIFFS, "/chart.html");
-#else
-      request->send_P(200, "text/html", page_chart);
-#endif
-  });
-  server.on ( "/forecast", HTTP_GET, fcPage);
 
   // respond to GET requests on URL /heap
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -235,26 +213,6 @@ void startServer()
   remoteParse.addList(jsonList2);
   remoteParse.addList(cmdList);
   remoteParse.addList(jsonList3);
-}
-
-// Send the comma delimited forecast data
-void fcPage(AsyncWebServerRequest *request)
-{
-  AsyncResponseStream *response = request->beginResponseStream("text/javascript");
-
-  for(int i = 0; i < FC_CNT; i++)
-  {
-    if(display.m_fcData[i].tm == 0)
-      break;
-
-    String out = "";
-    out += display.m_fcData[i].tm;
-    out += ",";
-    out += display.m_fcData[i].temp;
-    out += "\r\n";
-    response->print(out);
-  }
-  request->send( response );
 }
 
 void handleServer()
@@ -308,8 +266,6 @@ void parseParams(AsyncWebServerRequest *request)
   char temp[100];
   int val;
 
-//  Serial.println("parseParams");
-
   for ( uint8_t i = 0; i < request->params(); i++ ) {
     AsyncWebParameter* p = request->getParam(i);
     p->value().toCharArray(temp, 100);
@@ -324,7 +280,7 @@ void parseParams(AsyncWebServerRequest *request)
       case 'f': // get forecast
           display.m_bUpdateFcst = true;
           break;
-      case 'H': // host  (from browser type: hTtp://thisip/?H=hostip&P=85)
+      case 'H': // host  (from browser type: hTtp://thisip/?H=hostip)
           {
             IPAddress ip;
             ip.fromString(s);
@@ -351,10 +307,6 @@ void parseParams(AsyncWebServerRequest *request)
       case 'Z': // Timezone
           ee.tz = val;
           break;
-//      case 'P': // host port
-//          ee.hostPort = s.toInt();
-//          startListener();
-//          break;
       case 's': // SSID
           s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
           break;
