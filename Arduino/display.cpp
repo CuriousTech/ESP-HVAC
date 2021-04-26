@@ -332,8 +332,16 @@ void Display::displayTime()
 void Display::drawForecast(bool bRef)
 {
   int i;
+  int fcOff;
 
-  if(m_fcData[2].tm == 0) // no data yet
+  for(fcOff = 0; fcOff < FC_CNT-4 && m_fcData[fcOff].tm; fcOff++) // go past current time in forecast
+  {
+    if( m_fcData[fcOff].tm > now() )
+      break;
+  }
+  if(fcOff) fcOff--; // back up 1
+
+  if(m_fcData[fcOff].tm == 0) // no data yet
   {
     if(m_bUpdateFcstDone)
       m_bUpdateFcst = true;
@@ -341,27 +349,24 @@ void Display::drawForecast(bool bRef)
   }
 
   int fcCnt;
-  for(fcCnt = 2; fcCnt < FC_CNT; fcCnt++) // get length (0 = end)
+  for(fcCnt = 0; fcCnt < FC_CNT-1; fcCnt++) // get length (0 = end)
     if(m_fcData[fcCnt].tm == 0)
       break;
 
-//  fcCnt = min(40, fcCnt); // 5 day limit
-  if(fcCnt > 40) fcCnt = 40;
-
   if(bRef)
   {
-    // Update min/max
-    int8_t tmin = m_fcData[0].temp;
-    int8_t tmax = m_fcData[0].temp;
-
-    if(tmin == 0) // initial value
-      tmin = m_fcData[2].temp;
-
     int rng = fcCnt;
     if(rng > ee.fcRange) rng = ee.fcRange;
 
+    int strt = fcOff - rng;
+    if(strt < 0) strt = 0;
+
+    // Update min/max
+    int8_t tmin = m_fcData[strt].temp;
+    int8_t tmax = m_fcData[strt].temp;
+
     // Get min/max of current forecast
-    for(int i = 2; i < rng; i++)
+    for(int i = strt + 1; i < rng; i++)
     {
       int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
@@ -391,14 +396,11 @@ void Display::drawForecast(bool bRef)
     int8_t tmin = m_fcData[0].temp;
     int8_t tmax = m_fcData[0].temp;
 
-    if(tmin == 0) // initial value
-      tmin = m_fcData[2].temp;
-
     int rng = fcCnt;
     if(rng > ee.fcDisplay) rng = ee.fcDisplay;
 
     // Get min/max of current forecast
-    for(int i = 2; i < rng; i++)
+    for(int i = fcOff; i < rng; i++)
     {
       int8_t t = m_fcData[i].temp;
       if(tmin > t) tmin = t;
@@ -421,23 +423,23 @@ void Display::drawForecast(bool bRef)
     t -= dec;
   }
 
-  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[2].tm) / 3600; // normally 180ish hours
+  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[fcOff].tm) / 3600; // normally 180ish hours
   int day_x = 0;
 
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[2].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[fcOff].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
   int day = weekday()-1;              // current day
 
-  for(i = 2; i < fcCnt; i++) // should be 41 data points
+  for(i = fcOff; i < fcCnt; i++) // should be 41 data points
   {
     int y1 = Fc_Top+Fc_Height - 1 - (m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
     int h = m_fcData[i].tm;
     if(h < m_fcData[i-1].tm) h = m_fcData[i-1].tm; // Todo: temp fix (end of month?)
-    h = (h - m_fcData[2].tm) / 3600;
+    h = (h - m_fcData[fcOff].tm) / 3600;
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
@@ -478,13 +480,13 @@ int Display::tween(int8_t t1, int8_t t2, int m, int r)
 
 void Display::displayOutTemp()
 {
-  if(m_fcData[1].tm == 0) // not read yet or time not set
+  if(m_fcData[0].tm == 0) // not read yet or time not set
     return;
 
   int iH = 0;
   int m = minute();
   uint32_t tmNow = now() - ((ee.tz+hvac.m_DST)*3600);
-  if( tmNow >= m_fcData[1].tm)
+  if( tmNow >= m_fcData[0].tm)
   {
     for(iH = 1; tmNow > m_fcData[iH].tm && m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
     if(iH) iH--; // set iH to current 3 hour frame
@@ -497,7 +499,7 @@ void Display::displayOutTemp()
   int fcOffset = ee.fcOffset[hvac.m_modeShadow == Mode_Heat];
 
   m += fcOffset % 60;
-  if(m < 0) m+= 60;
+  if(m < 0) m += 60;
   if(m >= r)
   {
     iH++;
@@ -636,7 +638,7 @@ void Display::updateClock()
     return;
 
   nex.refreshItem("cl"); // erases lines
-  delay(8); // 8 works, 5 does not
+  delay(9); // 8 flickers with latest FW, 5 fails
   const float x = 159; // center
   const float y = 120;
   float x2,y2,x3,y3;
@@ -920,19 +922,15 @@ void Display::fillGraph()
     h -= 6;
     if( h <= 0) h += 12;
   }
+  yield();
   delay(3);
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
   delay(3);
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
-  yield();
   delay(3);
   drawPointsTemp(); // off/cool/heat colors
   delay(3);
   drawPointsRh( rgb16(  0, 53,  0) ); // rh green
-//  if(hvac.isRemote())
-//  {
-//    drawPoints(2, rgb16( 31, 0,  15) ); // remote temp
-//  }
 }
 
 void Display::drawPoints(int w, uint16_t color)
@@ -951,7 +949,7 @@ void Display::drawPoints(int w, uint16_t color)
   }
 
   const int base = 660; // 66.0 base
-  y2 = (constrain(y2, 660, 900) - base) * 101 / 110;
+  y2 = (constrain(y2, base, 900) - base) * 101 / 110;
 
   for(int x = 309, x2 = 310; x >= 10; x--)
   {
@@ -966,7 +964,7 @@ void Display::drawPoints(int w, uint16_t color)
       case 1: y = m_points[i].t.b.t1; break;
     }
 
-    y = (constrain(y, 660, 900) - base) * 101 / 110; // 660~900 scale to 0~220
+    y = (constrain(y, base, 900) - base) * 101 / 110; // 660~900 scale to 0~220
 
     if(y != y2)
     {
@@ -984,7 +982,7 @@ void Display::drawPointsRh(uint16_t color)
   if(i < 0) i = GPTS-1;
   const int yOff = 240-10;
   int y, y2 = m_points[i].bits.b.rh;
-  if(y2 == -1) return; // not enough data
+  if(y2 == 0x3FF) return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
 
@@ -994,13 +992,13 @@ void Display::drawPointsRh(uint16_t color)
       i = GPTS-1;
 
     y = m_points[i].bits.b.rh;
-    if(y == -1) return;
+    if(y == 0x3FF) return;
     y = y * 55 / 250;
 
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(2);
+      delay(3);
       y2 = y;
       x2 = x;
     }
@@ -1009,23 +1007,25 @@ void Display::drawPointsRh(uint16_t color)
 
 void Display::drawPointsTemp()
 {
+  const int base = 660; // 66.0 base
   const int yOff = 240-10;
+  int y, y2;
+  int x2 = 310;
   int i = m_pointsIdx-1;
   if(i < 0) i = GPTS-1;
-  uint8_t y, y2 = m_points[i].t.b.t0;
-  if(y2 == 0x7FF) return;
-  int x2 = 310;
 
-  const int base = 660; // 66.0 base
-  y2 = (constrain(y2, 660, 900) - base) * 101 / 110;
+  if(m_points[i].t.b.t0 == 0x7FF)
+    return;
+
+  y2 = (constrain(m_points[i].t.b.t0, base, 900) - base) * 101 / 110;
 
   for(int x = 309; x >= 10; x--)
   {
     if(--i < 0)
       i = GPTS-1;
-    y = m_points[i].t.b.t0;
-    if(y == 0x7FF) break; // invalid data
-    y = (constrain(y, 660, 900) - base) * 101 / 110;
+    if(m_points[i].t.b.t0 == 0x7FF)
+      break; // end
+    y = (constrain(m_points[i].t.b.t0, base, 900) - base) * 101 / 110;
     if(y != y2)
     {
       nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
