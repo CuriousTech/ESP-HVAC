@@ -276,13 +276,7 @@ void secondsServer() // called once per second
     if(ee.bNotLocalFcst)
       GetForecast();
     else if(fc_client.connected() == false)    // get preformatted data from local server
-    {
-       display.m_fcData[0].temp = display.m_fcData[1].temp; // copy 2nd 3hr data to start
-       display.m_fcData[0].tm = display.m_fcData[1].tm;
-       display.m_fcData[1].temp = display.m_fcData[2].temp; // keep a copy of first 3hr data
-       display.m_fcData[1].tm = display.m_fcData[2].tm;
-       fc_client.connect(ipFcServer, nFcPort);
-    }
+      fc_client.connect(ipFcServer, nFcPort);
   }
 
   if(xmlState)
@@ -654,21 +648,50 @@ void fc_onData(AsyncClient* client, char* data, size_t len)
   sfcBuffer += data;
 }
 
+int cleanFc(uint32_t newTm)
+{
+  if(display.m_fcData[0].tm == 0) // not filled in yet
+    return 0;
+  int fcIdx;
+  for(fcIdx = 0; fcIdx < FC_CNT-4 && display.m_fcData[fcIdx].tm; fcIdx++)
+  {
+    if(display.m_fcData[fcIdx].tm >= newTm)
+      break;
+  }
+  if(fcIdx > (FC_CNT - 56)) // not enough room left
+  {
+    int n = fcIdx - (FC_CNT - 56);
+    uint8_t *p = (uint8_t*)display.m_fcData;
+    uint8_t sz = sizeof(Forecast) * n;
+    memcpy(p, p + sz, sizeof(display.m_fcData) - sz); // make room
+
+    fcIdx -= n;
+  }  
+  return fcIdx;
+}
+
 // read data as comma delimited 'time,temp,rh' per line
 void fc_onDisconnect(AsyncClient* client)
 {
   (void)client;
 
-  int fcIdx;
   const char *p = sfcBuffer.c_str();
   if(p == NULL)
     return;
 
-  for(fcIdx = 2; fcIdx < FC_CNT-1 && *p;) // leave first 2 entries for history shift
+  int fcIdx = 0;
+  bool bFirst = false;
+
+  while(fcIdx < FC_CNT-1 && *p)
   {
     uint32_t tm = atoi(p);
     if(tm > 15336576) // skip the headers
     {
+      if(!bFirst)
+      {
+        bFirst = true;
+        fcIdx = cleanFc(tm);
+      }
       display.m_fcData[fcIdx].tm = tm;
       while(*p && *p != ',') p ++;
       if(*p == ',') p ++;
@@ -683,12 +706,6 @@ void fc_onDisconnect(AsyncClient* client)
   sfcBuffer = "";
   display.m_fcData[fcIdx].tm = 0;
   display.m_bUpdateFcstDone = true;
-
-  if(display.m_fcData[0].tm == 0) // initial read
-  {
-    display.m_fcData[1].temp = display.m_fcData[0].temp = display.m_fcData[2].temp;
-    display.m_fcData[1].tm = display.m_fcData[0].tm = display.m_fcData[2].tm;
-  }
   if(display.m_fcData[0].tm)
     hvac.enable();
 }
@@ -720,6 +737,7 @@ const XML_tag_t Xtags[] =
 void xml_callback(int item, int idx, char *p, char *pTag)
 {
   static tmElements_t tm;
+  static int startIdx;
   static int cnt;
 
   switch(item)
@@ -731,10 +749,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       break;
     case 1:            // valid time
       if(idx == 0)     // first item isn't really data
-      {
-        cnt = 1;
         break;
-      }
 //      if(pTag[0] != 's') // start only
 //        break;
 
@@ -748,6 +763,10 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       tm.Minute = atoi(p+14);
       tm.Second = atoi(p+17);
 
+      if(idx == 1) // first entry
+      {
+        startIdx = cnt = cleanFc( makeTime(tm) );
+      }
       display.m_fcData[cnt].tm = makeTime(tm);
       cnt++;
       display.m_fcData[cnt].tm = 0; // end of data
@@ -755,7 +774,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       break;
     case 2:                  // temperature
       if(idx == 0)
-        cnt = 1;
+        cnt = startIdx;
       if((idx % 3) != 0) // skip every 3 hours
         break;
 
@@ -768,11 +787,6 @@ XMLReader xml(xml_callback, Xtags);
 
 void GetForecast()
 {
-  display.m_fcData[0].temp = display.m_fcData[1].temp; // keep a copy of first 2 3hour data
-  display.m_fcData[0].tm = display.m_fcData[1].tm;
-  display.m_fcData[1].temp = display.m_fcData[2].temp;
-  display.m_fcData[1].tm = display.m_fcData[2].tm;
-
   // Full 7 day hourly
   //  Go here first:  http://www.weather.gov
   // Enter City or Zip
