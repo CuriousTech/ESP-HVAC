@@ -490,12 +490,8 @@ function t2s(v)
 <tr>
 <td style="width: 100px">Threshold</td>
 <td style="width: 90px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
-<td style="width: 20px"></td>
-<td>
-<input type="submit" value=" Home " onClick="window.location='/iot';">
-</td>
-</tr>
-<tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
+<td style="width: 20px"></td><td><input type="submit" value=" Home " onClick="window.location='/iot';"></td></tr>
+<tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td><input type="submit" value=" Chart " onClick="window.location='/chart.html';"></td></tr>
 <tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
@@ -1123,7 +1119,7 @@ function drawFC(){
 
   doBorder(graph2)
 
-  c.lineWidth = 1
+  c.lineWidth=1
   min=150
   max=-30
   for(i=0;i<fc.length;i++)
@@ -1208,13 +1204,15 @@ function getXPixel2(val){
   return +x.toFixed()
 }
 
-function getYPixel2(val) {
-  y=graph2.height()-( ((graph2.height()-18)/yRange)*(val-min))-18
+function getYPixel2(val){
+  h=graph2.height()-18
+  y=h-((h/yRange)*(val-min))
   return y.toFixed()
 }
-function getYPixel3(val) {
-  y=graph2.height()/2-( (graph2.height()/2/iRng)*(val-iMin))
-  return y+30
+function getYPixel3(val){
+  h=graph2.height()-18
+  o=60+ct*2
+  return h-(o/2)-((h-o)/iRng*(val-iMin))
 }
 function getTT(i,th)
 {
@@ -1229,9 +1227,10 @@ function getTT(i,th)
       if(max2<fc[j][1]) max2=fc[j][1]
     }
   }
-  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
-  h=graph2.height()/2
-  return h-(h/iRng*(tt-iMin))+30
+  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th
+  h=graph2.height()-18
+  o=60+ct*2
+  return h-(o/2)-((h-o)/iRng*(tt-iMin))
 }
 </script>
 <style type="text/css">
