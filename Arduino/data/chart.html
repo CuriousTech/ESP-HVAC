@@ -593,7 +593,7 @@ function drawFC(){
 
   doBorder(graph2)
 
-  c.lineWidth = 1
+  c.lineWidth=1
   min=150
   max=-30
   for(i=0;i<fc.length;i++)
@@ -678,13 +678,15 @@ function getXPixel2(val){
 	return +x.toFixed()
 }
 
-function getYPixel2(val) {
-	y=graph2.height()-( ((graph2.height()-18)/yRange)*(val-min))-18
+function getYPixel2(val){
+	h=graph2.height()-18
+	y=h-((h/yRange)*(val-min))
 	return y.toFixed()
 }
-function getYPixel3(val) {
-	y=graph2.height()/2-( (graph2.height()/2/iRng)*(val-iMin))
-	return y+30
+function getYPixel3(val){
+	h=graph2.height()-18
+	o=60+ct*2
+	return h-(o/2)-((h-o)/iRng*(val-iMin))
 }
 function getTT(i,th)
 {
@@ -699,9 +701,10 @@ function getTT(i,th)
 	  	if(max2<fc[j][1]) max2=fc[j][1]
   	}
   }
-  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th/10
-  h=graph2.height()/2
-  return h-(h/iRng*(tt-iMin))+30
+  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th
+  h=graph2.height()-18
+  o=60+ct*2
+  return h-(o/2)-((h-o)/iRng*(tt-iMin))
 }
 </script>
 <style type="text/css">
