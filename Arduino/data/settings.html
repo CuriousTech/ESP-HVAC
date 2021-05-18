@@ -153,12 +153,8 @@ function t2s(v)
 <tr>
 <td style="width: 100px">Threshold</td>
 <td style="width: 90px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
-<td style="width: 20px"></td>
-<td>
-<input type="submit" value=" Home " onClick="window.location='/iot';">
-</td>
-</tr>
-<tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td></td></tr>
+<td style="width: 20px"></td><td><input type="submit" value=" Home " onClick="window.location='/iot';"></td></tr>
+<tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td><input type="submit" value=" Chart " onClick="window.location='/chart.html';"></td></tr>
 <tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
