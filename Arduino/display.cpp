@@ -878,6 +878,7 @@ void Display::addGraphPoints()
     return;
   m_temp_counter = 5*60;         // update every 5 minutes
   gPoint *p = &m_points[m_pointsIdx];
+
   p->time = now() - ((ee.tz+hvac.m_DST)*3600);
 
   p->t.b.t0 = hvac.m_inTemp; // 66~90 scale to 0~220
@@ -1068,6 +1069,7 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
   if(m_points[idx].t.b.t0 == 0x7FF) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
+  return true;
 }
 
 int Display::minPointVal(int n)
