@@ -184,7 +184,7 @@ void startServer()
   server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
     jsonString js;
-    js.Var("time", now() - ((ee.tz + hvac.m_DST) * 3600) );
+    js.Var("time", (long)(now() - ((ee.tz + hvac.m_DST) * 3600)) );
     js.Var("ppkw", ee.ppkwh );
     request->send(200, "text/plain", js.Close());
   });
@@ -385,7 +385,8 @@ void historyDump(bool bStart)
   static int rhMin;
   static int otMin;
 
-  if(bStart) bSending = true;
+  if(bStart)
+    bSending = true;
   if(bSending == false)
     return;
 
