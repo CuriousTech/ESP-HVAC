@@ -343,10 +343,21 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IPID)
     {
-      if(now() - m_Sensor[i].tm > 70 || m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard expired or invalid sensor data
+      if(m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard invalid sensor data
       {
-        m_Sensor[i].flags &= ~SNS_EN; // make it inactive
+        m_Sensor[i].flags &= ~SNS_EN; // deactivate sensor
         m_Sensor[i].temp = 0;
+        WsSend("print;Sensor range error");
+      }
+      else if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
+      {
+        WsSend("print;Warning: Sensor data expired");
+        // Just ingore for the moment
+        if(now() - m_Sensor[i].tm > 60*60) // 1 hour
+        {
+          memset(&m_Sensor[i], 0, sizeof(Sensor) ); // kill it
+          // Todo: consolidate if needed
+        }
       }
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
@@ -849,7 +860,7 @@ String HVAC::settingsJsonMod()
 String HVAC::getPushData()
 {
   jsonString js("state");
-  js.Var("t", now() - ((ee.tz+m_DST) * 3600) );
+  js.Var("t", (long)(now() - ((ee.tz+m_DST) * 3600)) );
   js.Var("r", m_bRunning);
   js.Var("fr", getFanRunning() );
   js.Var("s" , getState() );
