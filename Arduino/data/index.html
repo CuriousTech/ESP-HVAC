@@ -9,7 +9,7 @@ body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
 <script type="text/javascript"><!--
-var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
+var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
@@ -28,22 +28,22 @@ ws.onmessage = function(evt){
  if(event == 'settings')
  {
 	Json=JSON.parse(data)
-   	mode= +Json.m
-	autoMode= +Json.am
-	heatMode= +Json.hm
-	fanMode= +Json.fm
-	humidMode= +Json.rhm
-	ovrActive= +Json.ot
+   	mode=+Json.m
+	autoMode=+Json.am
+	heatMode=+Json.hm
+	fanMode=+Json.fm
+	rhm=+Json.rhm
+	ovrActive=+Json.ot
 	setAtt()
-	a.cooll.value= +Json.c0/10
-	a.coolh.value= +Json.c1/10
-	a.heatl.value= +Json.h0/10
-	a.heath.value= +Json.h1/10
-	a.humidl.value= +Json.rh0/10
-	a.humidh.value= +Json.rh1/10
-	a.ovrtime.value= s2t(+Json.ov)
-	a.fantime.value= s2t(+Json.fct)
-	a.awaytemp.value= +Json.ad/10
+	a.cooll.value=+Json.c0/10
+	a.coolh.value=+Json.c1/10
+	a.heatl.value=+Json.h0/10
+	a.heath.value=+Json.h1/10
+	a.humidl.value=+Json.rh0/10
+	a.humidh.value=+Json.rh1/10
+	a.ovrtime.value=s2t(+Json.ov)
+	a.fantime.value=s2t(+Json.fct)
+	a.awaytemp.value=+Json.ad/10
   if( +a.ovrtemp.value==0)
 	 a.ovrtemp.value= -2.0
  }
@@ -56,9 +56,9 @@ ws.onmessage = function(evt){
 	away=+Json.aw
 	a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
 	a.intemp.innerHTML= (+Json.it/10).toFixed(1)
-	a.rh.value= (+Json.rh/10).toFixed(1)+'%'
-	a.target.innerHTML= (+Json.tt/10).toFixed(1)
-	a.outtemp.innerHTML= (+Json.ot/10).toFixed(1)
+	a.rh.value=(+Json.rh/10).toFixed(1)+'%'
+	a.target.innerHTML=(+Json.tt/10).toFixed(1)
+	a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
 	a.cyctimer.innerHTML=secsToTime(+Json.ct)
 	a.runtotal.value=secsToTime(+Json.rt)
 	a.filter.value=s2t(+Json.fm)
@@ -69,7 +69,7 @@ ws.onmessage = function(evt){
 	a.hmCell.setAttribute('class',hon?'style5':'style1')
 	setAtt()
  }
- else if(event == 'alert')
+ else if(event=='alert')
  {
 	alert(data)
  }
@@ -102,7 +102,7 @@ setAtt()
 
 function setHumidMode(m)
 {
-setVar('humidmode',humidMode=m)
+setVar('humidmode',rhm=m)
 setAtt()
 }
 
@@ -143,25 +143,25 @@ a.hHP.setAttribute('class',heatMode==0?'style5':'')
 a.hGas.setAttribute('class',heatMode==1?'style5':'')
 a.hAuto.setAttribute('class',heatMode==2?'style5':'')
 
-a.hmOff.setAttribute('class',humidMode==0?'style5':'')
-a.hmFan.setAttribute('class',humidMode==1?'style5':'')
-a.hmRun.setAttribute('class',humidMode==2?'style5':'')
-a.hmAuto1.setAttribute('class',humidMode==3?'style5':'')
-a.hmAuto2.setAttribute('class',humidMode==4?'style5':'')
+a.hmOff.setAttribute('class',rhm==0?'style5':'')
+a.hmFan.setAttribute('class',rhm==1?'style5':'')
+a.hmRun.setAttribute('class',rhm==2?'style5':'')
+a.hmAuto1.setAttribute('class',rhm==3?'style5':'')
+a.hmAuto2.setAttribute('class',rhm==4?'style5':'')
 a.away.setAttribute('class',away?'style5':'')
 }
 
 function incCool(n)
 {
-a.coolh.value= +a.coolh.value+n
-a.cooll.value= +a.cooll.value+n
+a.coolh.value=+a.coolh.value+n
+a.cooll.value=+a.cooll.value+n
 setVars()
 }
 
 function incHeat(n)
 {
-a.heath.value= +a.heath.value+n
-a.heatl.value= +a.heatl.value+n
+a.heath.value=+a.heath.value+n
+a.heatl.value=+a.heatl.value+n
 setVars()
 }
 
@@ -228,14 +228,14 @@ function s2t(elap)
 
 function t2s(v)
 {
-	if(typeof v == 'string') v = (+v.substr(0, v.indexOf(':'))*60) + (+v.substr(v.indexOf(':')+1))
+	if(typeof v=='string') v=(+v.substr(0, v.indexOf(':'))*60)+(+v.substr(v.indexOf(':')+1))
 	return v
 }
 //--></script>
 </head>
 <body onload="{
- myStorage3 = localStorage.getItem('myStoredText3')
- if(myStorage3  != null)
+ myStorage3=localStorage.getItem('myStoredText3')
+ if(myStorage3!=null)
 	document.getElementById('ovrtemp').value=myStorage3
  startEvents()
 }">
