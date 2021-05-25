@@ -30,38 +30,34 @@ ws.onmessage = function(evt){
  Json=JSON.parse(data)
  if(event == 'settings')
  {
-	a.idlemin.value= s2t(+Json.im)
-	a.cycmin.value= s2t(+Json.cn)
-	a.cycmax.value= s2t(+Json.cx)
-	a.thresh.value= +Json.ct/10
-	a.fandelay.value= s2t(+Json.fd)
-	a.fanpre.value= s2t(+Json.fp)
-	a.awaytime.value= s2t(+Json.at)
-	a.heatthr.value= +Json.ht
-	a.ppkwh.value= +Json.ppk/1000
-	a.ccf.value= +Json.ccf/1000
-	a.cfm.value= +Json.cfm/1000
-	a.fcr.value= +Json.fcr
-	a.fcd.value= +Json.fcd
-	a.fco.value= +Json.fco
-	a.acth.value= +Json.dl/10
+	a.idlemin.value=s2t(+Json.im)
+	a.cycmin.value=s2t(+Json.cn)
+	a.cycmax.value=s2t(+Json.cx)
+	a.thresh.value=+Json.ct/10
+	a.fandelay.value=s2t(+Json.fd)
+	a.fanpre.value=s2t(+Json.fp)
+	a.awaytime.value=s2t(+Json.at)
+	a.heatthr.value=+Json.ht
+	a.ppkwh.value=+Json.ppk/1000
+	a.ccf.value=+Json.ccf/1000
+	a.cfm.value=+Json.cfm/1000
+	a.fcr.value=+Json.fcr
+	a.fcd.value=+Json.fcd
+	a.fco.value=+Json.fco
+	a.acth.value=+Json.dl/10
 	a.fim.value=s2t(+Json.fim)
 	a.far.value=s2t(+Json.far)
  }
  else if(event == 'state')
  {
-	a.it0.innerHTML= (+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
-	a.loc.innerHTML= (+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
+	a.it0.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
+	a.loc.innerHTML=(+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
 	snd=Json.snd
 	if(snd) setSenders()
  }
  else if(event == 'alert')
  {
 	alert(data)
- }
- else if(event == 'print')
- {
-// 	a.console.value += data
  }
 }
 }
