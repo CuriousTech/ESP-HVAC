@@ -8,11 +8,11 @@ div{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -ms-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
-background-image: linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -moz-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -ms-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -o-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
+background-image: linear-gradient(top,#ffffff,#a0a0a0);
 background-clip: padding-box;
 }
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
@@ -211,8 +211,8 @@ function draw(){
 	 c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
 	 c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
 	 c.stroke()
-	 date = new Date(arr[i][0])
-	 if(dt != date.getDate())
+	 date=new Date(arr[i][0])
+	 if(dt!=date.getDate())
 	 {
 	  dt = date.getDate()
 	  c.strokeStyle = '#000'
@@ -281,27 +281,27 @@ function draw(){
 		mouseY=parseInt(e.clientY-offsetY)
 
 		// Put your mousemove stuff here
-		var hit = false
+		var hit=false
 		for(i=0;i<dots.length;i++){
-			dot = dots[i]
-			dx = mouseX - dot.x
-			dy = mouseY - dot.y
-			if(dx*dx + dy*dy < dot.rXr) {
-				tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
-				tipCtx.lineWidth = 2
-				tipCtx.fillStyle = "#000000"
-				tipCtx.strokeStyle = '#333'
-				tipCtx.font = 'italic 8pt sans-serif'
-				tipCtx.textAlign = "left"
+			dot=dots[i]
+			dx=mouseX-dot.x
+			dy=mouseY-dot.y
+			if(dx*dx+dy*dy<dot.rXr){
+				tipCtx.clearRect(0,0,tipCanvas.width,tipCanvas.height)
+				tipCtx.lineWidth=2
+				tipCtx.fillStyle="#000000"
+				tipCtx.strokeStyle='#333'
+				tipCtx.font='italic 8pt sans-serif'
+				tipCtx.textAlign="left"
 
-				tipCtx.fillText( dot.tip, 4, 15)
-				tipCtx.fillText( dot.tip2+'°F', 4, 29)
-				tipCtx.fillText( dot.tip3+'%', 4, 44)
-				tipCtx.fillText( dot.tip4 + '°F', 4, 58)
-				hit = true
-				popup = document.getElementById("popup")
-				popup.style.top = dot.y + "px"
-				popup.style.left = (dot.x-60) + "px"
+				tipCtx.fillText(dot.tip,4,15)
+				tipCtx.fillText(dot.tip2+'°F',4,29)
+				tipCtx.fillText(dot.tip3+'%',4,44)
+				tipCtx.fillText(dot.tip4 + '°F',4,58)
+				hit=true
+				popup=document.getElementById("popup")
+				popup.style.top=dot.y+"px"
+				popup.style.left=(dot.x-60)+"px"
 			}
 		}
 		if(!hit){popup.style.left="-200px"}
@@ -460,19 +460,19 @@ function draw_bars()
 		for(i=0;i<dots2.length;i++){
 			dot=dots2[i]
 			if(mouseX>=dot.x && mouseX<=dot.x2 && mouseY>=dot.y && mouseY<=dot.y2){
-				tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
-				tipCtx.fillStyle = "#000000"
-				tipCtx.strokeStyle = '#333'
-				tipCtx.font = 'italic 8pt sans-serif'
-				tipCtx.textAlign = "left"
+				tipCtx.clearRect(0,0,tipCanvas.width, tipCanvas.height)
+				tipCtx.fillStyle="#000000"
+				tipCtx.strokeStyle='#333'
+				tipCtx.font='italic 8pt sans-serif'
+				tipCtx.textAlign="left"
 				tipCtx.fillText(dot.tip, 4,15)
 				tipCtx.fillText(dot.tip2,4,29)
 				tipCtx.fillText(dot.tip3,4,44)
 				tipCtx.fillText(dot.tip4,4,59)
 				tipCtx.fillText(dot.tip5,4,75)
-				hit = true
-				popup = document.getElementById("popup")
-				popup.style.top =(dot.y+rect.y+window.pageYOffset)+"px"
+				hit=true
+				popup=document.getElementById("popup")
+				popup.style.top=(dot.y+rect.y+window.pageYOffset)+"px"
 				x=dot.x+rect.x-60
 				if(x<10)x=10
 				popup.style.left=x+"px"
@@ -603,19 +603,19 @@ function drawFC(){
   }
   max++
   yRange=max-min
-  c.textAlign = "right"
-  c.textBaseline = "middle"
+  c.textAlign="right"
+  c.textBaseline="middle"
   c.fillStyle='black'
 
   // right legend
-  for(i = min; i<max; i+=(yRange/8) )
-    c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
-  c.fillText('Out', graph2.width()-6, 6)
+  for(i=min;i<max;i+=(yRange/8))
+    c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
+  c.fillText('Out',graph2.width()-6,6)
 
-  c.textAlign = "left"
+  c.textAlign="left"
   iRng=iMax-iMin
-  c.fillText(iMax/10, 6, getYPixel3(iMax))
-  c.fillText(iMin/10, 6, getYPixel3(iMin))
+  c.fillText(iMax/10,6,getYPixel3(iMax))
+  c.fillText(iMin/10,6,getYPixel3(iMin))
 
   c.fillStyle='#40404050'
   w=graph2.width()-xPadding*2
@@ -665,11 +665,11 @@ function drawFC(){
   c.beginPath()
   strt=cPos-fcr
   if(strt<0) strt=0
-  c.moveTo(getXPixel2(strt)-xOff, getTT(strt,0))
-  for(i=strt+1; i<=cPos+fcr; i++)
-  	c.lineTo(getXPixel2(i)-xOff, getTT(i,0))
-  for(i=cPos+fcr; i>=strt; i--)
-  	c.lineTo(getXPixel2(i)-xOff, getTT(i,(md==2)?ct:-ct))
+  c.moveTo(getXPixel2(strt)-xOff,getTT(strt,0))
+  for(i=strt+1;i<=cPos+fcr;i++)
+  	c.lineTo(getXPixel2(i)-xOff,getTT(i,0))
+  for(i=cPos+fcr;i>=strt;i--)
+  	c.lineTo(getXPixel2(i)-xOff,getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
 }
@@ -685,7 +685,7 @@ function getYPixel2(val){
 }
 function getYPixel3(val){
 	h=graph2.height()-18
-	o=60+ct*2
+	o=70+ct*2
 	return h-(o/2)-((h-o)/iRng*(val-iMin))
 }
 function getTT(i,th)
@@ -703,7 +703,7 @@ function getTT(i,th)
   }
   tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th
   h=graph2.height()-18
-  o=60+ct*2
+  o=70+ct*2
   return h-(o/2)-((h-o)/iRng*(tt-iMin))
 }
 </script>
