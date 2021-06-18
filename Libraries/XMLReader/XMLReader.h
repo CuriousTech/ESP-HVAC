@@ -2,7 +2,11 @@
 #define XMLREADER_H
 
 #include <Arduino.h>
+#ifdef ESP32
+#include <AsyncTCP.h>
+#else
 #include <ESPAsyncTCP.h>
+#endif
 
 enum XML_Status
 {
