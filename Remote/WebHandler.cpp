@@ -5,7 +5,11 @@
 
 //#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic (at 64K)
 
+#ifdef ESP32
+#include <ESPmDNS.h>
+#else
 #include <ESP8266mDNS.h>
+#endif
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
 #include <FS.h>
@@ -20,13 +24,16 @@
 #include "WiFiManager.h"
 #include "eeMem.h"
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
+#include "forecast.h"
 //switch WEBSOCKETS_NETWORK_TYPE to NETWORK_ESP8266_ASYNC in WebSockets.h
-#if (WEBSOCKETS_NETWORK_TYPE != NETWORK_ESP8266_ASYNC)
-#error "network type must be ESP8266 ASYNC!"
-#endif
+//#if (WEBSOCKETS_NETWORK_TYPE != NETWORK_ESP8266_ASYNC)
+//#error "network type must be ESP8266 ASYNC!"
+//#endif
 #ifdef USE_SPIFFS
 #include <FS.h>
-#include <SPIFFSEditor.h>
+#ifdef ESP32
+#include <SPIFFS.h>
+#endif
 #else
 #include "pages.h"
 #endif
@@ -53,7 +60,6 @@ void fcPage(AsyncWebServerRequest *request);
 int xmlState;
 void GetForecast(void);
 
-const char page_index[] PROGMEM = R"rawliteral(
 const char pageR[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -121,7 +127,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 void startServer()
 {
   WiFi.hostname("HVACRemote");
-  wifi.autoConnect("HVACRemote", ee.password);  // AP you'll see on your phone
+  wifi.autoConnect("HVACRemote", ee.password); 
 
   Serial.println("");
   if(wifi.isCfg() == false)
@@ -153,7 +159,6 @@ void startServer()
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
-  server.addHandler(new SPIFFSEditor("admin", ee.password));
 #endif
 
   // attach AsyncWebSocket
@@ -189,12 +194,11 @@ void startServer()
 
   server.onNotFound([](AsyncWebServerRequest *request){
     //Handle Unknown Request
-//    request->send(404);
-  });
-  server.on( "/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/favicon.ico");
     request->send(404);
   });
+//  server.on( "/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
+//    request->send(404);
+//  });
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     //Handle upload
   });
@@ -217,11 +221,12 @@ void startServer()
 
 void handleServer()
 {
+#ifdef ESP8266
   MDNS.update();
+#endif
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
-//  yield();
 #endif
 }
 
@@ -363,8 +368,6 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 
 void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
 {
-  String s;
-
   switch(type)
   {
     case WStype_DISCONNECTED:
@@ -377,24 +380,19 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
         hvac.m_notif = Note_None;
       break;
     case WStype_TEXT:
-        {
-          char *pCmd = strtok((char *)payload, ";");
-          char *pData = strtok(NULL, "");
-          if(pCmd == NULL || pData == NULL) break;
-          remoteParse.process(pCmd, pData);
-        }
+      {
+        char *pCmd = strtok((char *)payload, ";");
+        char *pData = strtok(NULL, "");
+        if(pCmd == NULL || pData == NULL) break;
+        remoteParse.process(pCmd, pData);
+      }
       break;
     case WStype_BIN:
-        switch(payload[0])
-        {
-          case 1: // forecast (512+1 bytes)
-            if(length == sizeof(display.m_fcData)+1)
-            {
-              memcpy(display.m_fcData, payload+1, sizeof(display.m_fcData));
-              display.m_bUpdateFcstDone = true;
-            }
-            break;
-        }
+      if(length == sizeof(forecastData) )
+      {
+        memcpy((void*)&display.m_fc, payload, length);
+        display.m_bUpdateFcstDone = true;
+      }
       break;
   }
 }
