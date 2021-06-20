@@ -5,7 +5,12 @@
 
 #define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
 
+#ifdef ESP32
+#include <ESPmDNS.h>
+#else
 #include <ESP8266mDNS.h>
+#endif
+
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
@@ -16,22 +21,29 @@
 #include "WebHandler.h"
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
-#include "display.h" // for display.Note()
+#include "display.h"
 #include "eeMem.h"
 #ifdef USE_SPIFFS
 #include <FS.h>
-#include <SPIFFSEditor.h>
+#ifdef ESP32
+#include <SPIFFS.h>
+#endif
 #else
 #include "pages.h"
 #endif
 #include <XMLReader.h>
 #include "jsonstring.h"
+#include "forecast.h"
 
 //-----------------
+const char *hostName = "HVAC";
 int serverPort = 80;
 
 IPAddress ipFcServer(192,168,31,100);    // local forecast server and port
 int nFcPort = 80;
+Forecast localFC;
+
+String sDbgLog;
 
 //-----------------
 AsyncWebServer server( serverPort );
@@ -39,11 +51,10 @@ AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 extern HVAC hvac;
 extern Display display;
 WiFiManager wifi;  // AP page:  192.168.4.1
-AsyncClient fc_client;
+//AsyncClient fc_client;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
-void fcPage(AsyncWebServerRequest *request);
 
 int xmlState;
 void GetForecast(void);
@@ -105,8 +116,6 @@ const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
 extern const char *cmdList[];
 const char *jsonList3[] = { "alert", NULL };
 
-const char *hostName = "HVAC";
-
 void startServer()
 {
   WiFi.hostname(hostName);
@@ -118,14 +127,17 @@ void startServer()
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
-  
-    if( !MDNS.begin ( hostName, WiFi.localIP() ) )
+#ifdef ESP32
+    if( !MDNS.begin( hostName ) )
+#else
+    if( !MDNS.begin( hostName, WiFi.localIP() ) )
+#endif
       Serial.println ( "MDNS responder failed" );
   }
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
-  server.addHandler(new SPIFFSEditor("admin", ee.password));
+//  server.addHandler(new SPIFFSEditor("admin", ee.password));
 #endif
 
   // attach AsyncWebSocket
@@ -152,10 +164,6 @@ void startServer()
 
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     request->send ( 200, "text/json",  hvac.settingsJson());
-  });
-
-  server.on ( "/forecast", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    request->send ( 200, "text/json",  forecastJson());
   });
 
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -196,6 +204,10 @@ void startServer()
 #endif
 //    request->send(404);
   });
+  server.on ( "/dbglog", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/html", sDbgLog);
+    sDbgLog = "";
+  });
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
   });
@@ -222,23 +234,20 @@ void startServer()
   ArduinoOTA.setHostname(hostName);
   ArduinoOTA.begin();
   ArduinoOTA.onStart([]() {
+    SPIFFS.end();
     hvac.dayTotals(day() - 1); // save for reload
     ee.filterMinutes = hvac.m_filterMinutes;
     eemem.update();
   });
 #endif
-
-  fc_client.onConnect([](void* obj, AsyncClient* c) { fc_onConnect(c); });
-  fc_client.onData([](void* obj, AsyncClient* c, void* data, size_t len){fc_onData(c, static_cast<char*>(data), len); });
-  fc_client.onDisconnect([](void* obj, AsyncClient* c) { fc_onDisconnect(c); });
-  fc_client.onTimeout([](void* obj, AsyncClient* c, uint32_t time) { fc_onTimeout(c, time); });
 }
 
 void handleServer()
 {
+#ifdef ESP8266
   MDNS.update();
+#endif
   static int n;
-
   if(++n >= 10)
   {
     historyDump(false);
@@ -247,7 +256,6 @@ void handleServer()
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
-//  yield();
 #endif
 }
 
@@ -275,8 +283,12 @@ void secondsServer() // called once per second
     display.m_bUpdateFcst = false;
     if(ee.bNotLocalFcst)
       GetForecast();
-    else if(fc_client.connected() == false)    // get preformatted data from local server
-      fc_client.connect(ipFcServer, nFcPort);
+    else localFC.start(ipFcServer, nFcPort, &display.m_fc);    // get preformatted data from local server
+  }
+  if(localFC.checkStatus())
+  {
+    hvac.enable();
+    display.m_bUpdateFcstDone = true;
   }
 
   if(xmlState)
@@ -289,7 +301,6 @@ void secondsServer() // called once per second
           display.m_bUpdateFcstDone = true;
           break;
         case XML_TIMEOUT:
-          display.m_fcLen = 0;
           hvac.disable();
           hvac.m_notif = Note_Forecast;
           display.m_bUpdateFcstDone = true;
@@ -353,7 +364,13 @@ void parseParams(AsyncWebServerRequest *request)
     else if(p->name() == "pass")
       wifi.setPass(s.c_str());
     else if(p->name() == "restart")
+    {
+#ifdef ESP32
+      ESP.restart();
+#else
       ESP.reset();
+#endif
+    }
     else if(p->name() == "fc")
     {
       ee.bNotLocalFcst = s.toInt() ? true:false;
@@ -378,7 +395,6 @@ void historyDump(bool bStart)
 {
   static bool bSending;
   static int entryIdx;
-  static int32_t tb;
   static int tempMin;
   static int lMin;
   static int hMin;
@@ -402,14 +418,13 @@ void historyDump(bool bStart)
     }
 
     jsonString js("ref");
-    tb = gpt.time; // latest entry
     tempMin = display.minPointVal(0);
     lMin = display.minPointVal(1);
     hMin = display.minPointVal(2);
     rhMin = display.minPointVal(3);
     otMin = display.minPointVal(4);
   
-    js.Var("tb", tb);
+    js.Var("tb", display.m_lastPDate);
     js.Var("th", ee.cycleThresh[ (hvac.m_modeShadow == Mode_Heat) ? 1:0] ); // threshold
     js.Var("tm", tempMin); // temp min
     js.Var("lm", lMin); // threshold low min
@@ -427,34 +442,34 @@ void historyDump(bool bStart)
   out = String("data;{\"d\":[");
 
   bool bC = false;
+
   for(; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
   {
     int len = out.length();
     if(bC) out += ",";
     bC = true;
     out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
-    out += tb - (int32_t)gpt.time;
-    tb = gpt.time;
+    out += gpt.bits.tmdiff;
     out += ",";
-    out += gpt.t.b.t0 - tempMin;
+    out += gpt.t.inTemp - tempMin;
     out += ",";
-    out += gpt.bits.b.rh - rhMin;
+    out += gpt.bits.rh - rhMin;
     out += ",";
-    out += gpt.t.b.t1 - lMin;
+    out += gpt.t.target - lMin;
     out += ",";
     out += gpt.bits.u & 7;
     out += ",";
-    out += gpt.t.b.t2 - otMin;
-    if(gpt.t2.b.t1 || gpt.t2.b.t2)
+    out += gpt.t.outTemp - otMin;
+    if(gpt.t2.sens0 || gpt.t2.sens1)
     {
       out += ",";
-      out += gpt.t2.b.t0 - tempMin;
+      out += gpt.t2.localTemp - tempMin;
       out += ",";
-      out += gpt.t2.b.t1 - tempMin;
-      if(gpt.t2.b.t2)
+      out += gpt.t2.sens0 - tempMin;
+      if(gpt.t2.sens1)
       {
         out += ",";
-        out += gpt.t2.b.t2 - tempMin;
+        out += gpt.t2.sens1 - tempMin;
       }
     }
     out += "]";
@@ -481,33 +496,36 @@ void appendDump(int startTime)
   bool bC = false;
   gPoint gpt;
 
-  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx) && gpt.time > startTime; entryIdx++)
+  uint32_t tb = display.m_lastPDate;
+
+  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
   {
     int len = out.length();
     if(bC) out += ",";
     bC = true;
     out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
-    out += gpt.time;
+    out += tb;
+    tb += gpt.bits.tmdiff;
     out += ",";
-    out += gpt.t.b.t0;
+    out += gpt.t.inTemp;
     out += ",";
-    out += gpt.bits.b.rh;
+    out += gpt.bits.rh;
     out += ",";
-    out += gpt.t.b.t1;
+    out += gpt.t.target;
     out += ",";
     out += gpt.bits.u & 7;
     out += ",";
-    out += gpt.t.b.t2;
-    if(gpt.t2.b.t1 || gpt.t2.b.t2)
+    out += gpt.t.outTemp;
+    if(gpt.t2.sens0 || gpt.t2.sens1)
     {
       out += ",";
-      out += gpt.t2.b.t0;
+      out += gpt.t2.localTemp;
       out += ",";
-      out += gpt.t2.b.t1;
-      if(gpt.t2.b.t2)
+      out += gpt.t2.sens0;
+      if(gpt.t2.sens1)
       {
         out += ",";
-        out += gpt.t2.b.t2;
+        out += gpt.t2.sens1;
       }
     }
     out += "]";
@@ -519,25 +537,6 @@ void appendDump(int startTime)
     out += "]}";
     ws.text(WsClientID, out);
   }
-}
-
-String forecastJson()
-{
-  String out = "fc=[";
-  bool bC = false;
-
-  for(int i = 0; i < FC_CNT && display.m_fcData[i].tm; i++)
-  {
-    if(bC) out += ",";
-    bC = true;
-    out += "[";         // [seconds, temp],
-    out += display.m_fcData[i].tm;
-    out += ",";
-    out += display.m_fcData[i].temp;
-    out += "]";
-  }
-  out += "]";
-  return out;
 }
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
@@ -593,6 +592,17 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           out += ee.iSecsDay[i][2];
           out += "]";
         }
+        out += "],";
+        out += "\"fcDate\":";
+        out += display.m_fc.Date;
+        out += ",\"fcFreq\":";
+        out += display.m_fc.Freq;
+        out += ",\"fc\":[";
+        for(int i = 0; display.m_fc.Data[i] != -127 && i < FC_CNT; i++)
+        {
+          if(i) out += ",";
+          out += display.m_fc.Data[i];
+        }        
         out += "]}";
         ws.text(WsClientID, out);
       }
@@ -602,13 +612,8 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         switch(iValue)
         {
           case 1: // forecast data
-          {
-            uint8_t pl[sizeof(display.m_fcData)+1];
-            memcpy(pl+1, (uint8_t*)display.m_fcData, sizeof(display.m_fcData));
-            pl[0] = 1;
-            ws.binary(WsClientID, pl, sizeof(pl));
-          }
-          break;
+            ws.binary(WsClientID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
+            break;
         }
       }
       else // 4+
@@ -623,101 +628,31 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
   }
 }
 
-// local server forecast retrieval 
-String sfcBuffer;
+//---
 
-void fc_onConnect(AsyncClient* client)
+int shiftFc(uint32_t newTm)
 {
-  (void)client;
-
-  String s = "GET /Forecast.log HTTP/1.1\n"
-    "Host: ";
-  s += ipFcServer.toString();
-  s += "\n"
-    "Connection: close\n"
-    "Accept: */*\n\n";
-
-  fc_client.add(s.c_str(), s.length());
-  sfcBuffer = "";
-  display.m_fcLen = 0;
-  sfcBuffer.reserve(1200);  // about 1010 bytes
-}
-
-// build file in chunks
-void fc_onData(AsyncClient* client, char* data, size_t len)
-{
-  sfcBuffer += data;
-}
-
-int cleanFc(uint32_t newTm)
-{
-  if(display.m_fcData[0].tm == 0) // not filled in yet
+  if(display.m_fc.Date == 0) // not filled in yet
     return 0;
+  uint32_t tm2 = display.m_fc.Date;
   int fcIdx;
-  for(fcIdx = 0; fcIdx < FC_CNT-4 && display.m_fcData[fcIdx].tm; fcIdx++)
+  for(fcIdx = 0; fcIdx < FC_CNT-4 && display.m_fc.Data[fcIdx] != -127; fcIdx++)
   {
-    if(display.m_fcData[fcIdx].tm >= newTm)
+    if(tm2 >= newTm)
       break;
+    tm2 += display.m_fc.Freq;
   }
   if(fcIdx > (FC_CNT - 56)) // not enough room left
   {
     int n = fcIdx - (FC_CNT - 56);
-    uint8_t *p = (uint8_t*)display.m_fcData;
-    uint8_t sz = sizeof(Forecast) * n;
-    memcpy(p, p + sz, sizeof(display.m_fcData) - sz); // make room
-
+    uint8_t *p = (uint8_t*)display.m_fc.Data;
+    memcpy(p, p + n, FC_CNT - n); // make room
+    display.m_fc.Date += display.m_fc.Freq * n;
     fcIdx -= n;
-  }  
+  }
   return fcIdx;
 }
 
-// read data as comma delimited 'time,temp,rh' per line
-void fc_onDisconnect(AsyncClient* client)
-{
-  (void)client;
-
-  const char *p = sfcBuffer.c_str();
-  if(p == NULL)
-    return;
-
-  int fcIdx = 0;
-  bool bFirst = false;
-
-  while(fcIdx < FC_CNT-1 && *p)
-  {
-    uint32_t tm = atoi(p);
-    if(tm > 15336576) // skip the headers
-    {
-      if(!bFirst)
-      {
-        bFirst = true;
-        fcIdx = cleanFc(tm);
-      }
-      display.m_fcData[fcIdx].tm = tm;
-      while(*p && *p != ',') p ++;
-      if(*p == ',') p ++;
-      else break;
-      display.m_fcData[fcIdx].temp = atoi(p);
-      fcIdx++;
-    }
-    while(*p && *p != '\r' && *p != '\n') p ++;
-    while(*p == '\r' || *p == '\n') p ++;
-  }
-  display.m_fcLen = sfcBuffer.length();
-  sfcBuffer = "";
-  display.m_fcData[fcIdx].tm = 0;
-  display.m_bUpdateFcstDone = true;
-  if(display.m_fcData[0].tm)
-    hvac.enable();
-}
-
-void fc_onTimeout(AsyncClient* client, uint32_t time)
-{
-  (void)client;
-  WsSend("print;Error getting local server forecast");
-}
-
-//---
 const XML_tag_t Xtags[] =
 {
   {"creation-date", NULL, NULL, 1},
@@ -740,7 +675,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
   static tmElements_t tm;
   static int startIdx;
   static int cnt;
-
+  static uint32_t lastTm;
   switch(item)
   {
     case -1: // done
@@ -757,21 +692,26 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       if((idx % 6) != 1) // just skip all but <start-time> every 3 hours
         break;
 
-      tm.Year = CalendarYrToTm(atoi(p)); // 2014-mm-ddThh:00:00-tz:00
+      tm.Year = CalendarYrToTm( atoi(p)); // 2014-mm-ddThh:00:00-tz:00
       tm.Month = atoi(p+5);
-      tm.Day = atoi(p+8);
+      tm.Day  = atoi(p+8);
       tm.Hour = atoi(p+11);
       tm.Minute = atoi(p+14);
       tm.Second = atoi(p+17);
 
       if(idx == 1) // first entry
       {
-        startIdx = cnt = cleanFc( makeTime(tm) );
+        if(display.m_fc.Date == 0)
+          display.m_fc.Date = makeTime(tm);
+        startIdx = cnt = shiftFc( makeTime(tm) );
       }
-      display.m_fcData[cnt].tm = makeTime(tm);
+      else if(idx == 2) // 2nd entry
+      {
+        display.m_fc.Freq = makeTime(tm) - lastTm;
+      }
+      lastTm = makeTime(tm);
       cnt++;
-      display.m_fcData[cnt].tm = 0; // end of data
-      display.m_fcLen = cnt;
+      display.m_fc.Data[cnt] = -127; // end of data
       break;
     case 2:                  // temperature
       if(idx == 0)
@@ -779,7 +719,7 @@ void xml_callback(int item, int idx, char *p, char *pTag)
       if((idx % 3) != 0) // skip every 3 hours
         break;
 
-      display.m_fcData[cnt++].temp = atoi(p);
+      display.m_fc.Data[cnt++] = atoi(p);
       break;
   }
 }
@@ -800,5 +740,4 @@ void GetForecast()
 
   if(!xml.begin("forecast.weather.gov", 80, path))
     WsSend("alert;Forecast URL invalid");
-  display.m_fcLen = 0;
 }
