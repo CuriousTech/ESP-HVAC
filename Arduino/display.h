@@ -2,7 +2,8 @@
 #define DISPLAY_H
 
 #include <Arduino.h>
-
+#include "Forecast.h"
+ 
 #define NEX_TIMEOUT  90  // 90 seconds
 #define NEX_BRIGHT   95  // 100% = full brightness
 #define NEX_MEDIUM   25  // For the clock
@@ -15,40 +16,45 @@ struct Line{
   int16_t y2;
 };
 
-union gflags
+typedef union gflags
 {
+  uint32_t u;
   struct
   {
-    uint16_t fan:1;
-    uint16_t state:3;
-    uint16_t res:2;
-    uint16_t rh:10;
-  } b;
-  uint16_t u;
+    uint32_t fan:1;
+    uint32_t state:3;
+    uint32_t rh:10;
+    uint32_t tmdiff:9;
+    uint32_t res:9;
+  };
 };
 
-union temps
+typedef union temps
 {
+  uint32_t u;
   struct
   {
-    uint32_t t0:11;
-    uint32_t t1:10;
-    int32_t  t2:11;
-  } b;
+    uint32_t inTemp:11;
+    uint32_t target:10;
+    int32_t  outTemp:11;
+  };
+};
+
+typedef union temps2
+{
   uint32_t u;
+  struct
+  {
+    uint32_t localTemp:11;
+    uint32_t sens0:10;
+    uint32_t sens1:11;
+  };
 };
 
 struct gPoint{
-  uint32_t time;
   temps t;
-  temps t2;
+  temps2 t2;
   gflags bits;
-};
-
-struct Forecast
-{
-  uint32_t tm;   // time in seconds
-  int8_t temp;   // integer temperature value
 };
 
 class Display
@@ -96,12 +102,11 @@ private:
   uint8_t m_btnMode;
   uint8_t m_btnDelay;
 public:
-#define FC_CNT 74
-  Forecast m_fcData[FC_CNT];
-  uint8_t m_adjustMode; // which of 4 temps to adjust with rotary encoder
+  uint32_t m_lastPDate;
+  forecastData m_fc;
+  uint8_t m_adjustMode; // which of 4 temps to adjust with rotary encoder/buttons
   bool    m_bUpdateFcst;
   bool    m_bUpdateFcstDone = true;
-  int     m_fcLen; // length received from forecast source
 };
 
 #endif // DISPLAY_H
