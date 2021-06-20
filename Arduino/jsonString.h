@@ -145,11 +145,13 @@ public:
     s += "\"";
     s += key;
     s += "\":[";
+    bool bSend = false;
     for(int i = 0; i < SNS_CNT; i++)
     {
       if(sns[i].IPID)
       {
-        if(i) s += ",";
+        if(bSend) s += ",";
+        bSend = true;
         s += "[";
         s += sns[i].IPID;
         s += ",";
