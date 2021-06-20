@@ -3,7 +3,10 @@
 #include "Nextion.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
+#ifdef ESP32
+#else
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
+#endif
 #include "eeMem.h"
 #include "WiFiManager.h"
 
@@ -17,6 +20,8 @@ void Display::init()
   if(wifi.isCfg() ) // don't interfere with SSID config
     return;
   memset(m_points, 255, sizeof(m_points));
+  memset(m_fc.Data, -127, sizeof(m_fc.Data));
+  m_fc.Date = 0;
   nex.FFF(); // Just to end any debug strings in the Nextion
   nex.reset();
   screen( true ); // brighten the screen if it just reset
@@ -53,8 +58,6 @@ void Display::oneSec()
   }
   if(m_bUpdateFcstDone)
   {
-    if(m_fcLen == 0)
-      WsSend("print;Forecast failed");
     screen(true);
     drawForecast(true);
     m_bUpdateFcstDone = false;
@@ -331,44 +334,46 @@ void Display::displayTime()
 
 void Display::drawForecast(bool bRef)
 {
-  int i;
-  int fcOff;
+  int fcOff = 0;
+  int fcCnt = 0;
+  uint32_t tm = m_fc.Date;
 
-  for(fcOff = 0; fcOff < FC_CNT-4 && m_fcData[fcOff].tm; fcOff++) // go past current time in forecast
-  {
-    if( m_fcData[fcOff].tm > now() )
-      break;
-  }
-  if(fcOff) fcOff--; // back up 1
-
-  if(m_fcData[fcOff].tm == 0) // no data yet
+  if(m_fc.Date == 0) // no data yet
   {
     if(m_bUpdateFcstDone)
       m_bUpdateFcst = true;
     return;
   }
 
-  int fcCnt;
-  for(fcCnt = 0; fcCnt < FC_CNT-1; fcCnt++) // get length (0 = end)
-    if(m_fcData[fcCnt].tm == 0)
-      break;
+  for(fcCnt = 0; fcCnt < FC_CNT && m_fc.Data[fcCnt] != -127; fcCnt++) // get current time in forecast and valid count
+  {
+    if( tm < now() )
+    {
+      fcOff = fcCnt;
+      tm += m_fc.Freq;
+    }
+  }
+
+  if(fcCnt >= FC_CNT || m_fc.Data[fcOff] == -127 ) // no data yet
+  {
+    if(m_bUpdateFcstDone)
+      m_bUpdateFcst = true;
+    return;
+  }
 
   if(bRef)
   {
     int rng = fcCnt;
     if(rng > ee.fcRange) rng = ee.fcRange;
 
-    int strt = fcOff - rng;
-    if(strt < 0) strt = 0;
-
     // Update min/max
-    int8_t tmin = m_fcData[strt].temp;
-    int8_t tmax = m_fcData[strt].temp;
+    int8_t tmin = m_fc.Data[fcOff];
+    int8_t tmax = m_fc.Data[fcOff];
 
     // Get min/max of current forecast
-    for(int i = strt + 1; i < rng; i++)
+    for(int i = fcOff + 1; i < fcOff+rng && i < FC_CNT; i++)
     {
-      int8_t t = m_fcData[i].temp;
+      int8_t t = m_fc.Data[i];
       if(tmin > t) tmin = t;
       if(tmax < t) tmax = t;
     }
@@ -393,16 +398,16 @@ void Display::drawForecast(bool bRef)
   }
 
     // Update min/max
-    int8_t tmin = m_fcData[0].temp;
-    int8_t tmax = m_fcData[0].temp;
+    int8_t tmin = m_fc.Data[0];
+    int8_t tmax = m_fc.Data[0];
 
     int rng = fcCnt;
-    if(rng > ee.fcDisplay) rng = ee.fcDisplay;
+    if(rng > ee.fcDisplay) rng = ee.fcDisplay; // shorten to user display range
 
     // Get min/max of current forecast
-    for(int i = fcOff; i < rng; i++)
+    for(int i = fcOff; i < fcOff+rng && i < FC_CNT; i++)
     {
-      int8_t t = m_fcData[i].temp;
+      int8_t t = m_fc.Data[i];
       if(tmin > t) tmin = t;
       if(tmax < t) tmax = t;
     }
@@ -416,38 +421,34 @@ void Display::drawForecast(bool bRef)
   int16_t x;
 
   // temp scale
-  for(i = 0; i <= 3; i++)
+  for(int i = 0; i <= 3; i++)
   {
     nex.text(3, y-6, 0, rgb16(0, 31, 31), String(t)); // font height/2=6?
     y += incy;
     t -= dec;
   }
 
-  int hrs = (m_fcData[fcCnt-1].tm - m_fcData[fcOff].tm) / 3600; // normally 180ish hours
+  int hrs = rng * m_fc.Freq / 3600; // normally 180ish hours
   int day_x = 0;
-
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (m_fcData[fcOff].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (m_fc.Data[fcOff] - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
   int day = weekday()-1;              // current day
 
-  for(i = fcOff; i < fcCnt; i++) // should be 41 data points
+  int h = 0;
+
+  for(int i = fcOff; i < fcOff+rng; i++) // should be 41 data points
   {
-    int y1 = Fc_Top+Fc_Height - 1 - (m_fcData[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
-    int h = m_fcData[i].tm;
-    if(h < m_fcData[i-1].tm) h = m_fcData[i-1].tm; // Todo: temp fix (end of month?)
-    h = (h - m_fcData[fcOff].tm) / 3600;
+    int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i] - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
-    if(x2 < Fc_Left) x2 = Fc_Left;  // first point may be history
-    if(x1 < Fc_Left) x1 = x2;  // todo: fix this
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
 
-    h = (m_fcData[i].tm / 3600) % 24; // current hour
-    if(hOld > h) // new day (draw line)
+    int h24 = h % 24;
+    if(hOld > h24 ) // new day (draw line)
     {
       nex.line(x1, Fc_Top+1, x1, Fc_Top+Fc_Height-2, rgb16(20, 41, 20) ); // (light gray)
       if(x1 - 14 > Fc_Left) // fix 1st day too far left
@@ -456,14 +457,15 @@ void Display::drawForecast(bool bRef)
       }
       if(++day > 6) day = 0;
     }
-    if( hOld < 12 && h >= 12) // noon (dark line)
+    if( hOld < 12 && h24 >= 12) // noon (dark line)
     {
       nex.line(x1, Fc_Top, x1, Fc_Top+Fc_Height, rgb16(12, 25, 12) ); // gray
     }
-    hOld = h;
+    hOld = h24;
     delay(7); // avoid buffer overrun
     x2 = x1;
     y2 = y1;
+    h += m_fc.Freq / 3600;
   }
   day_x += 28;
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
@@ -480,21 +482,30 @@ int Display::tween(int8_t t1, int8_t t2, int m, int r)
 
 void Display::displayOutTemp()
 {
-  if(m_fcData[0].tm == 0) // not read yet or time not set
+  if(m_fc.Date == 0) // not read yet or time not set
     return;
 
   int iH = 0;
   int m = minute();
   uint32_t tmNow = now() - ((ee.tz+hvac.m_DST)*3600);
-  if( tmNow >= m_fcData[0].tm)
+  uint32_t fcTm = m_fc.Date;
+
+  if( tmNow >= fcTm)
   {
-    for(iH = 1; tmNow > m_fcData[iH].tm && m_fcData[iH].tm && iH < FC_CNT - 1; iH++);
-    if(iH) iH--; // set iH to current 3 hour frame
-    m = (tmNow - m_fcData[iH].tm) / 60;  // offset = minutes past forecast
+    for(iH = 0; tmNow > fcTm && m_fc.Data[iH] != -127 && iH < FC_CNT - 1; iH++)
+      fcTm += m_fc.Freq;
+ 
+    if(iH)
+    {
+      iH--; // set iH to current 3 hour frame
+      fcTm -= m_fc.Freq;
+    }
+    m = (tmNow - fcTm) / 60;  // offset = minutes past forecast
+    if(m > m_fc.Freq/60) m = minute();
   }
 
-  int r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60; // usually 3 hour range (180 m)
-  int outTempReal = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
+  int r = m_fc.Freq / 60; // usually 3 hour range (180 m)
+  int outTempReal = tween(m_fc.Data[iH], m_fc.Data[iH+1], m, r);
   int outTempShift = outTempReal;
   int fcOffset = ee.fcOffset[hvac.m_modeShadow == Mode_Heat];
 
@@ -516,8 +527,7 @@ void Display::displayOutTemp()
     fcOffset -= r;
   }
 
-  r = (m_fcData[iH+1].tm - m_fcData[iH].tm) / 60;
-  outTempShift = tween(m_fcData[iH].temp, m_fcData[iH+1].temp, m, r);
+  outTempShift = tween(m_fc.Data[iH], m_fc.Data[iH+1], m, r);
 
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
@@ -879,22 +889,26 @@ void Display::addGraphPoints()
   m_temp_counter = 5*60;         // update every 5 minutes
   gPoint *p = &m_points[m_pointsIdx];
 
-  p->time = now() - ((ee.tz+hvac.m_DST)*3600);
-
-  p->t.b.t0 = hvac.m_inTemp; // 66~90 scale to 0~220
+  uint32_t pdate = now() - ((ee.tz+hvac.m_DST)*3600);
+  if(m_lastPDate == 0)
+    m_lastPDate = pdate;
+  p->bits.tmdiff = pdate - m_lastPDate;
+  m_lastPDate = pdate;
+  p->t.inTemp = hvac.m_inTemp; // 66~90 scale to 0~220
   if(hvac.m_modeShadow == Mode_Heat)
-    p->t.b.t1 = hvac.m_targetTemp;
+    p->t.target = hvac.m_targetTemp;
   else // cool
-    p->t.b.t1 = hvac.m_targetTemp - ee.cycleThresh[0];
-  p->t.b.t2 = hvac.m_outTemp;
-  p->bits.b.rh = hvac.m_rh;
-  p->bits.b.fan = hvac.getFanRunning();
-  p->bits.b.state = hvac.getState(); 
-  p->t2.b.t0 = hvac.m_localTemp;
-  p->t2.b.t1 = hvac.m_Sensor[0].temp;
-  p->t2.b.t2 = hvac.m_Sensor[1].temp;
+    p->t.target = hvac.m_targetTemp - ee.cycleThresh[0];
+  p->t.outTemp = hvac.m_outTemp;
+  p->bits.rh = hvac.m_rh;
+  p->bits.fan = hvac.getFanRunning();
+  p->bits.state = hvac.getState(); 
+  p->t2.localTemp = hvac.m_localTemp;
+  p->t2.sens0 = hvac.m_Sensor[0].temp;
+  p->t2.sens1 = hvac.m_Sensor[1].temp;
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
+  m_points[m_pointsIdx].t.u = 0xFFFFFFFF; // mark as invalid data/end
 }
 
 // Draw the last 25 hours (todo: add run times)
@@ -941,39 +955,29 @@ void Display::drawPoints(int w, uint16_t color)
   const int yOff = 240-10;
   int y, y2;
 
-  if(m_points[i].t.b.t1 == 0x3FF)
-    return; // not enough data
-  switch(w)
-  {
-    case 0: y2 = m_points[i].t.b.t1 + ee.cycleThresh[ (hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
-    case 1: y2 = m_points[i].t.b.t1; break;
-  }
-
   const int base = 660; // 66.0 base
-  y2 = (constrain(y2, base, 900) - base) * 101 / 110;
 
   for(int x = 309, x2 = 310; x >= 10; x--)
   {
-    if(--i < 0)
-      i = GPTS-1;
-
-    if(m_points[i].t.b.t1 == 0x3FF)
+    if(m_points[i].t.u == 0xFFFFFFFF)
       return;
     switch(w)
     {
-      case 0: y = m_points[i].t.b.t1 + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
-      case 1: y = m_points[i].t.b.t1; break;
+      case 0: y = m_points[i].t.target + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
+      case 1: y = m_points[i].t.target; break;
     }
 
     y = (constrain(y, base, 900) - base) * 101 / 110; // 660~900 scale to 0~220
 
     if(y != y2)
     {
-      nex.line(x, yOff - y, x2, yOff - y2, color);
+      if(x != 309) nex.line(x, yOff - y, x2, yOff - y2, color);
       delay(3);
       y2 = y;
       x2 = x;
     }
+    if(--i < 0)
+      i = GPTS-1;
   }
 }
 
@@ -982,8 +986,10 @@ void Display::drawPointsRh(uint16_t color)
   int i = m_pointsIdx - 1;
   if(i < 0) i = GPTS-1;
   const int yOff = 240-10;
-  int y, y2 = m_points[i].bits.b.rh;
-  if(y2 == 0x3FF) return; // not enough data
+  int y, y2 = m_points[i].bits.rh;
+
+  if(m_points[i].t.u == 0xFFFFFFFF)
+    return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
 
@@ -992,8 +998,9 @@ void Display::drawPointsRh(uint16_t color)
     if(--i < 0)
       i = GPTS-1;
 
-    y = m_points[i].bits.b.rh;
-    if(y == 0x3FF) return;
+    y = m_points[i].bits.rh;
+    if(m_points[i].t.u == 0xFFFFFFFF)
+      return;
     y = y * 55 / 250;
 
     if(y != y2)
@@ -1013,27 +1020,23 @@ void Display::drawPointsTemp()
   int y, y2;
   int x2 = 310;
   int i = m_pointsIdx-1;
+
   if(i < 0) i = GPTS-1;
-
-  if(m_points[i].t.b.t0 == 0x7FF)
-    return;
-
-  y2 = (constrain(m_points[i].t.b.t0, base, 900) - base) * 101 / 110;
 
   for(int x = 309; x >= 10; x--)
   {
-    if(--i < 0)
-      i = GPTS-1;
-    if(m_points[i].t.b.t0 == 0x7FF)
+    if(m_points[i].t.u == 0xFFFFFFFF)
       break; // end
-    y = (constrain(m_points[i].t.b.t0, base, 900) - base) * 101 / 110;
+    y = (constrain(m_points[i].t.inTemp, base, 900) - base) * 101 / 110;
     if(y != y2)
     {
-      nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
+      if(x != 309) nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
       delay(3);
       y2 = y;
       x2 = x;
     }
+    if(--i < 0)
+      i = GPTS-1;
   }
 }
 
@@ -1041,10 +1044,10 @@ uint16_t Display::stateColor(gflags v) // return a color based on run state
 {
   uint16_t color;
 
-  if(v.b.fan) // fan
+  if(v.fan) // fan
     color = rgb16(0, 50, 0); // green
 
-  switch(v.b.state)
+  switch(v.state)
   {
     case State_Off: // off
       color = rgb16(20, 40, 20); // gray
@@ -1066,7 +1069,7 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
     return false;
   int idx = m_pointsIdx - 1 - n; // 0 = last entry
   if(idx < 0) idx += GPTS;
-  if(m_points[idx].t.b.t0 == 0x7FF) // invalid data
+  if(m_points[idx].t.u == 0xFFFFFFFF) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
   return true;
@@ -1079,15 +1082,15 @@ int Display::minPointVal(int n)
   for(int i = 0; i < GPTS; i++)
   {
     int val;
-    if(m_points[i].t.b.t0 == 0x7FF)
+    if(m_points[i].t.u == 0xFFFFFFFF)
       break;
     switch(n)
     {
-      default: val = m_points[i].t.b.t0; break;
-      case 1: val = m_points[i].t.b.t1; break;
-      case 2: val = m_points[i].t.b.t1 + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
-      case 3: val = m_points[i].bits.b.rh; break;
-      case 4: val = m_points[i].t.b.t2; break;
+      default: val = m_points[i].t.inTemp; break;
+      case 1: val = m_points[i].t.target; break;
+      case 2: val = m_points[i].t.target + ee.cycleThresh[(hvac.m_modeShadow == Mode_Heat) ? 1:0]; break;
+      case 3: val = m_points[i].bits.rh; break;
+      case 4: val = m_points[i].t.outTemp; break;
     }
     if(minv > val) 
       minv = val;
