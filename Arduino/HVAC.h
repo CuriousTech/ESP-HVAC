@@ -1,14 +1,45 @@
+#ifdef ESP32
+#else
 #include <ESP8266WiFi.h>
+#endif
 //  HVAC Control
 //
 #ifndef HVAC_H
 #define HVAC_H
 //----------------
+#ifdef ESP32
+#define P_FAN   25 // G GPIO for SSRs
+#define P_COOL  26 // Y
+#define P_REV   27 // O
+#define P_HEAT  12 // W
+#define P_HUMID 14 // H
+#define FAN_ON  LOW
+#define FAN_OFF HIGH
+#define COOL_ON LOW
+#define COOL_OFF HIGH
+#define HEAT_ON LOW
+#define HEAT_OFF HIGH
+#define REV_ON LOW
+#define REV_OFF HIGH
+#define HUMID_ON LOW
+#define HUMID_OFF HIGH
+#else
 #define P_FAN   16 // G GPIO for SSRs
 #define P_COOL  14 // Y
 #define P_REV   12 // O
 #define P_HEAT  15 // W
 #define P_HUMID  0 // H
+#define FAN_ON  HIGH
+#define FAN_OFF LOW
+#define COOL_ON HIGH
+#define COOL_OFF LOW
+#define HEAT_ON HIGH
+#define HEAT_OFF LOW
+#define REV_ON HIGH
+#define REV_OFF LOW
+#define HUMID_ON LOW
+#define HUMID_OFF HIGH
+#endif
 //-----------------
 #include <arduino.h>
 
