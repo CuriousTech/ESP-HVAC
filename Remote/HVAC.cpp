@@ -451,7 +451,7 @@ String HVAC::settingsJson()
 String HVAC::getPushData()
 {
   jsonString js("state");
-  js.Var("t", now() - ((ee.tz+m_DST) * 3600));
+  js.Var("t", (long)now() - ((ee.tz+m_DST) * 3600));
   js.Var("r", m_bRunning);
   js.Var("fr", getFanRunning() );
   js.Var("it", m_inTemp );
