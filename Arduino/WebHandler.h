@@ -19,5 +19,5 @@ void fc_onDisconnect(AsyncClient* client);
 void fc_onTimeout(AsyncClient* client, uint32_t time);
 void historyDump(bool bStart);
 void appendDump(int startTime);
-String forecastJson(void);
+
 #endif // WEBHANDLER_H
