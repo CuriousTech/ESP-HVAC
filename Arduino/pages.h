@@ -10,7 +10,7 @@ body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
 <script type="text/javascript"><!--
-var Json,mode,autoMode,heatMode,fanMode,running,fan,humidMode,ovrActive,away,rh
+var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
 var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 var ws
@@ -29,22 +29,22 @@ ws.onmessage = function(evt){
  if(event == 'settings')
  {
   Json=JSON.parse(data)
-    mode= +Json.m
-  autoMode= +Json.am
-  heatMode= +Json.hm
-  fanMode= +Json.fm
-  humidMode= +Json.rhm
-  ovrActive= +Json.ot
+    mode=+Json.m
+  autoMode=+Json.am
+  heatMode=+Json.hm
+  fanMode=+Json.fm
+  rhm=+Json.rhm
+  ovrActive=+Json.ot
   setAtt()
-  a.cooll.value= +Json.c0/10
-  a.coolh.value= +Json.c1/10
-  a.heatl.value= +Json.h0/10
-  a.heath.value= +Json.h1/10
-  a.humidl.value= +Json.rh0/10
-  a.humidh.value= +Json.rh1/10
-  a.ovrtime.value= s2t(+Json.ov)
-  a.fantime.value= s2t(+Json.fct)
-  a.awaytemp.value= +Json.ad/10
+  a.cooll.value=+Json.c0/10
+  a.coolh.value=+Json.c1/10
+  a.heatl.value=+Json.h0/10
+  a.heath.value=+Json.h1/10
+  a.humidl.value=+Json.rh0/10
+  a.humidh.value=+Json.rh1/10
+  a.ovrtime.value=s2t(+Json.ov)
+  a.fantime.value=s2t(+Json.fct)
+  a.awaytemp.value=+Json.ad/10
   if( +a.ovrtemp.value==0)
    a.ovrtemp.value= -2.0
  }
@@ -57,9 +57,9 @@ ws.onmessage = function(evt){
   away=+Json.aw
   a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
   a.intemp.innerHTML= (+Json.it/10).toFixed(1)
-  a.rh.value= (+Json.rh/10).toFixed(1)+'%'
-  a.target.innerHTML= (+Json.tt/10).toFixed(1)
-  a.outtemp.innerHTML= (+Json.ot/10).toFixed(1)
+  a.rh.value=(+Json.rh/10).toFixed(1)+'%'
+  a.target.innerHTML=(+Json.tt/10).toFixed(1)
+  a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
   a.cyctimer.innerHTML=secsToTime(+Json.ct)
   a.runtotal.value=secsToTime(+Json.rt)
   a.filter.value=s2t(+Json.fm)
@@ -70,7 +70,7 @@ ws.onmessage = function(evt){
   a.hmCell.setAttribute('class',hon?'style5':'style1')
   setAtt()
  }
- else if(event == 'alert')
+ else if(event=='alert')
  {
   alert(data)
  }
@@ -103,7 +103,7 @@ setAtt()
 
 function setHumidMode(m)
 {
-setVar('humidmode',humidMode=m)
+setVar('humidmode',rhm=m)
 setAtt()
 }
 
@@ -144,25 +144,25 @@ a.hHP.setAttribute('class',heatMode==0?'style5':'')
 a.hGas.setAttribute('class',heatMode==1?'style5':'')
 a.hAuto.setAttribute('class',heatMode==2?'style5':'')
 
-a.hmOff.setAttribute('class',humidMode==0?'style5':'')
-a.hmFan.setAttribute('class',humidMode==1?'style5':'')
-a.hmRun.setAttribute('class',humidMode==2?'style5':'')
-a.hmAuto1.setAttribute('class',humidMode==3?'style5':'')
-a.hmAuto2.setAttribute('class',humidMode==4?'style5':'')
+a.hmOff.setAttribute('class',rhm==0?'style5':'')
+a.hmFan.setAttribute('class',rhm==1?'style5':'')
+a.hmRun.setAttribute('class',rhm==2?'style5':'')
+a.hmAuto1.setAttribute('class',rhm==3?'style5':'')
+a.hmAuto2.setAttribute('class',rhm==4?'style5':'')
 a.away.setAttribute('class',away?'style5':'')
 }
 
 function incCool(n)
 {
-a.coolh.value= +a.coolh.value+n
-a.cooll.value= +a.cooll.value+n
+a.coolh.value=+a.coolh.value+n
+a.cooll.value=+a.cooll.value+n
 setVars()
 }
 
 function incHeat(n)
 {
-a.heath.value= +a.heath.value+n
-a.heatl.value= +a.heatl.value+n
+a.heath.value=+a.heath.value+n
+a.heatl.value=+a.heatl.value+n
 setVars()
 }
 
@@ -229,14 +229,14 @@ function s2t(elap)
 
 function t2s(v)
 {
-  if(typeof v == 'string') v = (+v.substr(0, v.indexOf(':'))*60) + (+v.substr(v.indexOf(':')+1))
+  if(typeof v=='string') v=(+v.substr(0, v.indexOf(':'))*60)+(+v.substr(v.indexOf(':')+1))
   return v
 }
 //--></script>
 </head>
 <body onload="{
- myStorage3 = localStorage.getItem('myStoredText3')
- if(myStorage3  != null)
+ myStorage3=localStorage.getItem('myStoredText3')
+ if(myStorage3!=null)
   document.getElementById('ovrtemp').value=myStorage3
  startEvents()
 }">
@@ -256,7 +256,7 @@ function t2s(v)
 <td id="fanCell"><div id="fan">Fan Off</div></td>
 <td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
 <td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"></td>
-<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}"> &nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
+<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}">&nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
@@ -367,38 +367,34 @@ ws.onmessage = function(evt){
  Json=JSON.parse(data)
  if(event == 'settings')
  {
-  a.idlemin.value= s2t(+Json.im)
-  a.cycmin.value= s2t(+Json.cn)
-  a.cycmax.value= s2t(+Json.cx)
-  a.thresh.value= +Json.ct/10
-  a.fandelay.value= s2t(+Json.fd)
-  a.fanpre.value= s2t(+Json.fp)
-  a.awaytime.value= s2t(+Json.at)
-  a.heatthr.value= +Json.ht
-  a.ppkwh.value= +Json.ppk/1000
-  a.ccf.value= +Json.ccf/1000
-  a.cfm.value= +Json.cfm/1000
-  a.fcr.value= +Json.fcr
-  a.fcd.value= +Json.fcd
-  a.fco.value= +Json.fco
-  a.acth.value= +Json.dl/10
+  a.idlemin.value=s2t(+Json.im)
+  a.cycmin.value=s2t(+Json.cn)
+  a.cycmax.value=s2t(+Json.cx)
+  a.thresh.value=+Json.ct/10
+  a.fandelay.value=s2t(+Json.fd)
+  a.fanpre.value=s2t(+Json.fp)
+  a.awaytime.value=s2t(+Json.at)
+  a.heatthr.value=+Json.ht
+  a.ppkwh.value=+Json.ppk/1000
+  a.ccf.value=+Json.ccf/1000
+  a.cfm.value=+Json.cfm/1000
+  a.fcr.value=+Json.fcr
+  a.fcd.value=+Json.fcd
+  a.fco.value=+Json.fco
+  a.acth.value=+Json.dl/10
   a.fim.value=s2t(+Json.fim)
   a.far.value=s2t(+Json.far)
  }
  else if(event == 'state')
  {
-  a.it0.innerHTML= (+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
-  a.loc.innerHTML= (+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
+  a.it0.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
+  a.loc.innerHTML=(+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
   snd=Json.snd
   if(snd) setSenders()
  }
  else if(event == 'alert')
  {
   alert(data)
- }
- else if(event == 'print')
- {
-//  a.console.value += data
  }
 }
 }
@@ -534,17 +530,16 @@ div{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -ms-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -o-linear-gradient(top, #ffffff, #a0a0a0);
-background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
-background-image: linear-gradient(top, #ffffff, #a0a0a0);
+background-image: -moz-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -ms-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -o-linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
+background-image: linear-gradient(top,#ffffff,#a0a0a0);
 background-clip: padding-box;
 }
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
-<script type="text/javascript" src="forecast"></script>
 <script type="text/javascript">
 var graph;
 xPadding=30
@@ -560,7 +555,7 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws = new WebSocket("ws://"+window.location.host+"/ws")
-// ws = new WebSocket("ws://192.168.31.125/ws")
+// ws = new WebSocket("ws://192.168.31.199/ws")
  ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -590,7 +585,6 @@ $(document).ready(function()
       a.lo.value=(iMin=(md==2)?h0:c0)/10
       a.hi.value=(iMax=(md==2)?h1:c1)/10
       a.ct.value=ct/10
-      drawFC()
       break
     case 'state':
       sJson=Json
@@ -607,7 +601,11 @@ $(document).ready(function()
       ws.send('cmd;{data:0}')
       dys=Json.day
       mns=Json.mon
+      fc=Json.fc
+      fcDate=Json.fcDate
+      fcFreq=Json.fcFreq
       draw_bars()
+      drawFC()
       break
     case 'update':
       switch(Json.type)
@@ -737,8 +735,8 @@ function draw(){
    c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
    c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
    c.stroke()
-   date = new Date(arr[i][0])
-   if(dt != date.getDate())
+   date=new Date(arr[i][0])
+   if(dt!=date.getDate())
    {
     dt = date.getDate()
     c.strokeStyle = '#000'
@@ -807,27 +805,27 @@ function draw(){
     mouseY=parseInt(e.clientY-offsetY)
 
     // Put your mousemove stuff here
-    var hit = false
+    var hit=false
     for(i=0;i<dots.length;i++){
-      dot = dots[i]
-      dx = mouseX - dot.x
-      dy = mouseY - dot.y
-      if(dx*dx + dy*dy < dot.rXr) {
-        tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
-        tipCtx.lineWidth = 2
-        tipCtx.fillStyle = "#000000"
-        tipCtx.strokeStyle = '#333'
-        tipCtx.font = 'italic 8pt sans-serif'
-        tipCtx.textAlign = "left"
+      dot=dots[i]
+      dx=mouseX-dot.x
+      dy=mouseY-dot.y
+      if(dx*dx+dy*dy<dot.rXr){
+        tipCtx.clearRect(0,0,tipCanvas.width,tipCanvas.height)
+        tipCtx.lineWidth=2
+        tipCtx.fillStyle="#000000"
+        tipCtx.strokeStyle='#333'
+        tipCtx.font='italic 8pt sans-serif'
+        tipCtx.textAlign="left"
 
-        tipCtx.fillText( dot.tip, 4, 15)
-        tipCtx.fillText( dot.tip2+'°F', 4, 29)
-        tipCtx.fillText( dot.tip3+'%', 4, 44)
-        tipCtx.fillText( dot.tip4 + '°F', 4, 58)
-        hit = true
-        popup = document.getElementById("popup")
-        popup.style.top = dot.y + "px"
-        popup.style.left = (dot.x-60) + "px"
+        tipCtx.fillText(dot.tip,4,15)
+        tipCtx.fillText(dot.tip2+'°F',4,29)
+        tipCtx.fillText(dot.tip3+'%',4,44)
+        tipCtx.fillText(dot.tip4 + '°F',4,58)
+        hit=true
+        popup=document.getElementById("popup")
+        popup.style.top=dot.y+"px"
+        popup.style.left=(dot.x-60)+"px"
       }
     }
     if(!hit){popup.style.left="-200px"}
@@ -986,19 +984,19 @@ function draw_bars()
     for(i=0;i<dots2.length;i++){
       dot=dots2[i]
       if(mouseX>=dot.x && mouseX<=dot.x2 && mouseY>=dot.y && mouseY<=dot.y2){
-        tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height)
-        tipCtx.fillStyle = "#000000"
-        tipCtx.strokeStyle = '#333'
-        tipCtx.font = 'italic 8pt sans-serif'
-        tipCtx.textAlign = "left"
+        tipCtx.clearRect(0,0,tipCanvas.width, tipCanvas.height)
+        tipCtx.fillStyle="#000000"
+        tipCtx.strokeStyle='#333'
+        tipCtx.font='italic 8pt sans-serif'
+        tipCtx.textAlign="left"
         tipCtx.fillText(dot.tip, 4,15)
         tipCtx.fillText(dot.tip2,4,29)
         tipCtx.fillText(dot.tip3,4,44)
         tipCtx.fillText(dot.tip4,4,59)
         tipCtx.fillText(dot.tip5,4,75)
-        hit = true
-        popup = document.getElementById("popup")
-        popup.style.top =(dot.y+rect.y+window.pageYOffset)+"px"
+        hit=true
+        popup=document.getElementById("popup")
+        popup.style.top=(dot.y+rect.y+window.pageYOffset)+"px"
         x=dot.x+rect.x-60
         if(x<10)x=10
         popup.style.left=x+"px"
@@ -1107,7 +1105,6 @@ function drawFC(){
 
   c.fillStyle='black'
   c.strokeStyle='black'
-//  c.clearRect(0, 0, graph2.width(), graph2.height())
   canvasOffset=graph2.offset()
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
@@ -1124,24 +1121,24 @@ function drawFC(){
   max=-30
   for(i=0;i<fc.length;i++)
   {
-    if(min>fc[i][1]) min=fc[i][1]
-    if(max<fc[i][1]) max=fc[i][1]
+    if(min>fc[i]) min=fc[i]
+    if(max<fc[i]) max=fc[i]
   }
   max++
   yRange=max-min
-  c.textAlign = "right"
-  c.textBaseline = "middle"
+  c.textAlign="right"
+  c.textBaseline="middle"
   c.fillStyle='black'
 
   // right legend
-  for(i = min; i<max; i+=(yRange/8) )
-    c.fillText(i.toFixed(1), graph2.width()-6, getYPixel2(i))
-  c.fillText('Out', graph2.width()-6, 6)
+  for(i=min;i<max;i+=(yRange/8))
+    c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
+  c.fillText('Out',graph2.width()-6,6)
 
-  c.textAlign = "left"
+  c.textAlign="left"
   iRng=iMax-iMin
-  c.fillText(iMax/10, 6, getYPixel3(iMax))
-  c.fillText(iMin/10, 6, getYPixel3(iMin))
+  c.fillText(iMax/10,6,getYPixel3(iMax))
+  c.fillText(iMin/10,6,getYPixel3(iMin))
 
   c.fillStyle='#40404050'
   w=graph2.width()-xPadding*2
@@ -1149,17 +1146,17 @@ function drawFC(){
 
   // temp lines
   c.fillStyle="red"
-  date = new Date(fc[0][0]*1000)
+  date = new Date(fcDate*1000)
   dt=date.getDate()
-  fl=(fc[fc.length-1][0]-fc[0][0])/60
+  fl=(fcDate+fcFreq*(fc.length-1))/60
   cPos=0
-  for(i=1; i<fc.length; i++){
-  c.strokeStyle=(fc[i][1]<32)?"blue":"red"
+  for(i=1;i<fc.length;i++){
+  c.strokeStyle=(fc[i]<32)?"blue":"red"
   c.beginPath()
-  c.moveTo(getXPixel2(i), getYPixel2(fc[i][1]))
-  c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1][1]))
+  c.moveTo(getXPixel2(i), getYPixel2(fc[i]))
+  c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1]))
   c.stroke()
-  date = new Date(fc[i][0]*1000)
+  date = new Date((fcDate+fcFreq*i)*1000)
   if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
   {
     dif=(date.valueOf()-(new Date().valueOf()))/60000
@@ -1191,11 +1188,11 @@ function drawFC(){
   c.beginPath()
   strt=cPos-fcr
   if(strt<0) strt=0
-  c.moveTo(getXPixel2(strt)-xOff, getTT(strt,0))
-  for(i=strt+1; i<=cPos+fcr; i++)
-    c.lineTo(getXPixel2(i)-xOff, getTT(i,0))
-  for(i=cPos+fcr; i>=strt; i--)
-    c.lineTo(getXPixel2(i)-xOff, getTT(i,(md==2)?ct:-ct))
+  c.moveTo(getXPixel2(strt)-xOff,getTT(strt,0))
+  for(i=strt+1;i<=cPos+fcr;i++)
+    c.lineTo(getXPixel2(i)-xOff,getTT(i,0))
+  for(i=cPos+fcr;i>=strt;i--)
+    c.lineTo(getXPixel2(i)-xOff,getTT(i,(md==2)?ct:-ct))
   c.closePath()
   c.fill()
 }
@@ -1211,7 +1208,7 @@ function getYPixel2(val){
 }
 function getYPixel3(val){
   h=graph2.height()-18
-  o=60+ct*2
+  o=70+ct*2
   return h-(o/2)-((h-o)/iRng*(val-iMin))
 }
 function getTT(i,th)
@@ -1223,13 +1220,13 @@ function getTT(i,th)
   for(j=strt1;j<i+fcr;j++)
   {
     if(j<fc.length){
-      if(min2>fc[j][1]) min2=fc[j][1]
-      if(max2<fc[j][1]) max2=fc[j][1]
+      if(min2>fc[j]) min2=fc[j]
+      if(max2<fc[j]) max2=fc[j]
     }
   }
-  tt=(fc[i][1]-min2)*iRng/(max2-min2)+iMin+th
+  tt=(fc[i]-min2)*iRng/(max2-min2)+iMin+th
   h=graph2.height()-18
-  o=60+ct*2
+  o=70+ct*2
   return h-(o/2)-((h-o)/iRng*(tt-iMin))
 }
 </script>
@@ -1303,64 +1300,6 @@ function getTT(i,th)
 </div>
 </body>
 </html>
-)rawliteral";
-
-const char page_styles[] PROGMEM = R"rawliteral(
-table{
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -ms-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -o-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
-background-image: linear-gradient(top, #efffff, #a0a0a0);
-background-clip: padding-box;
-}
-input{
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -ms-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -o-linear-gradient(top, #efffff, #a0a0a0);
-background-image: -webkit-linear-gradient(top, #efffff, #a0a0a0);
-background-image: linear-gradient(top, #efffff, #a0a0a0);
-background-clip: padding-box;
-}
-.style1{border-width: 0;}
-.style2{text-align: left;}
-.style3 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0a0);
-background-image: linear-gradient(top, #4f4f4f, #50a0a0);
-background-clip: padding-box;
-}
-.style4 {
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -ms-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -o-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: -webkit-linear-gradient(top, #4f4f4f, #50a0ff);
-background-image: linear-gradient(top, #4f4f4f, #50a0ff);
-background-clip: padding-box;
-}
-.style5 {
-border-radius: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -webkit-linear-gradient(top, #f0a0e0, #d0a0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
-}
 )rawliteral";
 
 const uint8_t favicon[] PROGMEM = {
