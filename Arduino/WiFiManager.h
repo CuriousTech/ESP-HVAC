@@ -11,10 +11,13 @@
 
 #ifndef WiFiManager_h
 #define WiFiManager_h
-
+#ifdef ESP32
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#else
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
-
+#endif
 #define DEBUG //until arduino ide can include defines at compile time from main sketch
 
 #ifdef DEBUG
