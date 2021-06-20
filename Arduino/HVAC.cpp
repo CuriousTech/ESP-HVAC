@@ -24,11 +24,11 @@ HVAC::HVAC()
   pinMode(P_HUMID, OUTPUT);
   pinMode(P_HEAT, OUTPUT);
 
-  digitalWrite(P_FAN, LOW);
-  digitalWrite(P_HEAT, LOW);
-  digitalWrite(P_REV, LOW); // LOW = HEAT, HIGH = COOL
-  digitalWrite(P_COOL, LOW);
-  digitalWrite(P_HUMID, HIGH); // LOW = ON
+  digitalWrite(P_FAN, FAN_OFF);
+  digitalWrite(P_HEAT, HEAT_OFF);
+  digitalWrite(P_REV, REV_OFF); // LOW = HEAT, HIGH = COOL
+  digitalWrite(P_COOL, COOL_OFF);
+  digitalWrite(P_HUMID, HUMID_OFF); // LOW = ON
 }
 
 void HVAC::init()
@@ -46,7 +46,7 @@ void HVAC::fanSwitch(bool bOn)
   if(bOn == m_bFanRunning)
     return;
 
-  digitalWrite(P_FAN, bOn ? HIGH:LOW);
+  digitalWrite(P_FAN, bOn ? FAN_ON:FAN_OFF);
   m_bFanRunning = bOn;
   if(bOn)
   {
@@ -65,7 +65,7 @@ void HVAC::fanSwitch(bool bOn)
 void HVAC::humidSwitch(bool bOn)
 {
   if(m_bHumidRunning == bOn) return;
-  digitalWrite(P_HUMID, bOn ? LOW:HIGH); // turn humidifier on
+  digitalWrite(P_HUMID, bOn ? HUMID_ON:HUMID_OFF); // turn humidifier on
   m_bHumidRunning = bOn;
   if(bOn)
     m_humidTimer++;
@@ -92,9 +92,9 @@ void HVAC::filterInc()
 // Failsafe: shut everything off
 void HVAC::disable()
 {
-  digitalWrite(P_HEAT, LOW);
-  digitalWrite(P_COOL, LOW);
-  digitalWrite(P_HUMID, HIGH);
+  digitalWrite(P_HEAT, HEAT_OFF);
+  digitalWrite(P_COOL, COOL_OFF);
+  digitalWrite(P_HUMID, HUMID_OFF);
   fanSwitch(false);
   m_bHumidRunning = false;
   m_bRunning = false;
@@ -193,33 +193,33 @@ void HVAC::service()
     {
       case Mode_Cool:
         fanSwitch(true);
-        if(digitalRead(P_REV) != HIGH)
+        if(digitalRead(P_REV) != REV_ON)
         {
-          digitalWrite(P_REV, HIGH);  // set heatpump to cool (if heats, reverse this)
+          digitalWrite(P_REV, REV_ON);  // set heatpump to cool (if heats, reverse this)
           delay(2000);                //   if no heatpump, remove
         }
-        digitalWrite(P_COOL, HIGH);
+        digitalWrite(P_COOL, COOL_ON);
         m_bRunning = true;
         break;
     case Mode_Heat:
         if(hm == Heat_NG)  // gas
         {
-          if(digitalRead(P_COOL))
+          if(digitalRead(P_COOL) == COOL_ON)
             WsSend("print;Error: NG heat start conflict");
           else
-            digitalWrite(P_HEAT, HIGH);
+            digitalWrite(P_HEAT, HEAT_ON);
         }
         else
         {
           fanSwitch(true);
-          if(!digitalRead(P_HEAT))
+          if(!digitalRead(P_HEAT) == HEAT_ON)
           {
-            if(digitalRead(P_REV) != LOW)  // set heatpump to heat (if cools, reverse this)
+            if(digitalRead(P_REV) != REV_OFF)  // set heatpump to heat (if cools, reverse this)
             {
-              digitalWrite(P_REV, LOW);
+              digitalWrite(P_REV, REV_OFF);
               delay(2000);
             }
-            digitalWrite(P_COOL, HIGH);
+            digitalWrite(P_COOL, COOL_ON);
           }
         }
         m_bRunning = true;
@@ -232,8 +232,8 @@ void HVAC::service()
   if(m_bStop && m_bRunning)             // Stop signal occurred
   {
     m_bStop = false;
-    digitalWrite(P_COOL, LOW);
-    digitalWrite(P_HEAT, LOW);
+    digitalWrite(P_COOL, COOL_OFF);
+    digitalWrite(P_HEAT, HEAT_OFF);
 
     costAdd(m_cycleTimer, mode, hm);
     m_cycleTimer = 0;
@@ -345,9 +345,14 @@ void HVAC::tempCheck()
     {
       if(m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard invalid sensor data
       {
+        if( m_Sensor[i].flags & SNS_EN )
+        {
+          String s = "print;Sensor range error ";
+          s += m_Sensor[i].temp;
+          WsSend(s);
+        }
         m_Sensor[i].flags &= ~SNS_EN; // deactivate sensor
         m_Sensor[i].temp = 0;
-        WsSend("print;Sensor range error");
       }
       else if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
       {
@@ -506,10 +511,10 @@ void HVAC::calcTargetTemp(int mode)
 {
   if(!m_bRunning)
   {
-    if(digitalRead(P_REV) == LOW && (mode == Mode_Cool) )  // set heatpump to cool if cooling
-      digitalWrite(P_REV, HIGH);
-    else if(digitalRead(P_REV) == HIGH && (mode == Mode_Heat) )  // set heatpump to heat if heating
-      digitalWrite(P_REV, LOW);
+    if(digitalRead(P_REV) == REV_OFF && (mode == Mode_Cool) )  // set heatpump to cool if cooling
+      digitalWrite(P_REV, REV_ON);
+    else if(digitalRead(P_REV) == REV_ON && (mode == Mode_Heat) )  // set heatpump to heat if heating
+      digitalWrite(P_REV, REV_OFF);
   }
   int16_t L = m_outMin * 10;
   int16_t H = m_outMax * 10;
