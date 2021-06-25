@@ -22,7 +22,10 @@ SOFTWARE.
 */
 
 // Build with Arduino IDE 1.8.10 and esp8266 SDK 2.4.2 1M (64K SPIFFS)
+#ifdef ESP32
+#else
 #include <ESP8266mDNS.h>
+#endif
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
@@ -44,12 +47,17 @@ SOFTWARE.
 //#include <DallasTemperature.h> //DallasTemperature from library mamanger
 
 //----- Pin Configuration - See HVAC.h for the rest -
-#define ESP_LED   2  //Blue LED on ESP07 (on low) also SCL
+#ifdef ESP32
+#define SDA      21
+#define SCL      22
+#define ENC_A    16
+#define ENC_B    4
+#else // ESP8266 pins
 #define SDA       2
 #define SCL      13
-
 #define ENC_A    5  // Encoder is on GPIO4 and 5
 #define ENC_B    4
+#endif
 //------------------------
 
 //extern AsyncEventSource events; // event source (Server-Sent events)
@@ -76,6 +84,7 @@ const unsigned int ds18reqdelay = 5000; //request every 5 seconds
 unsigned long ds18reqlastreq;
 OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
+RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 2s intervals
 #endif
 
 UdpTime utime;
@@ -121,6 +130,9 @@ void setup()
   startServer();
   hvac.init();
   display.init();
+
+  ee.bCelcius = false; // Force F for now
+
 #ifdef SHT21_H
   sht.init();
 #endif
@@ -156,7 +168,7 @@ void loop()
 #ifdef SHT21_H
   if(sht.service())
   {
-    tempMedian.add(sht.getTemperatureF() * 10);
+    tempMedian.add((ee.bCelcius ? sht.getTemperatureC():sht.getTemperatureF()) * 10);
     float temp;
     if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
       hvac.updateIndoorTemp( temp, sht.getRh() * 10 );
@@ -165,10 +177,10 @@ void loop()
 #endif
 #ifdef DallasTemperature_h
   if(ds18lastreq > 0 && millis() - ds18lastreq >= ds18delay) { //new temp is ready
-    tempMedian.add(ds18.getTempF(ds18addr));
+    tempMedian.add((ee.bCelcius ? ds18.getTempC(ds18addr):ds18.getTempF(ds18addr)) );
     ds18lastreq = 0; //prevents this block from firing repeatedly
     float temp;
-    if (tempMedian.getMedian(temp) == tempMedian.OK) {
+    if (tempMedian.getAverage(temp) == tempMedian.OK) {
       hvac.updateIndoorTemp( temp * 10, 500); //fake 50%
     }
   }
@@ -190,7 +202,11 @@ void loop()
     static uint8_t read_delay = 2;
     if(--read_delay == 0)
     {
-      int16_t temp = (dht.toFahrenheit(dht.getTemperature()) * 10);
+      float temp;
+      if(ee.bCelcius)
+        temp = dht.getTemperature() * 10;
+      else
+        temp = dht.toFahrenheit(dht.getTemperature()) * 10;
 
       if(dht.getStatus() == DHT::ERROR_NONE)
       {
