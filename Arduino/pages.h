@@ -425,9 +425,11 @@ function setVar(varName, value)
 
 function setSnd(n,v)
 {
-  snd[n][3]^=1<<v;
   setVar('rmtid',snd[n][0])
-  setVar('rmtflg',snd[n][3])
+  flg=(snd[n][3]&1<<v)?0x100:0;
+  flg|=1<<v
+  snd[n][3]^=1<<v
+  setVar('rmtflg',flg)
   setSenders()
 }
 
