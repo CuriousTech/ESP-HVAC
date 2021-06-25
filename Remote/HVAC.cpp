@@ -217,7 +217,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   switch(mode)
   {
     case Mode_Cool:
-      if(Temp < 650 || Temp > 950)    // ensure sane values
+      if(Temp < (ee.bCelcius ? 180:650) || Temp > (ee.bCelcius ? 350:950) )   // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -229,12 +229,12 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.coolTemp[1] = max((int)ee.coolTemp[0], (int)ee.coolTemp[1]);
       }
       save = ee.heatTemp[1] - ee.heatTemp[0];
-      ee.heatTemp[1] = min((int)ee.coolTemp[0] - 20, (int)ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
+      ee.heatTemp[1] = min((int)ee.coolTemp[0] - (ee.bCelcius ? 11:20), (int)ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
       ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
       break;
     case Mode_Heat:
-      if(Temp < 630 || Temp > 860)    // ensure sane values
+      if(Temp < (ee.bCelcius ? 170:630) || Temp > (ee.bCelcius ? 360:860) )   // ensure sane values
         break;
       ee.heatTemp[hl] = Temp;
       if(hl)
@@ -246,7 +246,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.heatTemp[1] = max(ee.heatTemp[0], ee.heatTemp[1]);
       }
       save = ee.coolTemp[1] - ee.coolTemp[0];
-      ee.coolTemp[0] = max(ee.heatTemp[1] - 20, (int)ee.coolTemp[0]);
+      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.bCelcius ? 11:20), (int)ee.coolTemp[0]);
       ee.coolTemp[1] = ee.coolTemp[0] + save;
       break;
   }
@@ -430,6 +430,9 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       break;
     case 18:
       ee.rhLevel[1] = iValue;
+      break;
+    case 19: // tu
+      ee.bCelcius = iValue;
       break;
   }
 }
