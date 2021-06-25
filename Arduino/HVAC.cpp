@@ -343,7 +343,7 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IPID)
     {
-      if(m_Sensor[i].temp < 650 || m_Sensor[i].temp > 990) // disregard invalid sensor data
+      if(m_Sensor[i].temp < (ee.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.bCelcius ? 370:990)) // disregard invalid sensor data
       {
         if( m_Sensor[i].flags & SNS_EN )
         {
@@ -356,7 +356,11 @@ void HVAC::tempCheck()
       }
       else if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
       {
-        WsSend("print;Warning: Sensor data expired");
+        if( (m_Sensor[i].flags & SNS_WARN) == 0)
+        {
+          m_Sensor[i].flags |= SNS_WARN;
+          WsSend("print;Warning: Sensor data expired");
+        }
         // Just ingore for the moment
         if(now() - m_Sensor[i].tm > 60*60) // 1 hour
         {
@@ -366,6 +370,7 @@ void HVAC::tempCheck()
       }
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
+         m_Sensor[i].flags &= ~SNS_WARN;
          sensTemp = m_Sensor[i].temp;
          sensCnt = 1;
          bSensPriority = true;
@@ -373,6 +378,7 @@ void HVAC::tempCheck()
       }
       else if(m_Sensor[i].flags & SNS_EN)
       {
+         m_Sensor[i].flags &= ~SNS_WARN;
          sensTemp += m_Sensor[i].temp;
          sensCnt++;
       }
@@ -543,10 +549,10 @@ void HVAC::calcTargetTemp(int mode)
   {
     case Mode_Off:
     case Mode_Cool:
-      m_targetTemp = constrain(m_targetTemp, 650, 980); // more safety (after override/away of up to +/-15)
+      m_targetTemp = constrain(m_targetTemp, (ee.bCelcius ? 180:650), (ee.bCelcius ? 370:980) ); // more safety (after override/away of up to +/-15)
       break;
     case Mode_Heat:
-      m_targetTemp = constrain(m_targetTemp, 590, 860);
+      m_targetTemp = constrain(m_targetTemp, (ee.bCelcius ? 150:590), (ee.bCelcius ? 300:860) );
       break;
   }
 }
@@ -671,7 +677,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
       break;
  
     case Mode_Cool:
-      if(Temp < 650 || Temp > 950)    // ensure sane values
+      if(Temp < (ee.bCelcius ? 180:650) || Temp > (ee.bCelcius ? 350:950) )    // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -683,7 +689,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.coolTemp[1] = max(ee.coolTemp[0], ee.coolTemp[1]);
       }
       save = ee.heatTemp[1] - ee.heatTemp[0];
-      ee.heatTemp[1] = min(ee.coolTemp[0] - 20, ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
+      ee.heatTemp[1] = min(ee.coolTemp[0] - (ee.bCelcius ? 11:20), ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
       ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
       if(ee.Mode == Mode_Cool)
@@ -691,7 +697,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
 
       break;
     case Mode_Heat:
-      if(Temp < 630 || Temp > 860)    // ensure sane values
+      if(Temp < (ee.bCelcius ? 170:630) || Temp > (ee.bCelcius ? 360:860) )    // ensure sane values
         break;
       ee.heatTemp[hl] = Temp;
       if(hl)
@@ -703,7 +709,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.heatTemp[1] = max(ee.heatTemp[0], ee.heatTemp[1]);
       }
       save = ee.coolTemp[1] - ee.coolTemp[0];
-      ee.coolTemp[0] = max(ee.heatTemp[1] - 20, ee.coolTemp[0]);
+      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.bCelcius ? 11:20), ee.coolTemp[0]);
       ee.coolTemp[1] = ee.coolTemp[0] + save;
 
       if(ee.Mode == Mode_Heat)
@@ -837,6 +843,7 @@ String HVAC::settingsJson()
   js.Var("fim", ee.fanIdleMax);
   js.Var("far", ee.fanAutoRun);
   js.Var("sm", ee.nSchedMode);
+  js.Var("tu", ee.bCelcius);
   return js.Close();
 }
 
@@ -945,6 +952,7 @@ const char *cmdList[] = { "cmd",
   "rmtname",
   "rmt",
   "sm",
+  "tu", // 50
   NULL
 };
 
@@ -996,7 +1004,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.idleMin = constrain(val, 60, 60*30); // Limit 1 to 30 minutes
       break;
     case 9:    // cyclethresh
-      ee.cycleThresh[ee.Mode == Mode_Heat] = constrain(val, 5, 50); // Limit 0.5 to 5.0 degrees
+      ee.cycleThresh[ee.Mode == Mode_Heat] = constrain(val, (ee.bCelcius ? 2:5), (ee.bCelcius ? 28:50) ); // Limit 0.5 to 5.0 degrees
       break;
     case 10:    // cooltempl
       setTemp(Mode_Cool, val, 0);
@@ -1015,7 +1023,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       m_bRecheck = true;
       break;
     case 14:    // eheatthresh
-      ee.eHeatThresh = constrain(val, 5, 50); // Limit 5 to 50 degrees F
+      ee.eHeatThresh = constrain(val, (ee.bCelcius ? 2:5), (ee.bCelcius ? 28:50) ); // Limit 5 to 50 degrees F
       break;
     case 15:    // override
       if(val == 0)    // cancel
@@ -1025,7 +1033,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       }
       else
       {
-        m_ovrTemp = constrain(val, -99, 99); // Limit to +/-9.9 degrees F
+        m_ovrTemp = constrain(val, (ee.bCelcius ? -50:-99),(ee.bCelcius ? 50:99) ); // Limit to +/-9.9 degrees F
         m_overrideTimer = ee.overrideTime;
       }
       m_bRecheck = true;
@@ -1043,7 +1051,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.rhLevel[1] = constrain(val, 300, 900);
       break;
     case 20: // adj
-      ee.adj = constrain(val, -80, 10); // calibrate can only be -8.0 to +1.0
+      ee.adj = constrain(val, (ee.bCelcius ? -44:-80), (ee.bCelcius ? 5:10) ); // calibrate can only be -8.0 to +1.0
       break;
     case 21:     // fanPretime
       ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
@@ -1059,9 +1067,9 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       break;
     case 25: // awaydelta
       if(ee.Mode == Mode_Heat)
-        ee.awayDelta[1] = constrain(val, -150, 0); // Limit to -15 degrees (heat away) target is constrained in calcTargetTemp
+        ee.awayDelta[1] = constrain(val, (ee.bCelcius ? -83:-150), 0); // Limit to -15 degrees (heat away) target is constrained in calcTargetTemp
       else
-        ee.awayDelta[0] = constrain(val, 0, 150); // Limit +15 degrees (cool away)
+        ee.awayDelta[0] = constrain(val, 0, (ee.bCelcius ? 83:150) ); // Limit +15 degrees (cool away)
       break;
     case 26: // away (uses the override feature)
       if(val) // away
@@ -1119,7 +1127,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.furnacePost = val;
       break;
     case 41: // dl
-      ee.diffLimit = constrain(val, 150, 350);
+      ee.diffLimit = constrain(val, (ee.bCelcius ? 83:150), (ee.bCelcius ? 194:350) );
       break;
     case 42:
       break;
@@ -1128,15 +1136,22 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       break;
     case 44: // rmttemp
       m_snsIdx = getSensorID(ip[3]);
-      m_Sensor[m_snsIdx].temp = val; // check later
+      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.bCelcius == false)
+        val = val*90/50+320;
+      else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.bCelcius)
+        val = (val-320)*50/90;
+      m_Sensor[m_snsIdx].temp = val;
       m_Sensor[m_snsIdx].tm = now();
       break;
     case 45: // rmtrh
       m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].rh = val;
       break;
-    case 46: // rmtflg (uses rmtid)
-      m_Sensor[m_snsIdx].flags = val;
+    case 46: // rmtflg (uses last referenced rmtid)
+      if(val & SNS_NEG)
+        m_Sensor[m_snsIdx].flags &= ~(val & 0xFF);
+      else
+        m_Sensor[m_snsIdx].flags |= (val & 0xFF);
       break;
     case 47: // rmtname
       m_snsIdx = getSensorID(ip[3]);
@@ -1149,6 +1164,10 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       break;
     case 49: // sm
       ee.nSchedMode = constrain(val, 0, 2);
+      break;
+    case 50: // tu
+      ee.bCelcius = val ? true:false;
+      m_bRecheck = true;
       break;
   }
 }
