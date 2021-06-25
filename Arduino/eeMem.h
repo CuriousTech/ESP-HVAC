@@ -37,7 +37,8 @@ struct eeSet // EEPROM backed data
   uint16_t rhLevel[2];  // rh low/high
   int16_t  awayDelta[2]; // temp offset in away mode[cool][heat]
   uint16_t awayTime;    // time limit for away offset (in minutes)
-  uint16_t reserved1;
+  bool     bCelcius;
+  bool     reserved1;
   uint8_t  hostIp[4];
   uint16_t  hostPort;
   char     zipCode[8];  // Your zipcode
@@ -56,9 +57,9 @@ struct eeSet // EEPROM backed data
   uint16_t furnaceWatts; // inducer motor mostly
   uint16_t humidWatts;
   uint16_t furnacePost;
-  uint8_t remoteIP[4]; // future use
-  uint16_t remotePort;
-  char     remotePath[32];
+  uint8_t reserved2[4]; // future use
+  uint16_t reserved3;
+  char     reserved4[32];
   uint16_t diffLimit;  // in/out thermal differential limit
   int16_t  fcOffset[2]; // forecast offset adjust
   uint16_t fanIdleMax; // in minutes
