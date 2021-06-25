@@ -101,6 +101,9 @@ private:
   uint16_t m_temp_counter = 2*60;
   uint8_t m_btnMode;
   uint8_t m_btnDelay;
+  int m_tempLow; // 66.0 base
+  int m_tempHigh; // 90.0 top
+  int m_tempMax;
 public:
   uint32_t m_lastPDate;
   forecastData m_fc;
