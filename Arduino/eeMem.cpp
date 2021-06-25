@@ -4,11 +4,11 @@
 eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID (place your SSID and password here)
   "", // router password
-  {850, 860},   // 87.0, 90.0 default cool temps
-  {740, 750},   // default heat temps
-  {28, 8},     // cycleThresh (cool 0.5, heat 0.8)
+  {850, 860},   // 87.0, 90.0 default cool temps  F/C issue
+  {740, 750},   // default heat temps             F/C issue
+  {28, 8},     // cycleThresh (cool 0.5, heat 0.8) F/C issue
   0,            // Mode
-  33,           // heatThresh (under 33F is gas)
+  33,           // heatThresh (under 33F is gas)  F/C issue
   60*4,         // 5 mins minimum for a cycle
   60*30,        // 30 minutes maximun for a cycle
   60*8,         // idleMin 8 minutes minimum between cycles
@@ -21,9 +21,10 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   0,            // temp reading offset adjust
   0,            // humidMode
   {450, 750},   // rhLevel 45.0%, 75%
-  {40, -40},    // awayDelta cool, heat 4.0
+  {40, -40},    // awayDelta cool, heat 4.0      F/C issue
   60*8,         // awayTime (minutes)
-  60*30,        // fanCycleTime 30 mins
+  false,        // Celcius
+  false,        // reserved
   {192,168,31,100}, // hostIp 192.168.0.105
   80,           // host port
   "41042",      // zipCode
@@ -42,10 +43,10 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   220,          // furnaceWatts (1.84A inducer)
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
-  {0,0,0,0},    // remoteIP
-  0,            // remote port
-  {0},          // remote path
-  300,          // set to 30 deg differential cooling limit
+  {0,0,0,0},    // 
+  0,            // 
+  {0},          // 
+  300,          // set to 30 deg differential cooling limit    F/C issue
   {-180,0},     // forecast offset in minutes (cool, heat)
   120,          // fan idle max
   10,           // fan auto run
