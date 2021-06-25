@@ -9,12 +9,13 @@ Forecast::Forecast()
   m_ac.onData([](void* obj, AsyncClient* c, void* data, size_t len) { (static_cast<Forecast*>(obj))->_onData(c, static_cast<char*>(data), len); }, this);
 }
 
-void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd)
+void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool bCelcius)
 {
     if(m_ac.connected())
       return;
     m_pfd = pfd;
     m_bDone = false;
+    m_bCelcius = bCelcius;
     m_serverIP = serverIP;
     m_ac.connect(serverIP, port);
 }
