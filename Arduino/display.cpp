@@ -264,6 +264,9 @@ void Display::checkNextion() // all the Nextion recieved commands
       }
       screen(true); // back to main page
       break;
+    case 0x24:
+      WsSend("print;Nextion buffer overflow");
+      break;
   }
 }
 
@@ -413,7 +416,7 @@ void Display::drawForecast(bool bRef)
     }
 
     if(tmin == tmax) tmax++;   // div by 0 check
-   
+
   int16_t y = Fc_Top+1;
   int16_t incy = (Fc_Height-4) / 3;
   int16_t dec = (tmax - tmin)/3;
@@ -894,7 +897,7 @@ void Display::addGraphPoints()
     m_lastPDate = pdate;
   p->bits.tmdiff = pdate - m_lastPDate;
   m_lastPDate = pdate;
-  p->t.inTemp = hvac.m_inTemp; // 66~90 scale to 0~220
+  p->t.inTemp = hvac.m_inTemp;
   if(hvac.m_modeShadow == Mode_Heat)
     p->t.target = hvac.m_targetTemp;
   else // cool
@@ -911,31 +914,42 @@ void Display::addGraphPoints()
   m_points[m_pointsIdx].t.u = 0xFFFFFFFF; // mark as invalid data/end
 }
 
-// Draw the last 25 hours (todo: add run times)
+// Draw the last 25 hours
 void Display::fillGraph()
 {
+  m_tempHigh = (ee.bCelcius ? 370:990);
+  m_tempLow = (ee.bCelcius ? 240:750);
+
+  int tempMin = minPointVal(0);
+  if(tempMin < (ee.bCelcius ? 240:750) )
+  {
+    m_tempHigh = (ee.bCelcius ? 320:890);
+    m_tempLow = (ee.bCelcius ? 180:650);
+  }
+  int tmpInc = (m_tempHigh - m_tempLow) / 4;
   uint16_t textcolor = rgb16(0, 63, 31);
-  nex.text(292, 219, 2, textcolor, String(66));
-  nex.line( 10, 164+8, 310, 164+8, rgb16(10, 20, 10) );
-  nex.text(292, 164, 2, textcolor, String(72));
-  nex.line( 10, 112+8, 310, 112+8, rgb16(10, 20, 10) );
-  nex.text(292, 112, 2, textcolor, String(78));
-  nex.line( 10,  58+8, 310,  58+8, rgb16(10, 20, 10) );
-  nex.text(292, 58, 2, textcolor, String(84));
-  nex.text(292,  8, 2, textcolor, String(90));
-  delay(3);
+  int temp = m_tempLow;
+  int y = 216;
+  for(int i = 0; i < 5; i++)
+  {
+    nex.text(302, y, 2, textcolor, String(temp / 10) );
+    if(i>0) nex.line( 10, y+8, 310, y+8, rgb16(10, 20, 10) );
+    y -= 53;
+    temp += tmpInc;
+    delay(1);
+  }
 
   int x = 310 - (minute() / 5); // center over even hour, 5 mins per pixel
   int h = hourFormat12();
 
-  while(x > 10)
+  while(x > 12 * 6)
   {
-    nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
-    delay(2);
-    nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
     x -= 12 * 6; // left 6 hours
     h -= 6;
     if( h <= 0) h += 12;
+    nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
+    delay(2);
+    nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
   }
   yield();
   delay(3);
@@ -955,8 +969,6 @@ void Display::drawPoints(int w, uint16_t color)
   const int yOff = 240-10;
   int y, y2;
 
-  const int base = 660; // 66.0 base
-
   for(int x = 309, x2 = 310; x >= 10; x--)
   {
     if(m_points[i].t.u == 0xFFFFFFFF)
@@ -967,7 +979,7 @@ void Display::drawPoints(int w, uint16_t color)
       case 1: y = m_points[i].t.target; break;
     }
 
-    y = (constrain(y, base, 900) - base) * 101 / 110; // 660~900 scale to 0~220
+    y = (constrain(y, m_tempLow, m_tempHigh) - m_tempLow) * 220 / (m_tempHigh-m_tempLow); // scale to 0~220
 
     if(y != y2)
     {
@@ -1015,7 +1027,6 @@ void Display::drawPointsRh(uint16_t color)
 
 void Display::drawPointsTemp()
 {
-  const int base = 660; // 66.0 base
   const int yOff = 240-10;
   int y, y2;
   int x2 = 310;
@@ -1027,7 +1038,7 @@ void Display::drawPointsTemp()
   {
     if(m_points[i].t.u == 0xFFFFFFFF)
       break; // end
-    y = (constrain(m_points[i].t.inTemp, base, 900) - base) * 101 / 110;
+    y = (constrain(m_points[i].t.inTemp, m_tempLow, m_tempHigh) - m_tempLow) * 220 / (m_tempHigh-m_tempLow);
     if(y != y2)
     {
       if(x != 309) nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
@@ -1078,8 +1089,11 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
 int Display::minPointVal(int n)
 {
   int minv = 10000;
+  int maxv = -1000;
+  int i = m_pointsIdx - 1; // 0 = last entry
+  if(i < 0) i = GPTS-1;
 
-  for(int i = 0; i < GPTS; i++)
+  while(i != m_pointsIdx)
   {
     int val;
     if(m_points[i].t.u == 0xFFFFFFFF)
@@ -1094,6 +1108,10 @@ int Display::minPointVal(int n)
     }
     if(minv > val) 
       minv = val;
+    if(maxv < val) 
+      maxv = val;
+    if(--i < 0) i = GPTS-1;
   }
+  m_tempMax = maxv;
   return minv;
 }
