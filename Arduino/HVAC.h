@@ -95,10 +95,14 @@ enum HumidifierMode
   HM_Auto2,
 };
 
-#define SNS_PRI (1 << 0)
-#define SNS_EN (1 << 1)
-#define SNS_LO  (1 << 2)
-#define SNS_HI  (1 << 3)
+#define SNS_PRI   (1 << 0)
+#define SNS_EN    (1 << 1)
+#define SNS_C     (1 << 2)
+#define SNS_F     (1 << 3)
+#define SNS_LO    (1 << 4)
+#define SNS_HI    (1 << 5)
+#define SNS_WARN  (1 << 6)
+#define SNS_NEG   (1 << 8)
 
 struct Sensor
 {
@@ -108,7 +112,7 @@ struct Sensor
   int16_t temp;
   uint16_t rh;
   uint32_t ID; // hex text?
-  uint8_t pad;
+  uint8_t pad; // NULL for ID
 };
 
 class HVAC
@@ -166,8 +170,8 @@ public:
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
-#define SNS_CNT 7
-  Sensor m_Sensor[SNS_CNT]; // 0=remote, 1+=sensors
+#define SNS_CNT 6
+  Sensor m_Sensor[SNS_CNT]; // remote and sensors
 
 private:
   void  fanSwitch(bool bOn);
