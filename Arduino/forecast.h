@@ -21,7 +21,7 @@ class Forecast
 {
 public:
   Forecast(void);
-  void start(IPAddress serverIP, uint16_t port, forecastData *pfd);
+  void start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool bCelcius);
   bool checkStatus();
 private:
   void _onConnect(AsyncClient* client);
@@ -36,5 +36,6 @@ private:
   char *m_pBuffer = NULL;
   int m_bufIdx;
   bool m_bDone = false;
+  bool m_bCelcius;
 };
 #endif // FORECAST_H
