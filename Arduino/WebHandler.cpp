@@ -12,7 +12,6 @@
 #endif
 
 #include "WiFiManager.h"
-#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
 #include <FS.h>
 #include <ArduinoOTA.h>
@@ -283,7 +282,7 @@ void secondsServer() // called once per second
     display.m_bUpdateFcst = false;
     if(ee.bNotLocalFcst)
       GetForecast();
-    else localFC.start(ipFcServer, nFcPort, &display.m_fc);    // get preformatted data from local server
+    else localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.bCelcius);    // get preformatted data from local server
   }
   if(localFC.checkStatus())
   {
