@@ -21,7 +21,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.10 and esp8266 SDK 2.4.2 1M (64K SPIFFS)
+// Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1M (64K SPIFFS)
 #ifdef ESP32
 #else
 #include <ESP8266mDNS.h>
