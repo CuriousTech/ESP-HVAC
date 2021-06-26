@@ -18,6 +18,6 @@ void fc_onData(AsyncClient* client, char* data, size_t len);
 void fc_onDisconnect(AsyncClient* client);
 void fc_onTimeout(AsyncClient* client, uint32_t time);
 void historyDump(bool bStart);
-void appendDump(int startTime);
+void appendDump(uint32_t startTime);
 
 #endif // WEBHANDLER_H
