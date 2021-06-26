@@ -388,8 +388,6 @@ String dataJson()
   return hvac.getPushData();
 }
 
-bool bExt;
-
 void historyDump(bool bStart)
 {
   static bool bSending;
@@ -432,13 +430,11 @@ void historyDump(bool bStart)
     ws.text(WsClientID, js.Close());
   }
 
-  bExt = false;
-
   String out;
 #define CHUNK_SIZE 800
   out.reserve(CHUNK_SIZE + 100);
 
-  out = String("data;{\"d\":[");
+  out = "data;{\"d\":[";
 
   bool bC = false;
 
@@ -456,7 +452,7 @@ void historyDump(bool bStart)
     out += ",";
     out += gpt.t.target - lMin;
     out += ",";
-    out += gpt.bits.u & 7;
+    out += gpt.bits.u & 7; // state + fan
     out += ",";
     out += gpt.t.outTemp - otMin;
     if(gpt.t2.sens0 || gpt.t2.sens1)
@@ -486,25 +482,21 @@ void historyDump(bool bStart)
     ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
 }
 
-void appendDump(int startTime)
+void appendDump(uint32_t startTime)
 {
-  String out;
+  String out = "data2;{\"d\":[";
 
-  out.reserve(CHUNK_SIZE + 100);
-  out = String("data2;{\"d\":[");
+  uint32_t tb = display.m_lastPDate;
   bool bC = false;
   gPoint gpt;
 
-  uint32_t tb = display.m_lastPDate;
-
-  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx); entryIdx++)
+  for(int entryIdx = 0; entryIdx < GPTS - 1 && out.length() < CHUNK_SIZE && display.getGrapthPoints(&gpt, entryIdx) && tb > startTime; entryIdx++)
   {
-    int len = out.length();
     if(bC) out += ",";
     bC = true;
     out += "[";         // [seconds, temp, rh, lowThresh, state, outTemp],
     out += tb;
-    tb += gpt.bits.tmdiff;
+    tb -= gpt.bits.tmdiff;
     out += ",";
     out += gpt.t.inTemp;
     out += ",";
@@ -528,8 +520,6 @@ void appendDump(int startTime)
       }
     }
     out += "]";
-    if( out.length() == len) // memory full
-      break;
   }
   if(bC) // don't send blank
   {
