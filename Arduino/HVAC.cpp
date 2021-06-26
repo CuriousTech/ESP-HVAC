@@ -347,7 +347,9 @@ void HVAC::tempCheck()
       {
         if( m_Sensor[i].flags & SNS_EN )
         {
-          String s = "print;Sensor range error ";
+          String s = "print;";
+          s += m_Sensor[i].ID;
+          s += " sensor range error ";
           s += m_Sensor[i].temp;
           WsSend(s);
         }
@@ -359,7 +361,10 @@ void HVAC::tempCheck()
         if( (m_Sensor[i].flags & SNS_WARN) == 0)
         {
           m_Sensor[i].flags |= SNS_WARN;
-          WsSend("print;Warning: Sensor data expired");
+          String s = "print;";
+          s += m_Sensor[i].ID;
+          s += " sensor data expired";
+          WsSend(s);
         }
         // Just ingore for the moment
         if(now() - m_Sensor[i].tm > 60*60) // 1 hour
