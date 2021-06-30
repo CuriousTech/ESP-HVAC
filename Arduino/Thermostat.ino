@@ -38,13 +38,14 @@ SOFTWARE.
 #include "eeMem.h"
 #include "RunningMedian.h"
 
-//uncomment to swap Serial's pins to 15(TX) and 13(RX) that don't interfere with booting
+// ESP8266 uncomment to swap Serial's pins to 15(TX) and 13(RX) that don't interfere with booting
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
 
 // Uncomment only one of these
 #include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
 //#include <DallasTemperature.h> //DallasTemperature from library mamanger
+//#include <AM2320.h>
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #ifdef ESP32
@@ -85,6 +86,10 @@ unsigned long ds18reqlastreq;
 OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
 RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 2s intervals
+#endif
+#ifdef AM2303_H
+AM2320 am;
+RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 4s intervals
 #endif
 
 UdpTime utime;
@@ -145,6 +150,9 @@ void setup()
   ds18.requestTemperatures(); //fire off the first request
   ds18lastreq = millis();
   ds18delay = 750 / (1 << (12 - ds18Resolution)); //delay based on resolution
+#endif
+#ifdef AM2303_H
+  am.begin(SDA, SCL);
 #endif
   utime.start();
 }
@@ -213,6 +221,24 @@ void loop()
         tempMedian.add(temp);
         if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
           hvac.updateIndoorTemp( temp, dht.getHumidity() * 10);
+        }
+      }
+      read_delay = 5; // update every 5 seconds
+    }
+#endif
+#ifdef AM2303_H
+    static uint8_t read_delay = 2;
+    if(--read_delay == 0)
+    {
+      float temp;
+      float rh;
+      if(am.measure(temp, rh))
+      {
+        if(!ee.bCelcius)
+          temp = temp * 9 / 5 + 32;
+        tempMedian.add(temp * 10);
+        if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
+          hvac.updateIndoorTemp( temp, rh * 10 );
         }
       }
       read_delay = 5; // update every 5 seconds
