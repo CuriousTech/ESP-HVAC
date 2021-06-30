@@ -556,13 +556,13 @@ $(document).ready(function()
 {
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
- ws = new WebSocket("ws://"+window.location.host+"/ws")
-// ws = new WebSocket("ws://192.168.31.199/ws")
+ ws=new WebSocket("ws://"+window.location.host+"/ws")
+// ws=new WebSocket("ws://192.168.31.125/ws")
  ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
   console.log(evt.data)
-  lines = evt.data.split(';')
+  lines=evt.data.split(';')
   event=lines[0]
   data=lines[1]
   Json=JSON.parse(data)
@@ -656,7 +656,7 @@ $(document).ready(function()
  setInterval(function(){
   s=0
   if(arr.length) s=(arr[0][0]/1000).toFixed()
-  ws.send('cmd;{data:'+s+'}'); }, 60000);
+  ws.send('cmd;{data:'+s+'}'); }, 60000)
 });
 
 function draw(){
@@ -734,8 +734,8 @@ function draw(){
    for(i=1;i<arr.length;i++){
    c.strokeStyle=stateColor(arr[i][4])
    c.beginPath()
-   c.moveTo(getXPixel(i), getYPixel(arr[i][1]))
-   c.lineTo(getXPixel(i-1), getYPixel(arr[i-1][1]))
+   c.moveTo(getXPixel(i),getYPixel(arr[i][1]))
+   c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][1]))
    c.stroke()
    date=new Date(arr[i][0])
    if(dt!=date.getDate())
@@ -778,9 +778,9 @@ function draw(){
   if(drawMode&2){
   c.strokeStyle = '#0f0'
   c.beginPath()
-  c.moveTo(getXPixel(0), getRHPixel(arr[0][2]))
+  c.moveTo(getXPixel(0),getRHPixel(arr[0][2]))
   for(var i=1;i<arr.length;i ++)
-  c.lineTo(getXPixel(i), getRHPixel(arr[i][2]))
+  c.lineTo(getXPixel(i),getRHPixel(arr[i][2]))
   c.stroke()
   }
   var dots=[]
@@ -1138,6 +1138,7 @@ function drawFC(){
   c.fillText('Out',graph2.width()-6,6)
 
   c.textAlign="left"
+  if(iMax==iMin) iMax+=1
   iRng=iMax-iMin
   c.fillText(iMax/10,6,getYPixel3(iMax))
   c.fillText(iMin/10,6,getYPixel3(iMin))
@@ -1155,8 +1156,8 @@ function drawFC(){
   for(i=1;i<fc.length;i++){
   c.strokeStyle=(fc[i]<32)?"blue":"red"
   c.beginPath()
-  c.moveTo(getXPixel2(i), getYPixel2(fc[i]))
-  c.lineTo(getXPixel2(i-1), getYPixel2(fc[i-1]))
+  c.moveTo(getXPixel2(i),getYPixel2(fc[i]))
+  c.lineTo(getXPixel2(i-1),getYPixel2(fc[i-1]))
   c.stroke()
   date = new Date((fcDate+fcFreq*i)*1000)
   if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
