@@ -651,7 +651,7 @@ void Display::updateClock()
     return;
 
   nex.refreshItem("cl"); // erases lines
-  delay(9); // 8 flickers with latest FW, 5 fails
+  delay(27); // 25 or less has flicker with latest FW. 30 is good
   const float x = 159; // center
   const float y = 120;
   float x2,y2,x3,y3;
@@ -984,7 +984,6 @@ void Display::drawPoints(int w, uint16_t color)
     if(y != y2)
     {
       if(x != 309) nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(3);
       y2 = y;
       x2 = x;
     }
@@ -1018,7 +1017,6 @@ void Display::drawPointsRh(uint16_t color)
     if(y != y2)
     {
       nex.line(x, yOff - y, x2, yOff - y2, color);
-      delay(3);
       y2 = y;
       x2 = x;
     }
@@ -1042,7 +1040,6 @@ void Display::drawPointsTemp()
     if(y != y2)
     {
       if(x != 309) nex.line(x2, yOff - y2, x, yOff - y, stateColor(m_points[i].bits) );
-      delay(3);
       y2 = y;
       x2 = x;
     }
