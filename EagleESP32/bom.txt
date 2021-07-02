@@ -1,0 +1,43 @@
+PCB OSHPark $17.55 for 3
+
+ESP-32        eBay
+USB Micro-B   ZX62D-B-5PA8(30) or common eBay (remote only)
+Nextion HMI   2.8" eBay
+3V3R          MCP1755T-3302E/OT (see C11 for alternative)
+TXRX,LCD      0.1" headers. Use for serial programming ESP, debug, Nextion.
+4mm x 3mm tactile buttons eBay
+
+rh/temp sensor options:
+ AM2320      (larger 4 pin, i2c)
+ AM2322      (lower 4 pin, i2c)
+ SHT21       DFN-6
+ Si7021      cheaper DFN-6
+ Si7034      super cheap
+
+R1-R5     *  0805 470 (390 lowest)
+R6,R7     *  0805 470
+R8,R9        0805 10K
+R10,R11      0805 4K7
+R12          0805 10K (pullup in case 10K isn't removed from Nextion)
+R13,R15      0805 1K
+R14          0805 5K1
+
+F1        *  1812 PPTC Fuse 1.5A PTS181224V150
+BR        *  MDB6S
+VREG      *  LMR16006YQ5DDCRQ1
+L1        *  0805 6.8uH IFSC0806AZER6R8M01
+D1,D2    (*) SOT-223 NSVR0320MW2T1G
+C1 or C2  *  10uF+ 25V+ 5mm (25SEPF56M 56uF throughole)
+C3-C6     *  0805 16V 0.1uF
+C7        *  0805 16V 1uF
+C8        *  0805 16V 10uF
+C9           0603 16V 0.1uF (if SHTxx used)
+C10       *  0805 2.2uF
+C11	         0805 capacitor for (untested) alternative 3v3 regulator REG113NA-3.3/250G4
+
+Q1           PMV20ENR (for future speaker)
+SPK          20mm speaker
+K1-K5     *  G3VM-61GR2
+X1        *  39357-0008 (or 691322110008 and 691361100008) Screw terimal, 8 position 3.5mm pitch
+
+* Only for main controller
