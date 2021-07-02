@@ -1,4 +1,4 @@
-# ESP8266-HVAC
+# ESP-HVAC (ESP8266 & ESP-32)
 WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
 <b>2018 Model:</b> The new model was redesigned with a cooler switching regulator (~20mA idle, with a dim screen), smaller ($16.50 from OSHPark) more options for the temp/RH sensor, and the rotory encoder was removed, but has a header for an external encoder or buttons. The only difference in connections is the SCL/SDA were accidentaly reversed on the onboard SHTxx chip. Pics should be at the bottom. Not all parts are on it yet.
