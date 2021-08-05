@@ -13,6 +13,10 @@
 #include <TimeLib.h>
 #include "eeMem.h"
 #include "jsonstring.h"
+#ifdef USE_AUDIO
+#include "music.h"
+Music mus;
+#endif
 
 extern void WsSend(String s);
 
@@ -33,10 +37,10 @@ HVAC::HVAC()
 
 void HVAC::init()
 {
-  m_setMode = ee.Mode;
-  if(ee.Mode) m_modeShadow = ee.Mode;
+  m_setMode = ee.b.Mode;
+  if(ee.b.Mode) m_modeShadow = ee.b.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
-  m_setHeat = ee.heatMode;
+  m_setHeat = ee.b.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
 }
 
@@ -50,7 +54,7 @@ void HVAC::fanSwitch(bool bOn)
   m_bFanRunning = bOn;
   if(bOn)
   {
-    if(ee.humidMode == HM_Fan) // run humidifier when fan is on
+    if(ee.b.humidMode == HM_Fan) // run humidifier when fan is on
         humidSwitch(true);
   }
   else
@@ -114,7 +118,7 @@ void HVAC::service()
     m_fanIdleTimer = 0;   // fan auto run timer reset
   }
 
-  if(ee.Mode && !m_bRunning && !m_bFanRunning)
+  if(ee.b.Mode && !m_bRunning && !m_bFanRunning)
   {
     m_fanIdleTimer++;               // fan not running timer
     if(ee.fanIdleMax && ee.fanAutoRun && m_fanIdleTimer >= ee.fanIdleMax * 60)
@@ -167,22 +171,22 @@ void HVAC::service()
     m_idleTimer++;                     // Time since stopped
   }
 
-  if(m_setMode != ee.Mode || m_setHeat != ee.heatMode)    // requested HVAC mode change
+  if(m_setMode != ee.b.Mode || m_setHeat != ee.b.heatMode)    // requested HVAC mode change
   {
     if(m_bRunning)                   // cycleTimer is already > 20s here
       m_bStop = true;
     else if(m_idleTimer >= 5)        // User may be cycling through modes (give 5s)
     {
-      ee.heatMode = m_setHeat;
-      ee.Mode = m_setMode;
-      if(ee.Mode != Mode_Off)
-        m_modeShadow = ee.Mode;
+      ee.b.heatMode = m_setHeat;
+      ee.b.Mode = m_setMode;
+      if(ee.b.Mode != Mode_Off)
+        m_modeShadow = ee.b.Mode;
       calcTargetTemp(m_modeShadow);
     }
   }
 
-  int8_t hm = (ee.heatMode == Heat_Auto) ? m_AutoHeat : ee.heatMode; // true heat mode
-  int8_t mode = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode;      // true heat/cool mode
+  int8_t hm = (ee.b.heatMode == Heat_Auto) ? m_AutoHeat : ee.b.heatMode; // true heat mode
+  int8_t mode = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode;      // true heat/cool mode
 
   if(m_bStart && !m_bRunning)             // Start signal occurred
   {
@@ -225,7 +229,7 @@ void HVAC::service()
         m_bRunning = true;
         break;
     }
-    if(ee.humidMode == HM_Run)
+    if(ee.b.humidMode == HM_Run)
       humidSwitch(true);
   }
 
@@ -238,7 +242,7 @@ void HVAC::service()
     costAdd(m_cycleTimer, mode, hm);
     m_cycleTimer = 0;
 
-    if(ee.humidMode == HM_Run)      // shut off after heat/cool phase
+    if(ee.b.humidMode == HM_Run)      // shut off after heat/cool phase
       humidSwitch(false);
 
     if(m_bFanRunning && m_FanMode != FM_On ) // Note: furnace manages fan
@@ -331,7 +335,7 @@ void HVAC::tempCheck()
   if(m_bEnabled == false)    // hasn't been set yet
     return;
 
-  int8_t mode = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode;
+  int8_t mode = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode;
 
   int16_t tempL = m_localTemp;
   int16_t tempH = m_localTemp;
@@ -343,12 +347,12 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IPID)
     {
-      if(m_Sensor[i].temp < (ee.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.bCelcius ? 370:990)) // disregard invalid sensor data
+      if(m_Sensor[i].temp < (ee.b.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.b.bCelcius ? 370:990)) // disregard invalid sensor data
       {
         if( m_Sensor[i].flags & SNS_EN )
         {
           String s = "print;";
-          s += m_Sensor[i].ID;
+          s += (char *)&m_Sensor[i].ID;
           s += " sensor range error ";
           s += m_Sensor[i].temp;
           WsSend(s);
@@ -473,7 +477,7 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
   bool bRet = false;
 
   // Standard triggers for now
-  switch(ee.Mode)
+  switch(ee.b.Mode)
   {
     case Mode_Off:
       calcTargetTemp(m_modeShadow); // use last heat/cool mode to calc target
@@ -485,7 +489,7 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
     case Mode_Heat:
       calcTargetTemp(Mode_Heat);
       bRet = (tempL <= m_targetTemp);
-      if(ee.heatMode == Heat_Auto)
+      if(ee.b.heatMode == Heat_Auto)
       {
         if(m_outTemp < ee.eHeatThresh * 10)  // Use gas when efficiency too low for pump
           m_AutoHeat = Heat_NG;
@@ -504,7 +508,7 @@ bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
       {
         m_AutoMode = Mode_Heat;
         calcTargetTemp(Mode_Heat);
-        if(ee.heatMode == Heat_Auto)
+        if(ee.b.heatMode == Heat_Auto)
         {
           if(m_outTemp < ee.eHeatThresh * 10)  // Use gas when efficiency too low for pump
             m_AutoHeat = Heat_NG;
@@ -554,10 +558,10 @@ void HVAC::calcTargetTemp(int mode)
   {
     case Mode_Off:
     case Mode_Cool:
-      m_targetTemp = constrain(m_targetTemp, (ee.bCelcius ? 180:650), (ee.bCelcius ? 370:980) ); // more safety (after override/away of up to +/-15)
+      m_targetTemp = constrain(m_targetTemp, (ee.b.bCelcius ? 180:650), (ee.b.bCelcius ? 370:980) ); // more safety (after override/away of up to +/-15)
       break;
     case Mode_Heat:
-      m_targetTemp = constrain(m_targetTemp, (ee.bCelcius ? 150:590), (ee.bCelcius ? 300:860) );
+      m_targetTemp = constrain(m_targetTemp, (ee.b.bCelcius ? 150:590), (ee.b.bCelcius ? 300:860) );
       break;
   }
 }
@@ -567,9 +571,9 @@ uint8_t HVAC::getState()
   if( m_bRunning == false) return 0;
 
   // Check if NG furnace is running, which controls the fan automatically
-  uint8_t state = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode; // convert auto to just cool / heat
+  uint8_t state = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode; // convert auto to just cool / heat
 
-  if(state == Mode_Heat && ( ee.heatMode == Heat_NG || (ee.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
+  if(state == Mode_Heat && ( ee.b.heatMode == Heat_NG || (ee.b.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
     state = 3; // so logs will only be 1, 2 or 3.
 
   return state;
@@ -582,7 +586,7 @@ bool HVAC::getFanRunning()
 
 uint8_t HVAC::getMode()
 {
-  return ee.Mode;
+  return ee.b.Mode;
 }
 
 void HVAC::setHeatMode(int mode)
@@ -592,7 +596,7 @@ void HVAC::setHeatMode(int mode)
 
 uint8_t HVAC::getHeatMode()
 {
-  return ee.heatMode;
+  return ee.b.heatMode;
 }
 
 int8_t HVAC::getAutoMode()
@@ -682,7 +686,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
       break;
  
     case Mode_Cool:
-      if(Temp < (ee.bCelcius ? 180:650) || Temp > (ee.bCelcius ? 350:950) )    // ensure sane values
+      if(Temp < (ee.b.bCelcius ? 180:650) || Temp > (ee.b.bCelcius ? 350:950) )    // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -694,15 +698,15 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.coolTemp[1] = max(ee.coolTemp[0], ee.coolTemp[1]);
       }
       save = ee.heatTemp[1] - ee.heatTemp[0];
-      ee.heatTemp[1] = min(ee.coolTemp[0] - (ee.bCelcius ? 11:20), ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
+      ee.heatTemp[1] = min(ee.coolTemp[0] - (ee.b.bCelcius ? 11:20), ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
       ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
-      if(ee.Mode == Mode_Cool)
-        calcTargetTemp(ee.Mode);
+      if(ee.b.Mode == Mode_Cool)
+        calcTargetTemp(ee.b.Mode);
 
       break;
     case Mode_Heat:
-      if(Temp < (ee.bCelcius ? 170:630) || Temp > (ee.bCelcius ? 360:860) )    // ensure sane values
+      if(Temp < (ee.b.bCelcius ? 170:630) || Temp > (ee.b.bCelcius ? 360:860) )    // ensure sane values
         break;
       ee.heatTemp[hl] = Temp;
       if(hl)
@@ -714,11 +718,11 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.heatTemp[1] = max(ee.heatTemp[0], ee.heatTemp[1]);
       }
       save = ee.coolTemp[1] - ee.coolTemp[0];
-      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.bCelcius ? 11:20), ee.coolTemp[0]);
+      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.b.bCelcius ? 11:20), ee.coolTemp[0]);
       ee.coolTemp[1] = ee.coolTemp[0] + save;
 
-      if(ee.Mode == Mode_Heat)
-        calcTargetTemp(ee.Mode);
+      if(ee.b.Mode == Mode_Heat)
+        calcTargetTemp(ee.b.Mode);
 
       break;
   }
@@ -746,7 +750,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   m_localRh = rh;
 
   // Auto1 == auto humidifier when running, Auto2 = even when not running (turns fan on)
-  if(ee.humidMode >= HM_Auto1)
+  if(ee.b.humidMode >= HM_Auto1)
   {
     if(m_bHumidRunning)
     {
@@ -765,14 +769,14 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     {
       if(m_rh < ee.rhLevel[0]) // heating and cooling both reduce humidity
       {
-        if(ee.humidMode == HM_Auto1 && m_bRunning == false); // do nothing
+        if(ee.b.humidMode == HM_Auto1 && m_bRunning == false); // do nothing
         else
         {
           humidSwitch(true);
           fanSwitch(true); // will use fan if not running
         }
       }
-      else if(m_bRunning == false && m_rh > ee.rhLevel[1] + 5 &&  ee.humidMode == HM_Auto2 && ee.Mode == Mode_Cool)
+      else if(m_bRunning == false && m_rh > ee.rhLevel[1] + 5 &&  ee.b.humidMode == HM_Auto2 && ee.b.Mode == Mode_Cool)
       {  // humidity over desired level, use compressor to reduce (will run at least for cycleMin)
           if(m_idleTimer > ee.idleMin)
             m_bStart = true;
@@ -810,9 +814,9 @@ String HVAC::settingsJson()
 {
   jsonString js("settings");
 
-  js.Var("m",  ee.Mode);
+  js.Var("m",  ee.b.Mode);
   js.Var("am", m_AutoMode);
-  js.Var("hm", ee.heatMode);
+  js.Var("hm", ee.b.heatMode);
   js.Var("fm", m_FanMode);
   js.Var("ot", m_ovrTemp);
   js.Var("ht", ee.eHeatThresh);
@@ -826,7 +830,7 @@ String HVAC::settingsJson()
   js.Var("ct", ee.cycleThresh[m_modeShadow == Mode_Heat]);
   js.Var("fd", ee.fanPostDelay[digitalRead(P_REV)]);
   js.Var("ov", ee.overrideTime);
-  js.Var("rhm", ee.humidMode);
+  js.Var("rhm", ee.b.humidMode);
   js.Var("rh0", ee.rhLevel[0]);
   js.Var("rh1", ee.rhLevel[1]);
   js.Var("fp",  ee.fanPreTime[m_modeShadow == Mode_Heat]);
@@ -847,8 +851,9 @@ String HVAC::settingsJson()
   js.Var("fco", ee.fcOffset[m_modeShadow == Mode_Heat]);
   js.Var("fim", ee.fanIdleMax);
   js.Var("far", ee.fanAutoRun);
-  js.Var("sm", ee.nSchedMode);
-  js.Var("tu", ee.bCelcius);
+  js.Var("sm", ee.b.nSchedMode);
+  js.Var("tu", ee.b.bCelcius);
+  js.Var("lock", ee.b.bLock);
   return js.Close();
 }
 
@@ -958,6 +963,8 @@ const char *cmdList[] = { "cmd",
   "rmt",
   "sm",
   "tu", // 50
+  "play",
+  "lock",
   NULL
 };
 
@@ -973,13 +980,15 @@ int HVAC::CmdIdx(String s )
   return iCmd - 5;
 }
 
-// POST set params as "fanmode=1"
+// WebSocket or GET/POST set params as "fanmode=1" or "fanmode":1
 void HVAC::setVar(String sCmd, int val, IPAddress ip)
 {
-  if(ee.bLock) return;
+  int c = CmdIdx( sCmd );
+  if(ee.b.bLock && c!= 51)
+    return;
   int i;
 
-  switch( CmdIdx( sCmd ) )
+  switch( c )
   {
     case 0:     // fanmode
       setFan( val );
@@ -1009,7 +1018,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.idleMin = constrain(val, 60, 60*30); // Limit 1 to 30 minutes
       break;
     case 9:    // cyclethresh
-      ee.cycleThresh[ee.Mode == Mode_Heat] = constrain(val, (ee.bCelcius ? 2:5), (ee.bCelcius ? 28:50) ); // Limit 0.5 to 5.0 degrees
+      ee.cycleThresh[ee.b.Mode == Mode_Heat] = constrain(val, (ee.b.bCelcius ? 2:5), (ee.b.bCelcius ? 28:50) ); // Limit 0.5 to 5.0 degrees
       break;
     case 10:    // cooltempl
       setTemp(Mode_Cool, val, 0);
@@ -1028,7 +1037,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       m_bRecheck = true;
       break;
     case 14:    // eheatthresh
-      ee.eHeatThresh = constrain(val, (ee.bCelcius ? 2:5), (ee.bCelcius ? 28:50) ); // Limit 5 to 50 degrees F
+      ee.eHeatThresh = constrain(val, (ee.b.bCelcius ? 2:5), (ee.b.bCelcius ? 28:50) ); // Limit 5 to 50 degrees F
       break;
     case 15:    // override
       if(val == 0)    // cancel
@@ -1038,7 +1047,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       }
       else
       {
-        m_ovrTemp = constrain(val, (ee.bCelcius ? -50:-99),(ee.bCelcius ? 50:99) ); // Limit to +/-9.9 degrees F
+        m_ovrTemp = constrain(val, (ee.b.bCelcius ? -50:-99),(ee.b.bCelcius ? 50:99) ); // Limit to +/-9.9 degrees F
         m_overrideTimer = ee.overrideTime;
       }
       m_bRecheck = true;
@@ -1047,7 +1056,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.overrideTime = constrain(val, 60*1, 60*60*6); // Limit 1 min to 6 hours
       break;
     case 17: // humidmode
-      ee.humidMode = constrain(val, HM_Off, HM_Auto2);
+      ee.b.humidMode = constrain(val, HM_Off, HM_Auto2);
       break;
     case 18: // humidl
       ee.rhLevel[0] = constrain(val, 300, 900); // no idea really
@@ -1056,31 +1065,31 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.rhLevel[1] = constrain(val, 300, 900);
       break;
     case 20: // adj
-      ee.adj = constrain(val, (ee.bCelcius ? -44:-80), (ee.bCelcius ? 5:10) ); // calibrate can only be -8.0 to +1.0
+      ee.adj = constrain(val, (ee.b.bCelcius ? -44:-80), (ee.b.bCelcius ? 5:10) ); // calibrate can only be -8.0 to +1.0
       break;
     case 21:     // fanPretime
-      ee.fanPreTime[ee.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
+      ee.fanPreTime[ee.b.Mode == Mode_Heat] = constrain(val, 0, 60*8); // Limit 0 to 8 minutes
       break;
     case 22: // fim
       ee.fanIdleMax = val;
       break;
     case 23: // fco
-      ee.fcOffset[ee.Mode == Mode_Heat] = constrain(val, -1080, 1079); // 18 hours max
+      ee.fcOffset[ee.b.Mode == Mode_Heat] = constrain(val, -1080, 1079); // 18 hours max
       break;
     case 24: // awaytime
       ee.awayTime = val; // no limit
       break;
     case 25: // awaydelta
-      if(ee.Mode == Mode_Heat)
-        ee.awayDelta[1] = constrain(val, (ee.bCelcius ? -83:-150), 0); // Limit to -15 degrees (heat away) target is constrained in calcTargetTemp
+      if(ee.b.Mode == Mode_Heat)
+        ee.awayDelta[1] = constrain(val, (ee.b.bCelcius ? -83:-150), 0); // Limit to -15 degrees (heat away) target is constrained in calcTargetTemp
       else
-        ee.awayDelta[0] = constrain(val, 0, (ee.bCelcius ? 83:150) ); // Limit +15 degrees (cool away)
+        ee.awayDelta[0] = constrain(val, 0, (ee.b.bCelcius ? 83:150) ); // Limit +15 degrees (cool away)
       break;
     case 26: // away (uses the override feature)
       if(val) // away
       {
         m_overrideTimer = ee.awayTime * 60; // convert minutes to seconds
-        m_ovrTemp = ee.awayDelta[ee.Mode == Mode_Heat];
+        m_ovrTemp = ee.awayDelta[ee.b.Mode == Mode_Heat];
         m_bAway = true;
       }
       else // back
@@ -1132,7 +1141,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.furnacePost = val;
       break;
     case 41: // dl
-      ee.diffLimit = constrain(val, (ee.bCelcius ? 83:150), (ee.bCelcius ? 194:350) );
+      ee.diffLimit = constrain(val, (ee.b.bCelcius ? 83:150), (ee.b.bCelcius ? 194:350) );
       break;
     case 42:
       break;
@@ -1141,9 +1150,9 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       break;
     case 44: // rmttemp
       m_snsIdx = getSensorID(ip[3]);
-      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.bCelcius == false)
+      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.b.bCelcius == false)
         val = val*90/50+320;
-      else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.bCelcius)
+      else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.b.bCelcius)
         val = (val-320)*50/90;
       m_Sensor[m_snsIdx].temp = val;
       m_Sensor[m_snsIdx].tm = now();
@@ -1168,11 +1177,19 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       m_Sensor[m_snsIdx].flags |= val?SNS_EN:0;
       break;
     case 49: // sm
-      ee.nSchedMode = constrain(val, 0, 2);
+      ee.b.nSchedMode = constrain(val, 0, 2);
       break;
     case 50: // tu
-      ee.bCelcius = val ? true:false;
+      ee.b.bCelcius = val ? true:false;
       m_bRecheck = true;
+      break;
+    case 51: // play
+#ifdef USE_AUDIO
+      mus.play(val);
+#endif
+      break;
+    case 52: // lock
+      ee.b.bLock = (val) ? 1:0;
       break;
   }
 }
