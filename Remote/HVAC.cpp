@@ -25,10 +25,10 @@ HVAC::HVAC()
 
 void HVAC::init()
 {
-  m_setMode = ee.Mode;
-  if(ee.Mode) m_modeShadow = ee.Mode;
+  m_setMode = ee.b.Mode;
+  if(ee.b.Mode) m_modeShadow = ee.b.Mode;
   m_idleTimer = ee.idleMin - 60; // about 1 minute
-  m_setHeat = ee.heatMode;
+  m_setHeat = ee.b.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
 }
 
@@ -54,8 +54,8 @@ void HVAC::service()
       if(old[2] != ee.heatTemp[0])  sendCmd("heattempl", old[2] = ee.heatTemp[0]);
       if(old[3] != ee.heatTemp[1])  sendCmd("heattemph", old[3] = ee.heatTemp[1]);
 
-      if(ee.heatMode != m_setHeat)  sendCmd("heatmode", ee.heatMode = m_setHeat);
-      if(ee.Mode != m_setMode)      sendCmd("mode", ee.Mode = m_setMode);
+      if(ee.b.heatMode != m_setHeat)  sendCmd("heatmode", ee.b.heatMode = m_setHeat);
+      if(ee.b.Mode != m_setMode)      sendCmd("mode", ee.b.Mode = m_setMode);
     }
   }
 }
@@ -114,9 +114,9 @@ uint8_t HVAC::getState()
   if( m_bRunning == false) return 0;
 
   // Check if NG furnace is running, which controls the fan automatically
-  uint8_t state = (ee.Mode == Mode_Auto) ? m_AutoMode : ee.Mode; // convert auto to just cool / heat
+  uint8_t state = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode; // convert auto to just cool / heat
 
-  if(state == Mode_Heat && ( ee.heatMode == Heat_NG || (ee.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
+  if(state == Mode_Heat && ( ee.b.heatMode == Heat_NG || (ee.b.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
     state = 3; // so logs will only be 1, 2 or 3.
 
   return state;
@@ -134,7 +134,7 @@ bool HVAC::getHumidifierRunning()
 
 uint8_t HVAC::getMode()
 {
-  return ee.Mode;
+  return ee.b.Mode;
 }
 
 void HVAC::setHeatMode(int mode)
@@ -217,7 +217,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
   switch(mode)
   {
     case Mode_Cool:
-      if(Temp < (ee.bCelcius ? 180:650) || Temp > (ee.bCelcius ? 350:950) )   // ensure sane values
+      if(Temp < (ee.b.bCelcius ? 180:650) || Temp > (ee.b.bCelcius ? 350:950) )   // ensure sane values
         break;
       ee.coolTemp[hl] = Temp;
       if(hl)
@@ -229,12 +229,12 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.coolTemp[1] = max((int)ee.coolTemp[0], (int)ee.coolTemp[1]);
       }
       save = ee.heatTemp[1] - ee.heatTemp[0];
-      ee.heatTemp[1] = min((int)ee.coolTemp[0] - (ee.bCelcius ? 11:20), (int)ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
+      ee.heatTemp[1] = min((int)ee.coolTemp[0] - (ee.b.bCelcius ? 11:20), (int)ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
       ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
       break;
     case Mode_Heat:
-      if(Temp < (ee.bCelcius ? 170:630) || Temp > (ee.bCelcius ? 360:860) )   // ensure sane values
+      if(Temp < (ee.b.bCelcius ? 170:630) || Temp > (ee.b.bCelcius ? 360:860) )   // ensure sane values
         break;
       ee.heatTemp[hl] = Temp;
       if(hl)
@@ -246,7 +246,7 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
         ee.heatTemp[1] = max(ee.heatTemp[0], ee.heatTemp[1]);
       }
       save = ee.coolTemp[1] - ee.coolTemp[0];
-      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.bCelcius ? 11:20), (int)ee.coolTemp[0]);
+      ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.b.bCelcius ? 11:20), (int)ee.coolTemp[0]);
       ee.coolTemp[1] = ee.coolTemp[0] + save;
       break;
   }
@@ -374,15 +374,15 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
   switch(iName)
   {
     case 0:
-      m_setMode = ee.Mode = iValue;
-      if(ee.Mode) m_modeShadow = ee.Mode;
+      m_setMode = ee.b.Mode = iValue;
+      if(ee.b.Mode) m_modeShadow = ee.b.Mode;
       bValidData = true;
       break;
     case 1:
       m_AutoMode = iValue;
       break;
     case 2:
-      m_setHeat = ee.heatMode = iValue;
+      m_setHeat = ee.b.heatMode = iValue;
       break;
     case 3:
       m_FanMode = iValue;
@@ -415,7 +415,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       ee.cycleMax = iValue;
       break;
     case 13:
-      ee.cycleThresh[ee.Mode == Mode_Heat] = iValue;
+      ee.cycleThresh[ee.b.Mode == Mode_Heat] = iValue;
       break;
     case 14:
       break;
@@ -423,7 +423,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       ee.overrideTime = iValue;
       break;
     case 16:
-      ee.humidMode = iValue;
+      ee.b.humidMode = iValue;
       break;
     case 17:
       ee.rhLevel[0] = iValue;
@@ -432,7 +432,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       ee.rhLevel[1] = iValue;
       break;
     case 19: // tu
-      ee.bCelcius = iValue;
+      ee.b.bCelcius = iValue;
       break;
   }
 }
@@ -441,7 +441,7 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
 String HVAC::settingsJson()
 {
   jsonString js("settings");
-  js.Var("m", ee.Mode);
+  js.Var("m", ee.b.Mode);
   js.Var("ppk", ee.ppkwh);
   js.Var("ccf", ee.ccf);
   js.Var("cfm", ee.cfm);
