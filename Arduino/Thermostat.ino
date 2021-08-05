@@ -132,6 +132,7 @@ void setup()
   Serial.swap(); //swap to gpio 15/13
 #endif
 
+  eemem.init();
   startServer();
   hvac.init();
   display.init();
