@@ -277,7 +277,7 @@ void parseParams(AsyncWebServerRequest *request)
     String s = wifi.urldecode(temp);
     int val = s.toInt();
  
-    switch( p->name().charAt(0)  )
+    switch( p->name().charAt(0) )
     {
       case 'T': // temp offset
           ee.adj = val;
@@ -297,7 +297,7 @@ void parseParams(AsyncWebServerRequest *request)
           }
           break;
       case 'R': // remote
-          if(ee.bLock) break;
+          if(ee.b.bLock) break;
           if(val)
           {
             if(hvac.m_bRemoteStream == false)
