@@ -1,6 +1,7 @@
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #endif
+
 //  HVAC Control
 //
 #ifndef HVAC_H
@@ -12,6 +13,7 @@
 #define P_REV   26 // O
 #define P_HEAT  14 // W
 #define P_HUMID 27 // H
+#define USE_AUDIO
 #define SPEAKER 17
 #define FAN_ON  LOW
 #define FAN_OFF HIGH
