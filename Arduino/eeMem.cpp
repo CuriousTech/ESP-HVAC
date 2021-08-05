@@ -6,8 +6,8 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "", // router password
   {850, 860},   // 87.0, 90.0 default cool temps  F/C issue
   {740, 750},   // default heat temps             F/C issue
-  {28, 8},     // cycleThresh (cool 0.5, heat 0.8) F/C issue
-  0,            // Mode
+  {0},            // see flags_t
+  {28, 8},      // cycleThresh (cool 0.5, heat 0.8) F/C issue
   33,           // heatThresh (under 33F is gas)  F/C issue
   60*4,         // 5 mins minimum for a cycle
   60*30,        // 30 minutes maximun for a cycle
@@ -16,41 +16,34 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   {60*2, 60*2}, // fanPostDelay {cool, heat}
   {60*1, 60*1}, // fanPreTime {cool, heat}
   60*10,        // 10 mins default for override
-  0,            // heatMode
   -5,           // timeZone
   0,            // temp reading offset adjust
-  0,            // humidMode
   {450, 750},   // rhLevel 45.0%, 75%
   {40, -40},    // awayDelta cool, heat 4.0      F/C issue
   60*8,         // awayTime (minutes)
-  false,        // Celcius
-  false,        // reserved
   {192,168,31,100}, // hostIp 192.168.0.105
   80,           // host port
   "41042",      // zipCode
   "password",  // password for controlling thermostat
-  false,        // bLock
-  false,        // bNotLocal
-  140,          // price per KWH in cents * 10000 (0.140)
-  1210,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.21)
   23,           // forecast range for in mapping to out mix/max (in hours * 3)
-  46,           // forecast range for display (5 of 7 day max)
-  {0},
-  {0},
-  920,          // cubic feet per minute * 1000 of furnace (0.92)
+  46,           // forecast range for display (5 or 7 day max)
+  {{0,0,1794},{0,0,1794},{0,0,1196},{5460,0,9072},{14343,0,21945},{14635,0,21993},{16979,0,26391},{2783,0,5246},{2675,0,4414},{0,0,1794},{3183,0,5402},
+   {6896,0,9241},{5280,0,7381},{6663,0,8945},{8941,0,11168},{10682,0,16647},{7228,0,12776},{3022,0,4879},{4659,0,6760},{6037,0,8319},{4487,0,6289},
+   {2327,0,4184},{3012,0,5050},{5853,0,7954},{14164,0,16753},{16901,0,19671},{10425,0,12589},{11859,0,14747},{10630,0,13156},{11409,0,13998},{0,0,1794}},
+  {{16565,357781,769917},{16565,357781,769917},{0,170664,419895},{523,57837,146926},{27756,26256,113103},{153956,0,235082},
+   {212466,0,304331},{0,0,4784},{0,0,0},{0,0,0},{0,0,0},{0,251368,492489}},
+  147,          // price per KWH in cents * 10000 (0.140)
+  1190,         // nat gas cost per 1000 cubic feet in 10th of cents * 1000 ($1.21)
+  820,          // cubic feet per minute * 1000 of furnace (0.92)
   2600,         // compressorWatts
   250,          // fanWatts
   220,          // furnaceWatts (1.84A inducer)
   150,          // humidWatts
   120,          // furnacePost (furnace internal fan timer)
-  {0,0,0,0},    // 
-  0,            // 
-  {0},          // 
   300,          // set to 30 deg differential cooling limit    F/C issue
   {-180,0},     // forecast offset in minutes (cool, heat)
-  120,          // fan idle max
-  10,           // fan auto run
-  0,            // schedule mode
+  60*4,         // fan idle max
+  5,            // fan auto run
 };
 
 eeMem::eeMem()
