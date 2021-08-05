@@ -233,7 +233,8 @@ void startServer()
     SPIFFS.end();
     hvac.dayTotals(day() - 1); // save for reload
     ee.filterMinutes = hvac.m_filterMinutes;
-    eemem.update();
+    if(eemem.check())
+      eemem.update();
   });
 #endif
 }
