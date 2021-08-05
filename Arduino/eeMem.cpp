@@ -6,7 +6,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "", // router password
   {850, 860},   // 87.0, 90.0 default cool temps  F/C issue
   {740, 750},   // default heat temps             F/C issue
-  {0},            // see flags_t
+  {0},            // Mode
   {28, 8},      // cycleThresh (cool 0.5, heat 0.8) F/C issue
   33,           // heatThresh (under 33F is gas)  F/C issue
   60*4,         // 5 mins minimum for a cycle
@@ -48,36 +48,41 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
 
 eeMem::eeMem()
 {
+  // ESP32 Do not call EEPROM.begin() before setup()
+}
+
+bool eeMem::init()
+{
   EEPROM.begin(sizeof(eeSet));
 
   uint8_t data[sizeof(eeSet)];
   uint16_t *pwTemp = (uint16_t *)data;
 
+#ifdef ESP32
+  EEPROM.readBytes(0, &data, sizeof(eeSet));
+#else
   int addr = 0;
   for(int i = 0; i < sizeof(eeSet); i++, addr++)
-  {
     data[i] = EEPROM.read( addr );
-  }
-
-  if(pwTemp[0] != sizeof(eeSet)) return; // revert to defaults if struct size changes
+#endif
+  if(pwTemp[0] != sizeof(eeSet)) return true; // revert to defaults if struct size changes
   uint16_t sum = pwTemp[1];
   pwTemp[1] = 0;
   pwTemp[1] = Fletcher16(data, sizeof(eeSet) );
-  if(pwTemp[1] != sum) return; // revert to defaults if sum fails
+  if(pwTemp[1] != sum) return true; // revert to defaults if sum fails
   memcpy(&ee, data, sizeof(eeSet) );
 }
 
 void eeMem::update() // write the settings if changed
 {
-  if(check() == false)
-    return; // Nothing has changed?
-
+#ifdef ESP32
+  EEPROM.writeBytes(0, &ee, sizeof(eeSet));
+#else
   uint16_t addr = 0;
   uint8_t *pData = (uint8_t *)&ee;
   for(int i = 0; i < sizeof(eeSet); i++, addr++)
-  {
     EEPROM.write(addr, pData[i] );
-  }
+#endif
   EEPROM.commit();
 }
 
@@ -86,7 +91,6 @@ bool eeMem::check()
   uint16_t old_sum = ee.sum;
   ee.sum = 0;
   ee.sum = Fletcher16((uint8_t*)&ee, sizeof(eeSet));
-
   return (old_sum == ee.sum) ? false:true;
 }
 
