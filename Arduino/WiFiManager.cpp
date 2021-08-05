@@ -34,6 +34,7 @@ void WiFiManager::autoConnect(char const *apName, const char *pPass) {
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ee.szSSID, ee.szSSIDPassword);
+    WiFi.setHostname(apName);
     if ( hasConnected() )
     {
       _bCfg = false;
