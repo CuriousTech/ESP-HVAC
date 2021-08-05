@@ -1,9 +1,7 @@
 // Do all the web stuff here
 
-//uncomment to enable Arduino IDE Over The Air update code
-#define OTA_ENABLE
-
-#define USE_SPIFFS // saves 11K of program space, loses 800 bytes dynamic
+#define OTA_ENABLE  //uncomment to enable Arduino IDE Over The Air update code
+#define USE_SPIFFS  // saves 11K of program space, loses 800 bytes dynamic
 
 #ifdef ESP32
 #include <ESPmDNS.h>
@@ -33,7 +31,6 @@
 #include <XMLReader.h>
 #include "jsonstring.h"
 #include "forecast.h"
-
 //-----------------
 const char *hostName = "HVAC";
 int serverPort = 80;
@@ -80,7 +77,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       }
       client->text( hvac.settingsJson() );
       client->text( dataJson() );
-      client->ping();
+//      client->ping();
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
     case WS_EVT_ERROR:    //error was received from the other end
@@ -280,9 +277,9 @@ void secondsServer() // called once per second
   if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == false)
   {
     display.m_bUpdateFcst = false;
-    if(ee.bNotLocalFcst)
+    if(ee.b.bNotLocalFcst)
       GetForecast();
-    else localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.bCelcius);    // get preformatted data from local server
+    else localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
   }
   if(localFC.checkStatus())
   {
@@ -372,7 +369,7 @@ void parseParams(AsyncWebServerRequest *request)
     }
     else if(p->name() == "fc")
     {
-      ee.bNotLocalFcst = s.toInt() ? true:false;
+      ee.b.bNotLocalFcst = s.toInt() ? true:false;
       display.m_bUpdateFcst = true;
     }
     else
