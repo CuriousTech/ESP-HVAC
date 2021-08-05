@@ -32,7 +32,7 @@ struct eeSet // EEPROM backed data
   char     szSSIDPassword[24];
   uint16_t coolTemp[2]; // cool to temp *10 low/high
   uint16_t heatTemp[2]; // heat to temp *10 low/high
-  flags_t  b;
+  flags_t  b;           // see flags_t
   int8_t   cycleThresh[2]; // temp range for cycle *10
   uint8_t  eHeatThresh; // degree threshold to switch to gas
   uint16_t cycleMin;    // min time to run
@@ -67,7 +67,7 @@ struct eeSet // EEPROM backed data
   int16_t  fcOffset[2]; // forecast offset adjust
   uint16_t fanIdleMax; // in minutes
   uint8_t  fanAutoRun;
-  uint8_t  reserved[21];
+  uint8_t  reserved[17];
 }; // 512 bytes
 
 extern eeSet ee;
@@ -78,6 +78,7 @@ public:
   eeMem();
   void update(void);
   bool check(void);
+  bool init(void);
 private:
   uint16_t Fletcher16( uint8_t* data, int count);
 };
