@@ -21,9 +21,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1M (64K SPIFFS)
-#ifdef ESP32
-#else
+// Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
+// ESP32 Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, 16MB?, Default 4MB with spiffs
+#ifdef ESP8266
 #include <ESP8266mDNS.h>
 #endif
 #include "WiFiManager.h"
@@ -42,10 +42,10 @@ SOFTWARE.
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
 
 // Uncomment only one of these
-#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+//#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
 //#include <DallasTemperature.h> //DallasTemperature from library mamanger
-//#include <AM2320.h>
+#include <AM2320.h>
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #ifdef ESP32
@@ -98,7 +98,7 @@ Encoder rot(ENC_B, ENC_A);
 
 bool EncoderCheck()
 {
-  if(ee.bLock) return false;
+  if(ee.b.bLock) return false;
 
   int r = rot.poll();
 
@@ -135,8 +135,6 @@ void setup()
   startServer();
   hvac.init();
   display.init();
-
-  ee.bCelcius = false; // Force F for now
 
 #ifdef SHT21_H
   sht.init();
@@ -176,7 +174,7 @@ void loop()
 #ifdef SHT21_H
   if(sht.service())
   {
-    tempMedian.add((ee.bCelcius ? sht.getTemperatureC():sht.getTemperatureF()) * 10);
+    tempMedian.add((ee.b.bCelcius ? sht.getTemperatureC():sht.getTemperatureF()) * 10);
     float temp;
     if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
       hvac.updateIndoorTemp( temp, sht.getRh() * 10 );
@@ -185,7 +183,7 @@ void loop()
 #endif
 #ifdef DallasTemperature_h
   if(ds18lastreq > 0 && millis() - ds18lastreq >= ds18delay) { //new temp is ready
-    tempMedian.add((ee.bCelcius ? ds18.getTempC(ds18addr):ds18.getTempF(ds18addr)) );
+    tempMedian.add((ee.b.bCelcius ? ds18.getTempC(ds18addr):ds18.getTempF(ds18addr)) );
     ds18lastreq = 0; //prevents this block from firing repeatedly
     float temp;
     if (tempMedian.getAverage(temp) == tempMedian.OK) {
@@ -234,7 +232,7 @@ void loop()
       float rh;
       if(am.measure(temp, rh))
       {
-        if(!ee.bCelcius)
+        if(!ee.b.bCelcius)
           temp = temp * 9 / 5 + 32;
         tempMedian.add(temp * 10);
         if (tempMedian.getAverage(2, temp) == tempMedian.OK) {
