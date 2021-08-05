@@ -3,12 +3,15 @@
 #include "Nextion.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h>
-#ifdef ESP32
-#else
+#ifdef ESP8266
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
 #endif
 #include "eeMem.h"
 #include "WiFiManager.h"
+#ifdef USE_AUDIO
+#include "music.h"
+extern Music mus;
+#endif
 
 Nextion nex;
 extern HVAC hvac;
@@ -26,7 +29,8 @@ void Display::init()
   nex.reset();
   screen( true ); // brighten the screen if it just reset
   refreshAll();
-  nex.itemPic(9, ee.bLock ? 20:21);
+  nex.itemPic(9, ee.b.bLock ? 20:21);
+  updateNotification(true);
 }
 
 // called each second
@@ -112,6 +116,11 @@ void Display::checkNextion() // all the Nextion recieved commands
         m_backlightTimer = NEX_TIMEOUT;
         return;
       }
+
+#ifdef USE_AUDIO
+//      if(cBuf[3]) // press, not release
+//        mus.add(6000, 20);
+#endif
  
       switch(cBuf[1]) // page
       {
@@ -154,22 +163,22 @@ void Display::checkNextion() // all the Nextion recieved commands
               break;
 
             case 22: // fan
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               hvac.setFan( (hvac.getFan() == FM_On) ? FM_Auto : FM_On ); // Todo: Add 3rd icon
               updateModes(); // faster feedback
               break;
             case 23: // Mode
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               hvac.setMode( (hvac.getSetMode() + 1) & 3 );
               updateModes(); // faster feedback
               break;
             case 24: // Heat
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               hvac.setHeatMode( (hvac.getHeatMode() + 1) % 3 );
               updateModes(); // faster feedback
               break;
             case 10: // notification clear
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               hvac.m_notif = Note_None;
               break;
             case 11: // forecast
@@ -182,20 +191,20 @@ void Display::checkNextion() // all the Nextion recieved commands
               updateClock();
               break;
             case 12: // DOW
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               textIdx = 0;
               nex.setPage("keyboard"); // go to keyboard
               nex.itemText(1, "Enter Zipcode");
               break;
             case 13: // temp scale
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               textIdx = 1;
               nex.setPage("keyboard"); // go to keyboard
               nex.itemText(1, "Enter Password");
               break;
             case 5:  // target temp
             case 19:
-              if(ee.bLock) break;
+              if(ee.b.bLock) break;
               hvac.enableRemote();
               break;
             case 1: // out
@@ -209,7 +218,7 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 25: // lock
 //#define PWLOCK  // uncomment for password entry unlock
 #ifdef PWLOCK
-              if(ee.bLock)
+              if(ee.b.bLock)
               {
                 textIdx = 2;
                 nex.itemText(0, ""); // clear last text
@@ -217,11 +226,11 @@ void Display::checkNextion() // all the Nextion recieved commands
                 nex.itemText(1, "Enter Password");
               }
               else
-                ee.bLock = true;
+                ee.b.bLock = 1;
 #else
-              ee.bLock = !ee.bLock;
+              ee.b.bLock = !ee.b.bLock;
 #endif
-              nex.itemPic(9, ee.bLock ? 20:21);
+              nex.itemPic(9, ee.b.bLock ? 20:21);
               break;
           }
           break;
@@ -253,9 +262,9 @@ void Display::checkNextion() // all the Nextion recieved commands
           break;
         case 2: // password unlock
           if(!strcmp(ee.password, cBuf + 1) )
-            ee.bLock = false;
+            ee.b.bLock = false;
           nex.itemText(0, ""); // clear password
-          nex.itemPic(9, ee.bLock ? 20:21);
+          nex.itemPic(9, ee.b.bLock ? 20:21);
           break;
         case 3: // AP password
           nex.setPage("Thermostat");
@@ -584,6 +593,11 @@ void Display::updateNotification(bool bRef)
     s = "alert;{\"text\":\"" + s + "\"}";
     WsSend(s);
   }
+
+#ifdef USE_AUDIO
+//  if(s != "")
+//    mus.add(3000, 200); // notification sound
+#endif
 }
 
 // true: set screen backlight to bright plus switch to thermostat
@@ -917,14 +931,14 @@ void Display::addGraphPoints()
 // Draw the last 25 hours
 void Display::fillGraph()
 {
-  m_tempHigh = (ee.bCelcius ? 370:990);
-  m_tempLow = (ee.bCelcius ? 240:750);
+  m_tempHigh = (ee.b.bCelcius ? 370:990);
+  m_tempLow = (ee.b.bCelcius ? 240:750);
 
   int tempMin = minPointVal(0);
-  if(tempMin < (ee.bCelcius ? 240:750) )
+  if(tempMin < (ee.b.bCelcius ? 240:750) )
   {
-    m_tempHigh = (ee.bCelcius ? 320:890);
-    m_tempLow = (ee.bCelcius ? 180:650);
+    m_tempHigh = (ee.b.bCelcius ? 320:890);
+    m_tempLow = (ee.b.bCelcius ? 180:650);
   }
   int tmpInc = (m_tempHigh - m_tempLow) / 4;
   uint16_t textcolor = rgb16(0, 63, 31);
