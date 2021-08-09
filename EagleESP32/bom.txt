@@ -34,7 +34,7 @@ C9           0603 16V 0.1uF (if SHTxx used)
 C10       *  0805 2.2uF
 
 Q1           PMV20ENR (for future speaker)
-SPK          20mm speaker
+SPK          20mm-36mm 32 ohm speaker
 K1-K5     *  G3VM-61GR2
 X1        *  39357-0008 (or 691322110008 and 691361100008) Screw terimal, 8 position 3.5mm pitch
 Button       TL1014BF160QG
