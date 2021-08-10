@@ -7644,7 +7644,7 @@ CONN_04
 <part name="GND23" library="supply1" deviceset="GND" device=""/>
 <part name="C3" library="SparkFun-Capacitors" deviceset="CAP" device="0805" value="0.1uF"/>
 <part name="3V3R" library="Microchip_By_element14_Batch_1" deviceset="MCP1801T-3302I/OT" device="" value="MCP1755T-3302I/OT"/>
-<part name="R14" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="5K6"/>
+<part name="R14" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="5K1"/>
 <part name="K4" library="relay" deviceset="AQY*" device="SOP" technology="22" value="G3VM-61GR2"/>
 <part name="GND26" library="supply1" deviceset="GND" device=""/>
 <part name="R10" library="SparkFun-Resistors" deviceset="RESISTOR" device="0805-RES" value="4K7"/>
@@ -7666,7 +7666,6 @@ CONN_04
 <part name="C6" library="SparkFun-Capacitors" deviceset="CAP" device="0805" value="0.1uF"/>
 <part name="BR" library="CuriousTech" deviceset="MDIP4BRIDGE" device=""/>
 <part name="GND13" library="supply1" deviceset="GND" device=""/>
-<part name="C2" library="SparkFun-Capacitors" deviceset="CAP_POL" device="C" value="100uF"/>
 <part name="AM2320" library="SparkFun-Connectors" deviceset="M04" device="PTH" value="AM2320"/>
 <part name="X1" library="con-phoenix-350" library_urn="urn:adsk.eagle:library:174" deviceset="1751303" device="" package3d_urn="urn:adsk.eagle:package:9408/1"/>
 <part name="USB" library="Seeed-OPL-Connector" deviceset="MICRO-USB-SMD(ZX62-B-5PA)" device="" value="ZX62-B-5PA"/>
@@ -7875,10 +7874,6 @@ CONN_04
 <instance part="GND13" gate="1" x="285.75" y="29.21" smashed="yes" rot="MR0">
 <attribute name="VALUE" x="288.29" y="26.67" size="1.778" layer="96" rot="MR0"/>
 </instance>
-<instance part="C2" gate="G$1" x="43.18" y="135.89" smashed="yes">
-<attribute name="NAME" x="44.196" y="136.525" size="1.778" layer="95"/>
-<attribute name="VALUE" x="44.196" y="131.699" size="1.778" layer="96"/>
-</instance>
 <instance part="AM2320" gate="G$1" x="205.74" y="148.59" smashed="yes" rot="R180">
 <attribute name="VALUE" x="210.82" y="156.21" size="1.778" layer="96" rot="R180"/>
 <attribute name="NAME" x="210.82" y="140.208" size="1.778" layer="95" rot="R180"/>
@@ -8013,9 +8008,6 @@ CONN_04
 <wire x1="55.88" y1="129.54" x2="48.26" y2="129.54" width="0.1524" layer="91"/>
 <junction x="48.26" y="129.54"/>
 <pinref part="C10" gate="G$1" pin="2"/>
-<wire x1="48.26" y1="129.54" x2="43.18" y2="129.54" width="0.1524" layer="91"/>
-<pinref part="C2" gate="G$1" pin="-"/>
-<wire x1="43.18" y1="129.54" x2="43.18" y2="130.81" width="0.1524" layer="91"/>
 </segment>
 <segment>
 <pinref part="GND3" gate="1" pin="GND"/>
@@ -8136,8 +8128,7 @@ CONN_04
 </net>
 <net name="N$24" class="0">
 <segment>
-<wire x1="48.26" y1="144.78" x2="43.18" y2="144.78" width="0.1524" layer="91"/>
-<wire x1="43.18" y1="144.78" x2="35.56" y2="144.78" width="0.1524" layer="91"/>
+<wire x1="48.26" y1="144.78" x2="35.56" y2="144.78" width="0.1524" layer="91"/>
 <wire x1="35.56" y1="144.78" x2="35.56" y2="128.27" width="0.1524" layer="91"/>
 <wire x1="48.26" y1="138.43" x2="48.26" y2="144.78" width="0.1524" layer="91"/>
 <pinref part="C1" gate="G$1" pin="+"/>
@@ -8149,9 +8140,6 @@ CONN_04
 <junction x="55.88" y="144.78"/>
 <pinref part="C10" gate="G$1" pin="1"/>
 <pinref part="BR" gate="G$1" pin="+"/>
-<pinref part="C2" gate="G$1" pin="+"/>
-<wire x1="43.18" y1="138.43" x2="43.18" y2="144.78" width="0.1524" layer="91"/>
-<junction x="43.18" y="144.78"/>
 </segment>
 </net>
 <net name="N$29" class="0">
@@ -8188,6 +8176,7 @@ CONN_04
 <pinref part="U1" gate="G$1" pin="IO33"/>
 <wire x1="194.31" y1="31.75" x2="200.66" y2="31.75" width="0.1524" layer="91"/>
 <wire x1="200.66" y1="31.75" x2="200.66" y2="33.02" width="0.1524" layer="91"/>
+<label x="200.66" y="33.02" size="1.778" layer="95" xref="yes"/>
 </segment>
 </net>
 <net name="REV" class="0">
@@ -8304,6 +8293,31 @@ CONN_04
 <wire x1="233.68" y1="92.71" x2="233.68" y2="93.98" width="0.1524" layer="91"/>
 <label x="233.68" y="93.98" size="1.778" layer="95" xref="yes"/>
 </segment>
+<segment>
+<pinref part="K5" gate="G$1" pin="A"/>
+<wire x1="68.58" y1="19.05" x2="80.01" y2="19.05" width="0.1524" layer="91"/>
+<label x="80.01" y="19.05" size="1.778" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="K4" gate="G$1" pin="A"/>
+<wire x1="68.58" y1="35.56" x2="76.2" y2="35.56" width="0.1524" layer="91"/>
+<label x="76.2" y="35.56" size="1.778" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="K3" gate="G$1" pin="A"/>
+<wire x1="68.58" y1="50.8" x2="77.47" y2="50.8" width="0.1524" layer="91"/>
+<label x="77.47" y="50.8" size="1.778" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="K2" gate="G$1" pin="A"/>
+<wire x1="68.58" y1="67.31" x2="77.47" y2="67.31" width="0.1524" layer="91"/>
+<label x="77.47" y="67.31" size="1.778" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="K1" gate="G$1" pin="A"/>
+<wire x1="68.58" y1="83.82" x2="76.2" y2="83.82" width="0.1524" layer="91"/>
+<label x="76.2" y="83.82" size="1.778" layer="95" xref="yes"/>
+</segment>
 </net>
 <net name="TXD" class="0">
 <segment>
@@ -8397,31 +8411,6 @@ CONN_04
 <label x="273.05" y="93.98" size="1.778" layer="95" rot="R180" xref="yes"/>
 <pinref part="U$5" gate="G$1" pin="P$1"/>
 <pinref part="D2" gate="G$1" pin="C"/>
-</segment>
-<segment>
-<pinref part="K1" gate="G$1" pin="A"/>
-<wire x1="68.58" y1="83.82" x2="76.2" y2="83.82" width="0.1524" layer="91"/>
-<label x="76.2" y="83.82" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
-<pinref part="K2" gate="G$1" pin="A"/>
-<wire x1="68.58" y1="67.31" x2="77.47" y2="67.31" width="0.1524" layer="91"/>
-<label x="77.47" y="67.31" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
-<pinref part="K3" gate="G$1" pin="A"/>
-<wire x1="68.58" y1="50.8" x2="77.47" y2="50.8" width="0.1524" layer="91"/>
-<label x="77.47" y="50.8" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
-<pinref part="K4" gate="G$1" pin="A"/>
-<wire x1="68.58" y1="35.56" x2="76.2" y2="35.56" width="0.1524" layer="91"/>
-<label x="76.2" y="35.56" size="1.778" layer="95" xref="yes"/>
-</segment>
-<segment>
-<pinref part="K5" gate="G$1" pin="A"/>
-<wire x1="68.58" y1="19.05" x2="80.01" y2="19.05" width="0.1524" layer="91"/>
-<label x="80.01" y="19.05" size="1.778" layer="95" xref="yes"/>
 </segment>
 </net>
 <net name="TXD2" class="0">
