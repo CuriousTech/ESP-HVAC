@@ -40,7 +40,7 @@ void Display::oneSec()
     return;
   updateClock();
   updateRunIndicator(false); // running stuff
-  displayTime();    // time update every seconds
+  displayTime();    // time update every second
   updateModes();    // mode, heat mode, fan mode
   updateTemps();    // 
   updateAdjMode(false); // update touched temp settings
@@ -63,8 +63,8 @@ void Display::oneSec()
   if(m_bUpdateFcstDone)
   {
     screen(true);
-    drawForecast(true);
-    m_bUpdateFcstDone = false;
+    if( drawForecast(true) )
+      m_bUpdateFcstDone = false; // only clear if data is valid
   }
 }
 
@@ -73,10 +73,10 @@ void Display::buttonRepeat()
   int8_t m = (m_adjustMode < 2) ? Mode_Cool : Mode_Heat; // lower 2 are cool
   int8_t hilo = (m_adjustMode ^ 1) & 1; // hi or low of set
   int16_t t = hvac.getSetTemp(m, hilo );
-  
+
   t += (m_btnMode==1) ? 1:-1; // inc by 0.1
   hvac.setTemp(m, t, hilo);
-  
+
   if(hvac.m_bLink) // adjust both high and low
   {
     t = hvac.getSetTemp(m, hilo^1 ) + ((m_btnMode==1) ? 1:-1); // adjust opposite hi/lo the same
@@ -344,7 +344,7 @@ void Display::displayTime()
 #define Fc_Width   196
 #define Fc_Height   65
 
-void Display::drawForecast(bool bRef)
+bool Display::drawForecast(bool bRef)
 {
   int fcOff = 0;
   int fcCnt = 0;
@@ -354,7 +354,7 @@ void Display::drawForecast(bool bRef)
   {
     if(m_bUpdateFcstDone)
       m_bUpdateFcst = true;
-    return;
+    return false;
   }
 
   for(fcCnt = 0; fcCnt < FC_CNT && m_fc.Data[fcCnt] != -127; fcCnt++) // get current time in forecast and valid count
@@ -370,7 +370,7 @@ void Display::drawForecast(bool bRef)
   {
     if(m_bUpdateFcstDone)
       m_bUpdateFcst = true;
-    return;
+    return false;
   }
 
   if(bRef)
@@ -399,7 +399,7 @@ void Display::drawForecast(bool bRef)
   displayOutTemp(); // update temp for HVAC
 
   if(nex.getPage()) // on different page
-    return;
+    return true;
 
   if(bRef) // new forecast (erase old floating text)
   {
@@ -443,7 +443,7 @@ void Display::drawForecast(bool bRef)
   int hrs = rng * m_fc.Freq / 3600; // normally 180ish hours
   int day_x = 0;
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
-    return;
+    return true;
 
   int y2 = Fc_Top+Fc_Height - 1 - (m_fc.Data[fcOff] - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
@@ -482,6 +482,7 @@ void Display::drawForecast(bool bRef)
   day_x += 28;
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
     nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
+  return true;
 }
 
 // get value at current minute between hours
@@ -579,6 +580,12 @@ void Display::updateNotification(bool bRef)
       break;
     case Note_Network:
       s = "Network Error";
+      break;
+    case Note_Connecting:
+      s = "Connecting";
+      break;
+    case Note_Connected:
+      s = "Connected";
       break;
     case Note_RemoteOff:
       s = "Remote Off";
