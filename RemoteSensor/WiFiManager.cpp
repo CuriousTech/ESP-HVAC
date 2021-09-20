@@ -14,7 +14,7 @@
 #include "icons.h"
 #include "eeMem.h"
 
-#define USE_OLED
+//#define USE_OLED
 #ifdef USE_OLED
 extern SSD1306 display;
 #endif
@@ -23,73 +23,70 @@ WiFiManager::WiFiManager()
 {
 }
 
-void WiFiManager::autoConnect(char const *apName, const char *pPass) {
-    _apName = apName;
-    _pPass = pPass;
+void WiFiManager::autoConnect(char const *apName, const char *pPass)
+{
+  _apName = apName;
+  _pPass = pPass;
 
-//  DEBUG_PRINT("");
-//    DEBUG_PRINT("AutoConnect");
-    
-  if ( ee.szSSID[0] ) {
+  if( ee.szSSID[0] )
+  {
     DEBUG_PRINT("Waiting for Wifi to connect");
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(ee.szSSID, ee.szSSIDPassword);
-    if ( hasConnected() )
-    {
-      _bCfg = false;
-      return;
-    }
+    WiFi.setHostname(apName);
+    _state = ws_connecting;
+    _timer = 50;
   }
+  else
+  {
+    startAP();
+  }
+}
+
+// Start AP mode
+void WiFiManager::startAP()
+{
   //setup AP
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(apName);
+  WiFi.softAP(_apName);
   DEBUG_PRINT("Started Soft Access Point");
+
+  DEBUG_PRINT(WiFi.softAPIP());
 #ifdef USE_OLED
   IPAddress apIp = WiFi.softAPIP();
   display.print("AP started:");
   display.print(apIp.toString());
 #endif
-  DEBUG_PRINT(WiFi.softAPIP());
-  DEBUG_PRINT("Don't forget the port #");
 
-  if (!MDNS.begin(apName))
+  if (!MDNS.begin(_apName))
     DEBUG_PRINT("Error setting up MDNS responder!");
   WiFi.scanNetworks();
 
-  _timeout = true;
-  _bCfg = true;
+  _state = ws_config;
 }
 
-boolean WiFiManager::hasConnected(void)
+// return current connection sate
+int WiFiManager::state()
 {
-  for(int c = 0; c < 50; c++)
-  {
-    if (WiFi.status() == WL_CONNECTED)
-      return true;
-    delay(200);
-    Serial.print(".");
-#ifdef USE_OLED
-    display.clear();
-    display.drawXbm(34,10, 60, 36, WiFi_Logo_bits);
-    display.setColor(INVERSE);
-    display.fillRect(10, 10, 108, 44);
-    display.setColor(WHITE);
-    drawSpinner(4, c % 4);
-    display.display();
-#endif
-  }
-  DEBUG_PRINT("");
-  DEBUG_PRINT("Could not connect to WiFi");
-#ifdef USE_OLED
-  display.print("No connection");
-#endif
-  return false;
+  return _state;
 }
 
+// returns true if in config/AP mode
 bool WiFiManager::isCfg(void)
 {
-  return _bCfg;
+  return (_state == ws_config);
+}
+
+// returns true once after a connection is made (for time)
+bool WiFiManager::connectNew()
+{
+  if(_state == ws_connectSuccess)
+  {
+    _state = ws_connected;
+    return true;
+  }
+  return false; 
 }
 
 void WiFiManager::setPass(const char *p){
@@ -99,23 +96,65 @@ void WiFiManager::setPass(const char *p){
   autoConnect(_apName, _pPass);
 }
 
-void WiFiManager::seconds(void) {
+// Called at any frequency
+void WiFiManager::service()
+{
   static int s = 1; // do first list soon
+  static uint32_t m;
+  static uint16_t ticks;
 
-  if(_timeout == false)
+  if((millis() - m) > 200)
+  {
+    m = millis();
+    ticks++;
+    if(_state == ws_connecting)
+    {
+#ifdef DEBUG
+      Serial.print(".");
+#endif
+#ifdef USE_OLED
+      display.clear();
+      display.drawXbm(34,10, 60, 36, WiFi_Logo_bits);
+      display.setColor(INVERSE);
+      display.fillRect(10, 10, 108, 44);
+      display.setColor(WHITE);
+      drawSpinner(4, _timer % 4);
+      display.display();
+#endif
+      if(_timer)
+      {
+        if (WiFi.status() == WL_CONNECTED)
+        {
+          DEBUG_PRINT("Connected");
+          _state = ws_connectSuccess;
+        }
+        else if(--_timer == 0)
+        {
+          DEBUG_PRINT("");
+          DEBUG_PRINT("Could not connect to WiFi");
+          startAP();
+        }
+      }
+      return;
+    }
+  }
+
+  if(ticks < 5)
+    return;
+  ticks = 0;
+
+  if(_state != ws_config)
     return;
   if(--s)
     return;
   s = 60;
+  DEBUG_PRINT("Scanning");
   int n = WiFi.scanNetworks(); // scan for stored SSID each minute
   if(n == 0 )
     return;
 
   for (int i = 0; i < n; i++)
   {
-#ifdef USE_OLED
-    display.print(WiFi.SSID(i));
-#endif
     if(WiFi.SSID(i) == ee.szSSID) // found cfg SSID
     {
       DEBUG_PRINT("SSID found.  Restarting.");
@@ -146,7 +185,6 @@ String WiFiManager::page()
   s += form;
   s += HTTP_END;
   
-  _timeout = false;
   return s;
 }
 
