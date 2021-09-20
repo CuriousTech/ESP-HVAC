@@ -69,7 +69,7 @@ public:
   void reset(void);
   void checkNextion(void); // all the Nextion recieved commands
   void updateTemps(void);
-  void drawForecast(bool bRef);
+  bool drawForecast(bool bRef);
   void Note(char *cNote);
   bool getGrapthPoints(gPoint *pt, int n);
   int  minPointVal(int n);
