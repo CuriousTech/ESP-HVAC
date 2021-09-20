@@ -6,13 +6,16 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "", // router password
   -5, 0,     // TZ, use utime
   0,         // adjust for error
-  true,    // OLED
+  false,    // OLED
   55, // rate
   "password", // device password for control
   {192,168,31,100}, 80, // host IP and port
-  {0,0,0,0}, // HVAC IP
+  {192,168,31,125}, // HVAC IP
   0, // minutes off
   30, // sleep
+  0, // en/priority seconds
+  0, // PriEn
+  false, //PIR
   ""
 };
 
