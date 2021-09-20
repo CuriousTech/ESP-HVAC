@@ -23,9 +23,6 @@ SOFTWARE.
 
 // Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
 // ESP32 Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, 16MB?, Default 4MB with spiffs
-#ifdef ESP8266
-#include <ESP8266mDNS.h>
-#endif
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
@@ -42,10 +39,10 @@ SOFTWARE.
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
 
 // Uncomment only one of these
-//#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
 //#include <DallasTemperature.h> //DallasTemperature from library mamanger
-#include <AM2320.h>
+//#include <AM2320.h>
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #ifdef ESP32
@@ -60,8 +57,6 @@ SOFTWARE.
 #define ENC_B    4
 #endif
 //------------------------
-
-//extern AsyncEventSource events; // event source (Server-Sent events)
 
 Display display;
 eeMem eemem;
