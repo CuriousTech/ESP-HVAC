@@ -26,25 +26,34 @@
 #define DEBUG_PRINT(x)
 #endif
 
+enum wifiState
+{
+  ws_null,
+  ws_config,
+  ws_connecting,
+  ws_connectSuccess,
+  ws_connected,
+};
+
 class WiFiManager
 {
 public:
     WiFiManager();
-    void autoConnect(void);
     void autoConnect(char const *apName, const char *pPass);
+    void startAP(void);
+    bool connectNew(void);
+    void service(void);
     String page(void);
-    void seconds(void);
     void setSSID(int idx);
     void setPass(const char *p);
     String urldecode(const char*);
     bool isCfg(void);
+    int state(void);
 private:
-    boolean hasConnected();
-
     const char* _apName = "no-net";
     const char *_pPass = "";
-    bool _timeout;
-    bool _bCfg;
+    int _state;
+    int _timer;
 
     const String HTTP_HEAD = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><title>Config ESP</title>";
     const String HTTP_STYLE = "<style>div,input {margin-bottom: 5px;}body{width:200px;display:block;margin-left:auto;margin-right:auto;}</style>";
