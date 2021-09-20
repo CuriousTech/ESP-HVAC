@@ -30,19 +30,26 @@ background-image: linear-gradient(top, #ff00ff, #ffa0ff);
 a=document.all
 oledon=0
 key=localStorage.getItem('key')
+spri=['OFF','PRI','EN ']
 function startWS(){
 ws = new WebSocket("ws://"+window.location.host+"/ws")
+//ws = new WebSocket("ws://192.168.31.250/ws")
 ws.onopen = function(evt) { }
 ws.onclose = function(evt) { alert("Connection closed."); }
 ws.onmessage = function(evt) {
-// console.log(evt.data)
+console.log(evt.data)
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
  if(event == 'settings')
  {
-  d=JSON.parse(data)
-  a.dc.value=d.to
+ d=JSON.parse(data)
+ a.dc.value=d.to
+ oledon=d.o
+ a.OLED.value=oledon?'ON ':'OFF'
+ a.PIR.value=d.pir?'ON ':'OFF'
+ a.prisec.value=s2t(d.prisec)
+ a.PRI.value=spri[d.pri]
  }
  if(event == 'state')
  {
@@ -51,8 +58,6 @@ ws.onmessage = function(evt) {
   a.time.innerHTML=dt.toLocaleTimeString()
   a.temp.innerHTML=d.temp+"&degF"
   a.rh.innerHTML=d.rh+"%"
-  oledon=d.o
-  a.OLED.value=oledon?'ON ':'OFF'
  }
  else if(event == 'alert')
  {
@@ -62,16 +67,46 @@ ws.onmessage = function(evt) {
 }
 function setVar(varName, value)
 {
- ws.send('cmd;{"key":"'+key+'","'+varName+'":'+value+'}')
+  ws.send('cmd;{"key":"'+key+'","'+varName+'":'+value+'}')
 }
 function setDDelay()
 {
- setVar('TO', a.dc.value)
+  setVar('TO', a.dc.value)
+}
+function setPriSec()
+{
+  setVar('prisec', t2s(a.prisec.value))
 }
 function oled(){
-oledon=!oledon
-setVar('oled', oledon)
-a.OLED.value=oledon?'ON ':'OFF'
+  oledon=!oledon
+  setVar('oled', oledon)
+  a.OLED.value=oledon?'ON ':'OFF'
+}
+function pir(){
+  p=(a.PIR.value=='OFF')?true:false
+  setVar('pir', p)
+  a.PIR.value=p?'ON ':'OFF'
+}
+function pri(){
+  p=0
+  if(a.PRI.value=='OFF') p=1
+  else if(a.PRI.value=='PRI') p=2
+  setVar('pri', p)
+  a.PRI.value=spri[p]
+}
+function s2t(elap)
+{
+  m=Math.floor(elap/60)
+  s=elap-(m*60)
+  if(m==0) return s
+  if(s<10) s='0'+s
+  return m+':'+s
+}
+
+function t2s(v)
+{
+  if(typeof v=='string') v=(+v.substr(0, v.indexOf(':'))*60)+(+v.substr(v.indexOf(':')+1))
+  return v
 }
 </script>
 <body bgcolor="black" onload="{
@@ -82,15 +117,19 @@ startWS()
 <div><h3> WiFi Temp Monitor </h3>
 <table align=center width=200>
 <tr align=center><td><p id="time"> 0:00:00 AM</p></td><td></td></tr>
-<tr><td><input id='dc' type=text size=4 value='10'><input value="Set" type='button' onClick="{setDDelay()}"></td>
-<td></td></tr>
 <tr align="center"><td><div id="temp">00.0&degF</div></td><td><div id="rh">00.0%</div></td></tr>
 <tr><td>Display: <input type="button" value="ON" id="OLED" onClick="{oled()}"></td><td></td></tr>
+<tr><td>Motion: <input type="button" value="ON" id="PIR" onClick="{pir()}"></td><td></td></tr>
+<tr><td>Enable: <input type="button" value="OFF" id="PRI" onClick="{pri()}"></td><td></td></tr>
+<tr><td>PriSec: <input id='prisec' type=text size=4 value='60' onchange="{setPriSec()}"></td>
+<tr><td>Timeout: <input id='dc' type=text size=4 value='10' onchange="{setDDelay()}"></td>
+<td></td></tr>
 </table>
 &nbsp
 </div>
 <input id="myKey" name="key" type=text size=50 placeholder="password" style="width: 150px"><input type="button" value="Save" onClick="{localStorage.setItem('key', key=document.all.myKey.value)}">
 </body>
+</html>
 )rawliteral";
 
 const uint8_t favicon[] PROGMEM = {
