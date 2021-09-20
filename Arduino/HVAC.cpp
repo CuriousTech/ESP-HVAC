@@ -155,6 +155,20 @@ void HVAC::service()
     }
   }
 
+  for(int8_t i = 0; i < SNS_CNT; i++) // sensor priority timer countdown
+  {
+    if(m_Sensor[i].timer)
+    {
+      if(--m_Sensor[i].timer == 0)
+      {
+        if(m_Sensor[i].flags & SNS_TOPRI)
+          m_Sensor[i].flags &= ~SNS_PRI;
+        else
+          m_Sensor[i].flags &= ~SNS_EN;
+      }
+    }
+  }
+
   if(m_bRunning)
   {
     m_runTotal++;
@@ -312,14 +326,8 @@ bool HVAC::tempChange()
 {
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
-//  static Sensor sns[SNS_CNT];
   bool bRet = false;
 
-/*  if(memcmp(&sns, m_Sensor, sizeof(Sensor)))
-  {
-    memcpy(&sns, m_Sensor, sizeof(Sensor));
-    bRet = true;
-  }*/
   if(nTemp != m_inTemp || nTarget != m_targetTemp)
   {
     nTemp = m_inTemp;
@@ -942,7 +950,7 @@ const char *cmdList[] = { "cmd",
   "ppk",
   "ccf",
   "cfm",
-  "notused",       // 30
+  "lock",       // 30
   "far",
   "fcrange",
   "fcdisp",
@@ -954,17 +962,16 @@ const char *cmdList[] = { "cmd",
   "hfw",
   "ffp",    // 40
   "dl",
-  "notused",
+  "play",
   "rmtid",
   "rmttemp",
   "rmtrh",
   "rmtflg",
   "rmtname",
   "rmt",
-  "sm",
+  "rmttm",
   "tu", // 50
-  "play",
-  "lock",
+  "sm",
   NULL
 };
 
@@ -1109,6 +1116,7 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.cfm = val; // CFM / 1000
       break;
     case 30:
+      ee.b.bLock = (val) ? 1:0;
       break;
     case 31:
       ee.fanAutoRun = val;
@@ -1143,14 +1151,17 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
     case 41: // dl
       ee.diffLimit = constrain(val, (ee.b.bCelcius ? 83:150), (ee.b.bCelcius ? 194:350) );
       break;
-    case 42:
+    case 42: // play
+#ifdef USE_AUDIO
+      mus.play(val);
+#endif
       break;
     case 43: // rmtid (?rmtid=100&rmtflg=1)
       m_snsIdx = getSensorID(val ? val:ip[3]); // use client ID if 0
       break;
     case 44: // rmttemp
       m_snsIdx = getSensorID(ip[3]);
-      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.b.bCelcius == false)
+      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
         val = val*90/50+320;
       else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.b.bCelcius)
         val = (val-320)*50/90;
@@ -1163,33 +1174,44 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       break;
     case 46: // rmtflg (uses last referenced rmtid)
       if(val & SNS_NEG)
-        m_Sensor[m_snsIdx].flags &= ~(val & 0xFF);
+        m_Sensor[m_snsIdx].flags &= ~(val & 0x7F);
       else
-        m_Sensor[m_snsIdx].flags |= (val & 0xFF);
+        m_Sensor[m_snsIdx].flags |= (val & 0x7F);
+
+      if(m_Sensor[m_snsIdx].flags & SNS_PRI) // remove priority from other sensors
+      {
+        for(i = 0; i < SNS_CNT; i++)
+          if(i != m_snsIdx)
+            m_Sensor[i].flags & ~SNS_PRI;
+      }
       break;
     case 47: // rmtname
       m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].ID = val;
+      if(val == '1TMR' && m_snsIdx) //swap sensors so RMT1 is top
+      {
+        Sensor tmp;
+        memcpy(&tmp, &m_Sensor[0], sizeof(Sensor));
+        memcpy(&m_Sensor[0], &m_Sensor[m_snsIdx], sizeof(Sensor));
+        memcpy(&m_Sensor[m_snsIdx], &tmp, sizeof(Sensor));
+        m_snsIdx = 0;
+      }
       break;
     case 48: // rmt
       m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].flags &= ~SNS_EN;
       m_Sensor[m_snsIdx].flags |= val?SNS_EN:0;
       break;
-    case 49: // sm
-      ee.b.nSchedMode = constrain(val, 0, 2);
+    case 49: // rmtto
+      m_snsIdx = getSensorID(ip[3]);
+      m_Sensor[m_snsIdx].timer = val;
       break;
     case 50: // tu
       ee.b.bCelcius = val ? true:false;
       m_bRecheck = true;
       break;
-    case 51: // play
-#ifdef USE_AUDIO
-      mus.play(val);
-#endif
-      break;
-    case 52: // lock
-      ee.b.bLock = (val) ? 1:0;
+    case 51: // sm
+      ee.b.nSchedMode = constrain(val, 0, 2);
       break;
   }
 }
