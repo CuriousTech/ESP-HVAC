@@ -60,7 +60,7 @@ void fcPage(AsyncWebServerRequest *request);
 int xmlState;
 void GetForecast(void);
 
-const char pageR[] PROGMEM = R"rawliteral(
+const char pageR_T[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -69,7 +69,10 @@ const char pageR[] PROGMEM = R"rawliteral(
 </head>
 <body">
 <strong><em>CuriousTech HVAC Remote</em></strong><br>
-<small>&copy 2016 CuriousTech.net</small>
+)rawliteral";
+
+const char pageR_B[] = R"rawliteral(
+<br><small>&copy 2016 CuriousTech.net</small>
 </body>
 </html>
 )rawliteral";
@@ -84,6 +87,8 @@ const char *cmdList[] = { "cmd",
   NULL};
   
 const char *jsonList3[] = { "alert", NULL };
+
+const char hostName[] = "HVACRemote";
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -126,36 +131,10 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 void startServer()
 {
-  WiFi.hostname("HVACRemote");
-  wifi.autoConnect("HVACRemote", ee.password); 
+  wifi.autoConnect(hostName, ee.password);
+  hvac.m_notif = Note_Connecting;
 
   Serial.println("");
-  if(wifi.isCfg() == false)
-  {
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    if ( !MDNS.begin( "HVACRemote" ) )
-      Serial.println( "MDNS responder failed" );
-  }
-
-  // Find HVAC
-  int cnt = MDNS.queryService("iot", "tcp");
-  for(int i = 0; i < cnt; ++i)
-  {
-    char szName[38];
-    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
-    strtok(szName, "."); // remove .local
-
-    if(!strcmp(szName, "HVAC"))
-    {
-      ee.hostIp[0] = MDNS.IP(i)[0]; // update IP
-      ee.hostIp[1] = MDNS.IP(i)[1];
-      ee.hostIp[2] = MDNS.IP(i)[2];
-      ee.hostIp[3] = MDNS.IP(i)[3];
-      break;
-    }
-  }
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
@@ -170,7 +149,14 @@ void startServer()
     if(wifi.isCfg())
       request->send( 200, "text/html", wifi.page() );
     else
-      request->send_P( 200, "text/html", pageR );
+    {
+      String s = pageR_T;
+      s += "WiFi State "; s += wifi.state(); s += "<br>";
+      s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
+
+      s += pageR_B;
+      request->send( 200, "text/html", s );
+    }
   });
 
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // only used for config mode
@@ -207,8 +193,6 @@ void startServer()
   });
 
   server.begin();
-  // Add service to MDNS-SD
-  MDNS.addService("http", "tcp", serverPort);
 #ifdef OTA_ENABLE
   ArduinoOTA.begin();
 #endif
@@ -219,15 +203,49 @@ void startServer()
   remoteParse.addList(jsonList3);
 }
 
+void findHVAC()
+{
+  // Find HVAC
+  int cnt = MDNS.queryService("iot", "tcp");
+  for(int i = 0; i < cnt; ++i)
+  {
+    char szName[38];
+    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
+    strtok(szName, "."); // remove .local
+
+    if(!strcmp(szName, "HVAC"))
+    {
+      ee.hostIp[0] = MDNS.IP(i)[0]; // update IP
+      ee.hostIp[1] = MDNS.IP(i)[1];
+      ee.hostIp[2] = MDNS.IP(i)[2];
+      ee.hostIp[3] = MDNS.IP(i)[3];
+      break;
+    }
+  }
+}
+
 void handleServer()
 {
 #ifdef ESP8266
   MDNS.update();
 #endif
 #ifdef OTA_ENABLE
-// Handle OTA server.
   ArduinoOTA.handle();
 #endif
+
+  wifi.service();
+  if(wifi.connectNew())
+  {
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    if( !MDNS.begin( hostName ) )
+      Serial.println( "MDNS responder failed" );
+    // Add service to MDNS-SD
+    MDNS.addService(0, "iot", "tcp", serverPort);
+    findHVAC();
+    hvac.m_notif = Note_Connected;
+  }
 }
 
 void WsSend(String s) // Browser WebSocket
@@ -248,16 +266,9 @@ void secondsServer() // called once per second
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
-  if(wifi.isCfg())
-  {
-    wifi.seconds();
-  }
-  else
-  {
-    if(start)
-      if(--start == 0)
-          startListener();
-  }
+  if(start && wifi.state() == ws_connected)
+    if(--start == 0)
+        startListener();
 
   if(display.m_bUpdateFcst && bWscConnected)
   {
