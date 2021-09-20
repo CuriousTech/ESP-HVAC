@@ -116,21 +116,9 @@ void startServer()
 {
   WiFi.hostname(hostName);
   wifi.autoConnect(hostName, ee.password); // Tries configured AP, then starts softAP mode for config
+  hvac.m_notif = Note_Connecting;
 
   Serial.println("");
-  if(wifi.isCfg() == false)
-  {
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-#ifdef ESP32
-    if( !MDNS.begin( hostName ) )
-#else
-    if( !MDNS.begin( hostName, WiFi.localIP() ) )
-#endif
-      Serial.println ( "MDNS responder failed" );
-  }
-
 #ifdef USE_SPIFFS
   SPIFFS.begin();
 //  server.addHandler(new SPIFFSEditor("admin", ee.password));
@@ -219,9 +207,6 @@ void startServer()
 
   server.begin();
 
-  // Add service to MDNS-SD
-  MDNS.addService("iot", "tcp", serverPort);
-
   remoteParse.addList(jsonList1);
   remoteParse.addList(cmdList);
   remoteParse.addList(jsonList3);
@@ -231,6 +216,7 @@ void startServer()
   ArduinoOTA.begin();
   ArduinoOTA.onStart([]() {
     SPIFFS.end();
+    hvac.disable();
     hvac.dayTotals(day() - 1); // save for reload
     ee.filterMinutes = hvac.m_filterMinutes;
     if(eemem.check())
@@ -244,6 +230,19 @@ void handleServer()
 #ifdef ESP8266
   MDNS.update();
 #endif
+  wifi.service();
+  if(wifi.connectNew())
+  {
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+    if( !MDNS.begin( hostName ) )
+      Serial.println ( "MDNS responder failed" );
+    // Add service to MDNS-SD
+    MDNS.addService("iot", "tcp", serverPort);
+    hvac.m_notif = Note_Connected;
+  }
+
   static int n;
   if(++n >= 10)
   {
@@ -275,12 +274,13 @@ void secondsServer() // called once per second
   if(s.length() > 2)
     ws.textAll(s); // update anything changed
 
-  if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == false)
+  if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == true && wifi.state() == ws_connected)
   {
     display.m_bUpdateFcst = false;
     if(ee.b.bNotLocalFcst)
       GetForecast();
-    else localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+    else
+      localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
   }
   if(localFC.checkStatus())
   {
@@ -372,6 +372,7 @@ void parseParams(AsyncWebServerRequest *request)
     {
       ee.b.bNotLocalFcst = s.toInt() ? true:false;
       display.m_bUpdateFcst = true;
+      display.m_bUpdateFcstDone = true;
     }
     else
     {
@@ -673,8 +674,6 @@ void xml_callback(int item, int idx, char *p, char *pTag)
     case 1:            // valid time
       if(idx == 0)     // first item isn't really data
         break;
-//      if(pTag[0] != 's') // start only
-//        break;
 
       if((idx % 6) != 1) // just skip all but <start-time> every 3 hours
         break;
