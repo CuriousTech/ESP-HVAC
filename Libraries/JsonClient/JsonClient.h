@@ -8,7 +8,11 @@
 #define JSONCLIENT_H
 
 #include <Arduino.h>
+#ifdef ESP32
+#include <AsyncTCP.h>
+#else
 #include <ESPAsyncTCP.h>
+#endif
 
 enum JC_Status
 {
@@ -48,7 +52,8 @@ private:
   static void _onError(AsyncClient* client, int8_t error);
   void _onTimeout(AsyncClient* client, uint32_t time);
   void _onData(AsyncClient* client, char* data, size_t len);
-  char m_szHost[64];
+  char m_szHost[2][64];
+  int  m_tog;
   char m_szPath[128];
   char m_szData[256];
 #define LIST_CNT 8
@@ -72,3 +77,4 @@ private:
 };
 
 #endif // JSONCLIENT_H
+
