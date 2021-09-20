@@ -35,46 +35,55 @@ void WiFiManager::autoConnect(char const *apName, const char *pPass) {
     WiFi.mode(WIFI_STA);
     WiFi.begin(ee.szSSID, ee.szSSIDPassword);
     WiFi.setHostname(apName);
-    if ( hasConnected() )
-    {
-      _bCfg = false;
-      return;
-    }
+    _state = ws_connecting;
+    _timer = 50;
   }
+  else
+  {
+    startAP();
+  }
+}
+
+// Start AP mode
+void WiFiManager::startAP()
+{
   //setup AP
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(apName);
+  WiFi.softAP(_apName);
   DEBUG_PRINT("Started Soft Access Point");
+
+  DEBUG_PRINT(WiFi.softAPIP());
+
+  if (!MDNS.begin(_apName))
+    DEBUG_PRINT("Error setting up MDNS responder!");
+  WiFi.scanNetworks();
   nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
   nex.setPage("SSID");
 
-  DEBUG_PRINT(WiFi.softAPIP());
-  DEBUG_PRINT("Don't forget the port #");
-
-  if (!MDNS.begin(apName))
-    DEBUG_PRINT("Error setting up MDNS responder!");
-
-  _timeout = true;
-  _bCfg = true;
+  _state = ws_config;
 }
 
-boolean WiFiManager::hasConnected(void)
+// return current connection sate
+int WiFiManager::state()
 {
-  for(int c = 0; c < 50; c++)
-  {
-    if (WiFi.status() == WL_CONNECTED)
-      return true;
-    delay(200);
-    Serial.print(".");
-  }
-  DEBUG_PRINT("");
-  DEBUG_PRINT("Could not connect to WiFi");
-  return false;
+  return _state;
 }
 
+// returns true if in config/AP mode
 bool WiFiManager::isCfg(void)
 {
-  return _bCfg;
+  return (_state == ws_config);
+}
+
+// returns true once after a connection is made (for time)
+bool WiFiManager::connectNew()
+{
+  if(_state == ws_connectSuccess)
+  {
+    _state = ws_connected;
+    return true;
+  }
+  return false; 
 }
 
 void WiFiManager::setSSID(int idx){
@@ -88,10 +97,42 @@ void WiFiManager::setPass(const char *p){
   autoConnect(_apName, _pPass);
 }
 
-void WiFiManager::seconds(void) {
+// Called at any frequency
+void WiFiManager::service()
+{
   static int s = 1; // do first list soon
+  static uint32_t m;
+  static uint16_t ticks;
 
-  if(_timeout == false || nex.getPage() != Page_SSID)
+  if((millis() - m) > 200)
+  {
+    m = millis();
+    ticks++;
+    if(_state == ws_connecting)
+    {
+      if(_timer)
+      {
+        if (WiFi.status() == WL_CONNECTED)
+        {
+          DEBUG_PRINT("Connected");
+          _state = ws_connectSuccess;
+        }
+        else if(--_timer == 0)
+        {
+          DEBUG_PRINT("");
+          DEBUG_PRINT("Could not connect to WiFi");
+          startAP();
+        }
+      }
+      return;
+    }
+  }
+
+  if(ticks < 5)
+    return;
+  ticks = 0;
+
+  if(_state != ws_config)
     return;
   if(--s)
     return;
@@ -106,7 +147,6 @@ void WiFiManager::seconds(void) {
   {
     if(n < 16)
       nex.btnText(i, WiFi.SSID(i));
-
     if(WiFi.SSID(i) == ee.szSSID) // found cfg SSID
     {
       nex.setPage("Thermostat"); // set back to normal while restarting
@@ -137,8 +177,6 @@ String WiFiManager::page()
   form.replace("$key", _pPass );
   s += form;
   s += HTTP_END;
-  
-  _timeout = false;
   return s;
 }
 
