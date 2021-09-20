@@ -21,15 +21,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Simple remote sensor for HVAC, with OLED display and AM2320
+// Simple remote sensor for HVAC, with OLED display, AM2320 and PIR sensor or button
 // This uses HTTP GET to send temp/rh
 
 // Build with Arduino IDE 1.8.9, esp8266 SDK 2.5.0
 
 //uncomment to enable Arduino IDE Over The Air update code
 #define OTA_ENABLE
-#define USE_OLED
-//#define DEBUG
+//#define USE_OLED
+#define DEBUG
 
 //#define USE_SPIFFS // Uses 7K more program space
 
@@ -64,6 +64,7 @@ SOFTWARE.
 int serverPort = 80;
 
 #define ESP_LED  2  // low turns on ESP blue LED
+#define PIR     12 // PIR sensor
 
 enum reportReason
 {
@@ -73,9 +74,21 @@ enum reportReason
   Reason_Motion,
 };
 
+// From HVAC.h
+#define SNS_PRI   (1 << 0) // Single sensor overrides all others including internal
+#define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
+#define SNS_C     (1 << 2) // Data from remote sensor is C or F
+#define SNS_F     (1 << 3) // ""
+#define SNS_TOPRI (1 << 4) // 1=timer is for priority, 0=for average
+#define SNS_LO    (1 << 5) // lo/hi unused as of now
+#define SNS_HI    (1 << 6)
+#define SNS_WARN  (1 << 7) // internal flag for data timeout
+#define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
+
 uint32_t lastIP;
 uint32_t verifiedIP;
 int nWrongPass;
+bool bResetPri;
 
 const char hostName[] ="Sensor1";
 
@@ -99,8 +112,8 @@ JsonClient jsonPush(jsonPushCallback);
 
 UdpTime utime;
 
-float temp;
-float rh;
+uint16_t temp;
+uint16_t rh;
 
 eeMem eemem;
 
@@ -111,9 +124,9 @@ String dataJson()
 {
   jsonString js("state");
 
-  js.Var("t", now() - ( (ee.tz + utime.getDST() ) * 3600) );
-  js.Var("temp", String(temp/10 + ((float)ee.tempCal/10), 1) );
-  js.Var("rh", String(rh/10, 1) );
+  js.Var("t", (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600) );
+  js.Var("temp", String((float)temp/10 + ((float)ee.tempCal/10), 1) );
+  js.Var("rh", String((float)rh/10, 1) );
   js.Var("st", sleepTimer);
   return js.Close();
 }
@@ -127,6 +140,9 @@ String settingsJson()
   js.Var("rate", ee.rate);
   js.Var("sleep", ee.sleep);
   js.Var("o", ee.bEnableOLED);
+  js.Var("pir", ee.bPIR);
+  js.Var("pri", ee.PriEn);
+  js.Var("prisec", ee.priSecs);
   return js.Close();
 }
 
@@ -253,6 +269,9 @@ const char *jsonList1[] = { "cmd",
   "TO",
   "rate",
   "sleep",
+  "pir",
+  "pri",
+  "prisec",
   NULL
 };
 
@@ -290,6 +309,16 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         case 6: // sleep
           ee.sleep = iValue;
           break;
+        case 7: // pir
+          ee.bPIR = iValue ? true:false;
+          break;
+        case 8: // pri
+          ee.PriEn = iValue & 0xF; // can take C or F as well as EN or PRI
+          bResetPri = true;
+          break;
+        case 9: // prisec
+          ee.priSecs = iValue;
+          break;
       }
       break;
   }
@@ -300,10 +329,10 @@ const char *jsonListPush[] = { "time",
   NULL
 };
 
-uint8_t failCnt;
-
 void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
+  static uint8_t failCnt;
+
   switch(iEvent)
   {
     case -1: // status
@@ -327,7 +356,7 @@ void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 
 void CallHost(reportReason r, String sStr)
 {
-  if(ee.hostIP[0] == 0) // no host set
+  if(wifi.state() != ws_connected || ee.hostIP[0] == 0) // no host set
     return;
 
   String sUri = "/wifi?name=\"";
@@ -361,13 +390,29 @@ void CallHost(reportReason r, String sStr)
 
 void sendTemp()
 {
-  if(ee.hvacIP[0] == 0) // not set
+  if(wifi.state() != ws_connected || ee.hvacIP[0] == 0) // not set
     return;
 
-  String sUri = String("/iot?key=");
+  String sUri = String("/s?key=");
   sUri += ee.szControlPassword;
   sUri += "&rmttemp="; sUri += temp;
   sUri += "&rmtrh="; sUri += rh;
+  if(bResetPri)
+  {
+    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN); // clear priority and en if it changed
+    sUri += "&rmtflg="; sUri += ee.PriEn; // 1=priority, 2=enable(avg)
+    bResetPri = false;
+  }
+  if(ee.bPIR)
+  {
+    sUri += "&rmtflg=";
+    sUri += ee.PriEn; // 1=priority, 2=enable(avg)
+    if(ee.priSecs)
+    {
+      sUri += "&rmtto="; sUri += ee.priSecs;
+    }
+  }
+  sUri += "&rmtname="; sUri += '1SNS';
 
   IPAddress ip(ee.hvacIP);
   String url = ip.toString();
@@ -431,11 +476,11 @@ void setup()
 {
   pinMode(ESP_LED, OUTPUT);
   digitalWrite(ESP_LED, LOW);
+//  pinMode(PIR, INPUT);
 #ifdef DEBUG
   Serial.begin(115200);
 //  delay(3000);
   Serial.println();
-  Serial.println("Init");
 #endif
 
   // initialize dispaly
@@ -450,36 +495,6 @@ void setup()
 
   WiFi.hostname(hostName);
   wifi.autoConnect(hostName, ee.szControlPassword);
-
-  if(!wifi.isCfg())
-  {
-    MDNS.begin( hostName );
-#ifdef DEBUG
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-#endif
-  }
-
-  // Find HVAC
-  int n = MDNS.queryService("iot", "tcp");
-  int d;
-  for(int i = 0; i < n; ++i)
-  {
-    char szName[38];
-    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
-    strtok(szName, "."); // remove .local
-
-    if(!strcmp(szName, "HVAC"))
-    {
-      ee.hvacIP[0] = MDNS.IP(i)[0]; // update IP
-      ee.hvacIP[1] = MDNS.IP(i)[1];
-      ee.hvacIP[2] = MDNS.IP(i)[2];
-      ee.hvacIP[3] = MDNS.IP(i)[3];
-      break;
-    }
-  }
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
@@ -538,17 +553,13 @@ void setup()
 
   server.begin();
 
-  MDNS.addService("iot", "tcp", serverPort);
 #ifdef OTA_ENABLE
   ArduinoOTA.begin();
 #endif
 
   jsonParse.addList(jsonList1);
   digitalWrite(ESP_LED, HIGH);
-  if(!wifi.isCfg() && ee.useTime)
-    utime.start();
   if(ee.rate == 0) ee.rate = 60;
-  CallHost(Reason_Setup, "");
   sleepTimer = ee.sleep;
 }
 
@@ -562,6 +573,27 @@ void sendState()
 
 RunningMedian<uint16_t, 20> tempMedian[2];
 
+void findHVAC() // This seems to show only 3 at a time
+{
+  int n = MDNS.queryService("iot", "tcp");
+  int d;
+  for(int i = 0; i < n; ++i)
+  {
+    char szName[38];
+    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
+    strtok(szName, "."); // remove .local
+
+    if(!strcmp(szName, "HVAC"))
+    {
+      ee.hvacIP[0] = MDNS.IP(i)[0]; // update IP
+      ee.hvacIP[1] = MDNS.IP(i)[1];
+      ee.hvacIP[2] = MDNS.IP(i)[2];
+      ee.hvacIP[3] = MDNS.IP(i)[3];
+      break;
+    }
+  }
+}
+
 void loop()
 {
   static uint8_t hour_save, sec_save;
@@ -574,6 +606,25 @@ void loop()
 #endif
   if(!wifi.isCfg() && ee.useTime)
     utime.check(ee.tz);
+
+  wifi.service();
+  if(wifi.connectNew())
+  {
+    MDNS.begin( hostName );
+    MDNS.addService("iot", "tcp", serverPort);
+    if(ee.useTime)
+      utime.start();
+    findHVAC();
+    CallHost(Reason_Setup, "");
+  }
+
+  static bool last_pir;
+  if(digitalRead(PIR) != last_pir)
+  {
+    last_pir = digitalRead(PIR);
+    if(last_pir)
+      CallHost(Reason_Motion, "");
+  }
 
   if(sec_save != second()) // only do stuff once per second (loop is maybe 20-30 Hz)
   {
@@ -596,7 +647,7 @@ void loop()
       float temp2, rh2;
       if(am.measure(temp2, rh2))
       {
-        tempMedian[0].add( (1.8 * temp2 + 32.0) * 10 );
+        tempMedian[0].add(( 1.8 * temp2 + 32.0) * 10 );
         tempMedian[0].getAverage(2, temp2);
         tempMedian[1].add(rh2 * 10);
         tempMedian[1].getAverage(2, rh2);
@@ -645,8 +696,19 @@ void loop()
     digitalWrite(ESP_LED, HIGH);
   }
 
-  if(wifi.isCfg()) // WiFi cfg will draw it
+  if(wifi.state() == ws_config) // WiFi cfg prints AP IP
+  {
+    delay(40);
+    digitalWrite(ESP_LED, !digitalRead(ESP_LED) );
     return;
+  }
+  else if(wifi.state() == ws_connecting) // WiFi connect will draw OLED
+  {
+    digitalWrite(ESP_LED, LOW);
+    delay(8);
+    digitalWrite(ESP_LED, HIGH);
+    return;
+  }
 
 #ifdef USE_OLED
   static bool bClear;
@@ -669,8 +731,8 @@ void loop()
 
     Scroller(s);
 
-    display.drawPropString(2, 47, String(temp/10 + ((float)ee.tempCal/10), 1) + "]");
-    display.drawPropString(64, 47, String(rh/10, 1) + "%");
+    display.drawPropString(2, 47, String((float)temp/10 + ((float)ee.tempCal/10), 1) + "]");
+    display.drawPropString(64, 47, String((float)rh/10, 1) + "%");
     bClear = false;
   }
   else
