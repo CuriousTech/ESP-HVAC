@@ -20,7 +20,10 @@ struct eeSet // EEPROM backed data
   uint8_t  hvacIP[4];
   uint32_t time_off;
   uint32_t sleep;
-  char     res[30];
+  uint32_t priSecs;
+  uint8_t  PriEn;
+  bool    bPIR;
+  char     res[26];
 };
 
 extern eeSet ee;
