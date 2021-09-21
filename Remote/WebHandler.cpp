@@ -194,6 +194,7 @@ void startServer()
 
   server.begin();
 #ifdef OTA_ENABLE
+  ArduinoOTA.setHostName(hostName);
   ArduinoOTA.begin();
 #endif
 
