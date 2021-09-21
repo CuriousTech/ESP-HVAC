@@ -34,11 +34,13 @@ public:
   JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize = 1024);
   bool  addList(const char **pList);
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = 30000);
+  bool  begin(IPAddress ip, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = 30000);
   void  end(void);
   void  process(char *event, char *data);
   int   status(void);
 
 private:
+  bool  begin(const char *pPath, uint16_t port, bool bKeepAlive, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = 30000);
   bool  connect(void);
   void  processLine(void);
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue);
@@ -52,8 +54,8 @@ private:
   static void _onError(AsyncClient* client, int8_t error);
   void _onTimeout(AsyncClient* client, uint32_t time);
   void _onData(AsyncClient* client, char* data, size_t len);
-  char m_szHost[2][64];
-  int  m_tog;
+  IPAddress m_ip;
+  char *m_pszHost;
   char m_szPath[128];
   char m_szData[256];
 #define LIST_CNT 8
@@ -77,4 +79,3 @@ private:
 };
 
 #endif // JSONCLIENT_H
-
