@@ -33,6 +33,9 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
 // If second string is "" or NULL, the event name is expected, but the "data:" string is assumed non-JSON
 bool JsonClient::addList(const char **pList)
 {
+  for(int i = 0; i < m_jsonCnt; i++)
+    if(m_jsonList[i] == pList)
+      return true;
   if(m_jsonCnt >= LIST_CNT)
     return false;
   m_jsonList[m_jsonCnt++] = pList;
@@ -75,7 +78,6 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
   m_nPort = port;
   m_bKeepAlive = bKeepAlive;
   m_timeOut = millis();
-  m_Status = JC_BUSY;
   m_pHeaders = pHeaders;
   m_bPost = bPost;
   m_retryCnt = 0;
@@ -109,8 +111,6 @@ void JsonClient::end()
 
 int JsonClient::status()
 {
-  if(m_ac.connected() == false)
-    m_Status = JC_IDLE;
   return m_Status;
 }
 
@@ -134,8 +134,10 @@ void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // intege
 bool JsonClient::connect()
 {
   if(m_szPath[0] == 0)
+  {
+    m_Status = JC_IDLE;
     return false;
-
+  }
   if( m_retryCnt > RETRIES)
   {
     m_Status = JC_RETRY_FAIL;
@@ -145,9 +147,10 @@ bool JsonClient::connect()
     return false;
   }
 
-  if(m_ac.connected())
-    return true;
+  if(m_Status == JC_CONNECTING || m_Status == JC_CONNECTED)
+	  return false;
 
+  m_Status = JC_CONNECTING;
   if(m_pszHost && m_pszHost[0])
   {
 	if( m_ac.connect(m_pszHost, m_nPort) )
@@ -232,8 +235,8 @@ void JsonClient::_onConnect(AsyncClient* client)
     m_ac.add("\n", 1);
   }
 
-  m_Status = JC_CONNECTED;
   m_brace = 0;
+  m_Status = JC_CONNECTED;
   m_callback(-1, m_Status, m_nPort, m_pszHost);
 }
 
