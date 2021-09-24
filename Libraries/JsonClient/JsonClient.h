@@ -17,7 +17,7 @@
 enum JC_Status
 {
     JC_IDLE,
-	JC_BUSY,
+	JC_CONNECTING,
     JC_CONNECTED,
     JC_DONE,
     JC_TIMEOUT,
@@ -79,3 +79,4 @@ private:
 };
 
 #endif // JSONCLIENT_H
+
