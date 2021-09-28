@@ -374,7 +374,7 @@ void HVAC::tempCheck()
         {
           m_Sensor[i].flags |= SNS_WARN;
           String s = "print;";
-          s += m_Sensor[i].ID;
+          s += (char*)&m_Sensor[i].ID;
           s += " sensor data expired";
           WsSend(s);
         }
@@ -963,14 +963,12 @@ const char *cmdList[] = { "cmd",
   "ffp",    // 40
   "dl",
   "play",
-  "rmtid",
+  "tu",
   "rmttemp",
   "rmtrh",
   "rmtflg",
   "rmtname",
-  "rmt",
-  "rmttm",
-  "tu", // 50
+  "rmtto",
   "sm",
   NULL
 };
@@ -1156,15 +1154,16 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       mus.play(val);
 #endif
       break;
-    case 43: // rmtid (?rmtid=100&rmtflg=1)
-      m_snsIdx = getSensorID(val ? val:ip[3]); // use client ID if 0
+    case 43: // tu
+      ee.b.bCelcius = val ? true:false;
+      m_bRecheck = true;
       break;
     case 44: // rmttemp
       m_snsIdx = getSensorID(ip[3]);
       if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
-        val = val*90/50+320;
+        val = val * 90 / 50 + 320;
       else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.b.bCelcius)
-        val = (val-320)*50/90;
+        val = (val - 320) * 50 / 90;
       m_Sensor[m_snsIdx].temp = val;
       m_Sensor[m_snsIdx].tm = now();
       break;
@@ -1197,20 +1196,11 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
         m_snsIdx = 0;
       }
       break;
-    case 48: // rmt
-      m_snsIdx = getSensorID(ip[3]);
-      m_Sensor[m_snsIdx].flags &= ~SNS_EN;
-      m_Sensor[m_snsIdx].flags |= val?SNS_EN:0;
-      break;
-    case 49: // rmtto
+    case 48: // rmtto
       m_snsIdx = getSensorID(ip[3]);
       m_Sensor[m_snsIdx].timer = val;
       break;
-    case 50: // tu
-      ee.b.bCelcius = val ? true:false;
-      m_bRecheck = true;
-      break;
-    case 51: // sm
+    case 49: // sm
       ee.b.nSchedMode = constrain(val, 0, 2);
       break;
   }
