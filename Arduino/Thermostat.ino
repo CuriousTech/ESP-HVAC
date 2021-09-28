@@ -63,13 +63,13 @@ eeMem eemem;
 
 HVAC hvac;
 
+RunningMedian<int16_t,25> tempMedian; //median of 25 samples
+
 #ifdef SHT21_H
 SHT21 sht(SDA, SCL, 4);
-RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 4s intervals
 #endif
 #ifdef dht_h
 DHT dht;
-RunningMedian<int16_t,20> tempMedian; //median over 20 samples at 5s intervals
 #endif
 #ifdef DallasTemperature_h
 const int ds18Resolution = 12;
@@ -80,11 +80,9 @@ const unsigned int ds18reqdelay = 5000; //request every 5 seconds
 unsigned long ds18reqlastreq;
 OneWire oneWire(2); //pin 2
 DallasTemperature ds18(&oneWire);
-RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 2s intervals
 #endif
 #ifdef AM2303_H
 AM2320 am;
-RunningMedian<int16_t,25> tempMedian; //median over 25 samples at 4s intervals
 #endif
 
 UdpTime utime;
@@ -270,6 +268,7 @@ void loop()
           if((hour_save & 1) == 0) // every other hour
           {
             ee.filterMinutes = hvac.m_filterMinutes;
+
             eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
           }
         }
