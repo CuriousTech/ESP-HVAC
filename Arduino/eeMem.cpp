@@ -6,7 +6,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   "", // router password
   {850, 860},   // 87.0, 90.0 default cool temps  F/C issue
   {740, 750},   // default heat temps             F/C issue
-  {0},            // Mode
+  {0,0,0,0,0,0,0,0}, // flags
   {28, 8},      // cycleThresh (cool 0.5, heat 0.8) F/C issue
   33,           // heatThresh (under 33F is gas)  F/C issue
   60*4,         // 5 mins minimum for a cycle
