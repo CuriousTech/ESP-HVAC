@@ -72,7 +72,7 @@ void HVAC::sendCmd(const char *szName, int value)
 void HVAC::enableRemote()
 {
   m_bRemoteStream = !m_bRemoteStream;
-  sendCmd("rmt", m_bRemoteStream);
+  sendCmd("rmtflg", m_bRemoteStream ? SNS_PRI : (SNS_NEG|SNS_PRI)); // set or unset priority
 }
 
 bool HVAC::stateChange()
@@ -273,17 +273,14 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
   static int16_t oldRh;
   static uint32_t secs;
 
-  if(m_localTemp != oldTemp || now() - secs > 30)
+  if(m_localTemp != oldTemp || m_localRh != oldRh || now() - secs > 30)
   {
     oldTemp = m_localTemp;
-    secs = now();
-    sendCmd("rmttemp", m_localTemp);
-  }
-  else if(m_localRh != oldRh)
-  {
     oldRh = m_localRh;
-    sendCmd("rmtrh", m_localRh);
+    secs = now();
     sendCmd("rmtname", '1TMR'); // RMT1
+    sendCmd("rmttemp", m_localTemp);
+    sendCmd("rmtrh", m_localRh);
   }
 }
 
@@ -446,7 +443,6 @@ String HVAC::settingsJson()
   js.Var("ccf", ee.ccf);
   js.Var("cfm", ee.cfm);
   js.Var("dl", ee.diffLimit);
-  js.Var("rmt", m_bRemoteStream);
   return js.Close();
 }
 
@@ -461,7 +457,6 @@ String HVAC::getPushData()
   js.Var("tempi", m_localTemp );
   js.Var("rhi", m_localRh );
   js.Var("ct", m_cycleTimer );
-  js.Var("rmt", m_bRemoteStream );
   return js.Close();
 }
 
