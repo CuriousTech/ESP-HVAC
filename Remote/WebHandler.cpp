@@ -413,5 +413,5 @@ void startListener()
 {
   wsc.onEvent(webSocketEvent);
   IPAddress ip(ee.hostIp);
-  wsc.begin(ip.toString().c_str(), ee.hostPort, "/ws");
+  wsc.begin(ip, ee.hostPort, "/ws");
 }
