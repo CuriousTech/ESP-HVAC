@@ -175,6 +175,7 @@ void startServer()
   });
   server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
+    parseParams(request);
     jsonString js;
     js.Var("time", (long)(now() - ((ee.tz + hvac.m_DST) * 3600)) );
     js.Var("ppkw", ee.ppkwh );
