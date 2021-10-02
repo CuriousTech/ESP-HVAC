@@ -15,7 +15,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 
-#define DEBUG //until arduino ide can include defines at compile time from main sketch
+//#define DEBUG //until arduino ide can include defines at compile time from main sketch
 
 #ifdef DEBUG
 #define DEBUG_PRINT(x)  Serial.println(x)
