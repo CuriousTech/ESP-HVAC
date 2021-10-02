@@ -176,7 +176,7 @@ public:
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
-#define SNS_CNT 6
+#define SNS_CNT 8
   Sensor m_Sensor[SNS_CNT]; // remote and sensors
 
 private:
@@ -189,6 +189,8 @@ private:
   int   CmdIdx(String s);
   void  sendCmd(const char *szName, int value);
   int   getSensorID(int val);
+  void  swapSensors(int n1, int n2);
+  void  shiftSensors(void);
 
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
   bool    m_bFanRunning;    // when fan is running
@@ -218,7 +220,6 @@ private:
   uint16_t m_remoteTimer;   // in seconds
   uint16_t m_humidTimer;    // timer for humidifier cost
   int8_t   m_furnaceFan;    // fake fan timer
-  uint8_t  m_snsIdx;        // current sensor in use
 };
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
