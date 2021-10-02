@@ -51,7 +51,7 @@ SOFTWARE.
 #define ENC_A    16
 #define ENC_B    4
 #else // ESP8266 pins
-#define SDA       2
+#define SDA      2
 #define SCL      13
 #define ENC_A    5  // Encoder is on GPIO4 and 5
 #define ENC_B    4
@@ -146,7 +146,6 @@ void setup()
 #ifdef AM2303_H
   am.begin(SDA, SCL);
 #endif
-  utime.start();
 }
 
 void loop()
@@ -158,13 +157,14 @@ void loop()
 
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
-  handleServer(); // handles mDNS, web
   if(utime.check(ee.tz))
   {
     hvac.m_DST = utime.getDST();
     if(lastDay == -1)
       lastDay = day() - 1;
   }
+  if(handleServer()) // handles mDNS, web (returns true when connection made)
+    utime.start();
 #ifdef SHT21_H
   if(sht.service())
   {
@@ -194,7 +194,7 @@ void loop()
   if(sec_save != second()) // only do stuff once per second
   {
     sec_save = second();
-    secondsServer(); // once per second stuff
+    secondsServer(); // once per second stuff)
     display.oneSec();
     hvac.service();   // all HVAC code
 
@@ -268,7 +268,6 @@ void loop()
           if((hour_save & 1) == 0) // every other hour
           {
             ee.filterMinutes = hvac.m_filterMinutes;
-
             eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
           }
         }
