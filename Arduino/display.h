@@ -108,8 +108,9 @@ public:
   uint32_t m_lastPDate;
   forecastData m_fc;
   uint8_t m_adjustMode; // which of 4 temps to adjust with rotary encoder/buttons
-  bool    m_bUpdateFcst;
-  bool    m_bUpdateFcstDone = true;
+  bool    m_bUpdateFcst = true;
+  bool    m_bUpdateFcstIdle = true;
+  bool    m_bFcstUpdated;
 };
 
 #endif // DISPLAY_H
