@@ -63,3 +63,6 @@ New Model
 Remote (this uses only a few components: the 3.3V regulator, 3 capacitors, USB connector, temp sensor, and 3 required resistors)  
 ![model2rem](http://www.curioustech.net/images/hvacremote.jpg)  
 ![model2side](http://www.curioustech.net/images/esphvac21.jpg)  
+
+Sensor web page  
+![envmon](http://www.curioustech.net/images/envmon.png)  
