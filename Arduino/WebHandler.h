@@ -5,7 +5,7 @@
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 
 void startServer(void);
-void handleServer(void);
+bool handleServer(void);
 void secondsServer(void);
 String ipString(IPAddress ip);
 void parseParams(AsyncWebServerRequest *request);
