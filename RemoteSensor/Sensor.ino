@@ -26,12 +26,13 @@ SOFTWARE.
 
 // Build with Arduino IDE 1.8.9, esp8266 SDK 2.5.0
 
+// Uncomment if using a direct OLED display
+//#define USE_OLED
+
 //uncomment to enable Arduino IDE Over The Air update code
 #define OTA_ENABLE
-//#define USE_OLED
-#define DEBUG
 
-//#define USE_SPIFFS // Uses 7K more program space
+//#define USE_SPIFFS
 
 #include <Wire.h>
 #ifdef USE_OLED
@@ -42,12 +43,11 @@ SOFTWARE.
 #include <ESP8266mDNS.h>
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
-#include "RunningMedian.h"
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
-#include <UdpTime.h>
+#include <UdpTime.h> // https://github.com/CuriousTech/ESP07_WiFiGarageDoor/tree/master/libraries/UdpTime
 #include "eeMem.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
-#include <JsonClient.h>
+#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
 #ifdef OTA_ENABLE
 #include <FS.h>
 #include <ArduinoOTA.h>
@@ -59,12 +59,13 @@ SOFTWARE.
 #include "pages.h"
 #endif
 #include "jsonstring.h"
-#include <AM2320.h>
+#include "TempArray.h"
+
+// Uncomment only one
+#include "tuya.h"  // Uncomment device in tuya.cpp
+//#include "BasicSensor.h"
 
 int serverPort = 80;
-
-#define ESP_LED  2  // low turns on ESP blue LED
-#define PIR     12 // PIR sensor
 
 enum reportReason
 {
@@ -74,36 +75,18 @@ enum reportReason
   Reason_Motion,
 };
 
-// From HVAC.h
-#define SNS_PRI   (1 << 0) // Single sensor overrides all others including internal
-#define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
-#define SNS_C     (1 << 2) // Data from remote sensor is C or F
-#define SNS_F     (1 << 3) // ""
-#define SNS_TOPRI (1 << 4) // 1=timer is for priority, 0=for average
-#define SNS_LO    (1 << 5) // lo/hi unused as of now
-#define SNS_HI    (1 << 6)
-#define SNS_WARN  (1 << 7) // internal flag for data timeout
-#define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
-
-uint32_t lastIP;
-uint32_t verifiedIP;
+IPAddress lastIP;
+IPAddress verifiedIP;
 int nWrongPass;
-bool bResetPri;
-
-const char hostName[] ="Sensor1";
+bool bResetPri = true; // send at start
 
 uint32_t sleepTimer = 60; // seconds delay after startup to enter sleep (Note: even if no AP found)
-int8_t openCnt;
-
-#ifdef USE_OLED
-SSD1306 display(0x3c, 5, 4); // Initialize the oled display for address 0x3c, sda=5, sdc=4
-#endif
-
-AM2320 am;
+int8_t nWsConnected;
 
 WiFiManager wifi;  // AP page:  192.168.4.1
 AsyncWebServer server( serverPort );
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
+int WsClientID;
 
 void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse jsonParse(jsonCallback);
@@ -112,43 +95,73 @@ JsonClient jsonPush(jsonPushCallback);
 
 UdpTime utime;
 
-uint16_t temp;
-uint16_t rh;
-
 eeMem eemem;
 
-bool bMotion;
+bool bPIRTrigger;
 uint16_t displayTimer;
 
-String dataJson()
-{
-  jsonString js("state");
+#ifdef TUYA_H
+TuyaInterface sensor;
+#else
+BasicInterface sensor;
+#endif
 
-  js.Var("t", (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600) );
-  js.Var("temp", String((float)temp/10 + ((float)ee.tempCal/10), 1) );
-  js.Var("rh", String((float)rh/10, 1) );
-  js.Var("st", sleepTimer);
-  return js.Close();
-}
+#ifdef USE_OLED
+SSD1306 display(0x3c, 5, 4); // Initialize the oled display for address 0x3c, sda=5, sdc=4
+#endif
+
+TempArray temps;
 
 String settingsJson()
 {
   jsonString js("settings");
 
   js.Var("tz",  ee.tz);
+  js.Var("name", ee.szName);
   js.Var("to", ee.time_off );
-  js.Var("rate", ee.rate);
+  js.Var("srate", ee.sendRate);
+  js.Var("lrate", ee.logRate);
   js.Var("sleep", ee.sleep);
-  js.Var("o", ee.bEnableOLED);
-  js.Var("pir", ee.bPIR);
-  js.Var("pri", ee.PriEn);
+  js.Var("o", ee.e.bEnableOLED);
+  js.Var("l1", sensor.m_bLED[0]);
+  js.Var("l2", sensor.m_bLED[1]);
+  js.Var("pir", ee.e.bPIR);
+  js.Var("pirpin", ee.pirPin);
+  js.Var("pri", ee.e.PriEn);
   js.Var("prisec", ee.priSecs);
+  js.Var("ch", ee.e.bCall);
+  js.Var("ID", ee.sensorID);
+  js.Var("cf", sensor.m_bCF);
+  js.Var("df", sensor.m_dataFlags);
+  return js.Close();
+}
+
+String dataJson()
+{
+  jsonString js("state");
+
+  js.Var("t", (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600) );
+  js.Var("df", sensor.m_dataFlags);
+  js.Var("temp", String( (float)(sensor.m_values[DE_TEMP]+ee.tempCal) / 10, 1 ) );
+  js.Var("rh", String((float)sensor.m_values[DE_RH] / 10, 1) );
+  js.Var("st", sleepTimer);
+  int sig = WiFi.RSSI();
+  sensor.setSignal(sig);
+  js.Var("rssi", sig);
+
+  if(sensor.m_dataFlags & DF_CO2 )
+    js.Var("co2", sensor.m_values[DE_CO2] );
+  if(sensor.m_dataFlags & DF_CH2O )
+    js.Var("ch2o", sensor.m_values[ DE_CH2O ] );
+  if(sensor.m_dataFlags & DF_VOC )
+    js.Var("voc", sensor.m_values[ DE_VOC ] );
+  
   return js.Close();
 }
 
 void displayStart()
 {
-  if(ee.bEnableOLED == false && displayTimer == 0)
+  if(ee.e.bEnableOLED == false && displayTimer == 0)
   {
 #ifdef USE_OLED
     display.init();
@@ -157,84 +170,162 @@ void displayStart()
   displayTimer = 30;
 }
 
+const char *jsonList1[] = { "cmd",
+  "key",
+  "ssid",
+  "password",
+  "name",
+  "reset",
+  "tempOffset",
+  "oled",
+  "TZ",
+  "TO",
+  "srate",
+  "lrate", // 10
+  "pir",
+  "pri",
+  "prisec",
+  "led1",
+  "led2",
+  "cf",
+  "ch",
+  "hostip",
+  "hist",
+  "ID", // 20
+  "sleep",
+  "pirpin",
+  NULL
+};
+
 void parseParams(AsyncWebServerRequest *request)
 {
-  char sztemp[100];
-  char password[64];
- 
-  if(request->params() == 0)
-    return;
+  if(nWrongPass && request->client()->remoteIP() != lastIP)  // if different IP drop it down
+    nWrongPass = 10;
+  lastIP = request->client()->remoteIP();
 
-  // get password first
-  for ( uint8_t i = 0; i < request->params(); i++ ) {
+  char temp[100];
+
+  for ( uint8_t i = 0; i < request->params(); i++ )
+  {
     AsyncWebParameter* p = request->getParam(i);
+    p->value().toCharArray(temp, 100);
+    String s = wifi.urldecode(temp);
 
-    p->value().toCharArray(sztemp, 100);
-    String s = wifi.urldecode(sztemp);
-    switch( p->name().charAt(0)  )
-    {
-      case 'k': // key
-        s.toCharArray(password, sizeof(password));
+    uint8_t idx;
+    for(idx = 1; jsonList1[idx]; idx++)
+      if( p->name().equals(jsonList1[idx]) )
         break;
+    if(jsonList1[idx])
+    {
+      int iValue = s.toInt();
+      if(s == "true") iValue = 1;
+      jsonCallback(0, idx - 1, iValue, (char *)s.c_str());
     }
   }
+}
 
-  uint32_t ip = request->client()->remoteIP();
+bool bKeyGood;
+bool bDataMode;
 
-  if( ip && ip == verifiedIP ); // can skip if last verified
-  else if( strcmp(password, ee.szControlPassword))
+void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
+{
+  if(bKeyGood == false && iName) return;  // only allow key set
+
+  switch(iEvent)
   {
-    if(nWrongPass == 0) // it takes at least 10 seconds to recognize a wrong password
-      nWrongPass = 10;
-    else if((nWrongPass & 0xFFFFF000) == 0 ) // time doubles for every high speed wrong password attempt.  Max 1 hour
-      nWrongPass <<= 1;
-    if(ip != lastIP)  // if different IP drop it down
-       nWrongPass = 10;
-
-    jsonString js("hack");
-    js.Var("ip", request->client()->remoteIP().toString() );
-    js.Var("pass", password);
-    ws.textAll(js.Close());
-
-    lastIP = ip;
-    return;
-  }
-
-  verifiedIP = ip;
-  lastIP = ip;
-
-  for ( uint8_t i = 0; i < request->params(); i++ ) {
-    AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(sztemp, 100);
-    String s = wifi.urldecode(sztemp);
-    bool which = (tolower(p->name().charAt(1) ) == 'd') ? 1:0;
-    int val = s.toInt();
- 
-    switch( p->name().charAt(0)  )
-    {
-      case 'F': // temp offset
-          ee.tempCal = val;
+    case 0: // cmd
+      switch(iName)
+      {
+        case 0: // key
+          if(!strcmp(psValue, ee.szControlPassword)) // first item must be key
+          {
+            bKeyGood = true;
+            verifiedIP = lastIP;
+          }
           break;
-      case 'T': // to
-          ee.time_off = val;
+        case 1: // wifi SSID
+          strncpy((char *)&ee.szSSID, psValue, sizeof(ee.szSSID));
           break;
-      case 'O': // OLED
-          ee.bEnableOLED = (s == "true") ? true:false;
-#ifdef USE_OLED
-          display.clear();
-          display.display();
-#endif
+        case 2: // wifi password
+          wifi.setPass(psValue);
           break;
-      case 'r': // reset
+        case 3:
+          if(!strlen(psValue))
+            break;
+          strncpy(ee.szName, psValue, sizeof(ee.szName));
+          eemem.update();
           ESP.reset();
           break;
-      case 's': // ssid
-          s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
+        case 4: // reset
+          eemem.update();
+          ESP.reset();
           break;
-      case 'p': // pass
-          wifi.setPass(s.c_str());
+        case 5: // tempOffset
+          ee.tempCal = iValue;
           break;
-    }
+        case 6: // OLED
+          ee.e.bEnableOLED = iValue;
+          break;
+        case 7: // TZ
+          ee.tz = iValue;
+          break;
+        case 8: // TO
+          ee.time_off = iValue;
+          break;
+        case 9: // srate
+          ee.sendRate = iValue;
+          break;
+        case 10: // lrate
+          ee.logRate = iValue;
+          break;
+        case 11: // pir
+          ee.e.bPIR = iValue;
+          break;
+        case 12: // pri
+          ee.e.PriEn = iValue & 0x3; // EN or PRI
+          bResetPri = true;
+          break;
+        case 13: // prisec
+          ee.priSecs = iValue;
+          break;
+        case 14: // led1
+          sensor.setLED(0, iValue ? true:false);
+          break;
+        case 15: // led2
+          sensor.setLED(1, iValue ? true:false);
+          break;
+        case 16: // cf
+          sensor.setCF(iValue ? true:false);
+          bResetPri = true;
+          break;
+        case 17: // ch
+          ee.e.bCall = iValue;
+          if(iValue) CallHost(Reason_Setup, ""); // test
+          break;
+        case 18: // hostip
+          ee.hostPort = 80;
+          ee.hostIP[0] = lastIP[0];
+          ee.hostIP[1] = lastIP[1];
+          ee.hostIP[2] = lastIP[2];
+          ee.hostIP[3] = lastIP[3];
+          ee.e.bCall = 1;
+          CallHost(Reason_Setup, ""); // test
+          break;
+        case 19: // hist
+          if(iValue == 0)
+            temps.historyDump(true, ws, WsClientID);
+          break;
+        case 20:
+          ee.sensorID = iValue;
+          break;
+        case 21:
+          ee.sleep = iValue;
+          break;
+        case 22:
+          ee.pirPin = iValue;
+          break;
+      }
+      break;
   }
 }
 
@@ -261,71 +352,9 @@ String timeFmt(bool do_sec, bool do_M)
   return r;
 }
 
-const char *jsonList1[] = { "cmd",
-  "key",
-  "tempOffset",
-  "oled",
-  "TZ",
-  "TO",
-  "rate",
-  "sleep",
-  "pir",
-  "pri",
-  "prisec",
-  NULL
-};
-
-bool bKeyGood;
-bool bDataMode;
-
-void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
-{
-  if(bKeyGood == false && iName) return;  // only allow key set
-
-  switch(iEvent)
-  {
-    case 0: // cmd
-      switch(iName)
-      {
-        case 0: // key
-          if(!strcmp(psValue, ee.szControlPassword)) // first item must be key
-            bKeyGood = true;
-          break;
-        case 1: // tempOffset
-          ee.tempCal = iValue;
-          break;
-        case 2: // OLED
-          ee.bEnableOLED = iValue ? true:false;
-          break;
-        case 3: // TZ
-          ee.tz = iValue;
-          break;
-        case 4: // TO
-          ee.time_off = iValue;
-          break;
-        case 5: // rate
-          ee.rate = iValue;
-          break;
-        case 6: // sleep
-          ee.sleep = iValue;
-          break;
-        case 7: // pir
-          ee.bPIR = iValue ? true:false;
-          break;
-        case 8: // pri
-          ee.PriEn = iValue & 0xF; // can take C or F as well as EN or PRI
-          bResetPri = true;
-          break;
-        case 9: // prisec
-          ee.priSecs = iValue;
-          break;
-      }
-      break;
-  }
-}
-
 const char *jsonListPush[] = { "time",
   "time", // 0
+  "ppkw",
   NULL
 };
 
@@ -347,20 +376,76 @@ void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // time
-          setTime(iValue + ( (ee.tz + utime.getDST() ) * 3600));
+          setTime(iValue + (ee.tz * 3600));
+          utime.DST();
+          setTime(iValue + ((ee.tz + utime.getDST()) * 3600));
           break;
       }
       break;
   }
 }
 
+struct cQ
+{
+  IPAddress ip;
+  String sUri;
+  uint16_t port;
+};
+#define CQ_CNT 8
+cQ queue[CQ_CNT];
+uint8_t qI;
+
+void checkQueue()
+{
+  static uint32_t cqTime;
+  static uint8_t qIdx;
+
+  if(wifi.state() != ws_connected)
+    return;
+  if(jsonPush.status() != JC_IDLE) // These should be fast, so kill if not
+  {
+    if( (millis() - cqTime) > 500)
+    {
+      jsonPush.end();
+      cqTime = millis();
+    }
+    return;
+  }
+
+  if(qIdx == qI || queue[qIdx].port == 0) // Nothing to do
+    return;
+
+  if( jsonPush.begin(queue[qIdx].ip, queue[qIdx].sUri.c_str(), queue[qIdx].port, false, false, NULL, NULL, 300) )
+  {
+    jsonPush.addList(jsonListPush);
+    cqTime = millis();
+    queue[qIdx].port = 0;
+    if(++qIdx >= CQ_CNT)
+      qIdx = 0;
+  }
+}
+
+bool callQueue(IPAddress ip, String sUri, uint16_t port)
+{
+  if(queue[qI].port == 0)
+  {
+    queue[qI].ip = ip;
+    queue[qI].sUri = sUri;
+    queue[qI].port = port;
+    if(++qI >= CQ_CNT)
+      qI = 0;
+    return true;
+  }
+  return false; // full
+}
+
 void CallHost(reportReason r, String sStr)
 {
-  if(wifi.state() != ws_connected || ee.hostIP[0] == 0) // no host set
+  if(wifi.state() != ws_connected || ee.hostIP[0] == 0 || ee.e.bCall == false)
     return;
 
   String sUri = "/wifi?name=\"";
-  sUri += hostName;
+  sUri += ee.szName;
   sUri += "\"&reason=";
 
   switch(r)
@@ -369,8 +454,11 @@ void CallHost(reportReason r, String sStr)
       sUri += "setup&port="; sUri += serverPort;
       break;
     case Reason_Status:
-      sUri += "status&temp="; sUri += String(temp/10, 1);
-      sUri += "&rh="; sUri += String(rh/10, 1);
+      if(sensor.m_values[DE_TEMP] == 0)
+        return;
+
+      sUri += "status&temp="; sUri += String( (float)sensor.m_values[DE_TEMP]/10 , 1);
+      sUri += "&rh="; sUri += String( (float)sensor.m_values[DE_RH]/10 , 1);
       break;
     case Reason_Alert:
       sUri += "alert&value=\"";
@@ -383,9 +471,7 @@ void CallHost(reportReason r, String sStr)
   }
 
   IPAddress ip(ee.hostIP);
-  String url = ip.toString();
-  jsonPush.begin(url.c_str(), sUri.c_str(), ee.hostPort, false, false, NULL, NULL);
-  jsonPush.addList(jsonListPush);
+  callQueue(ip, sUri, ee.hostPort);
 }
 
 void sendTemp()
@@ -395,29 +481,61 @@ void sendTemp()
 
   String sUri = String("/s?key=");
   sUri += ee.szControlPassword;
-  sUri += "&rmttemp="; sUri += temp;
-  sUri += "&rmtrh="; sUri += rh;
+  sUri += "&rmtname="; sUri += ee.sensorID;
+  sUri += "&rmttemp="; sUri += sensor.m_values[DE_TEMP];
+  sUri += "&rmtrh="; sUri += sensor.m_values[DE_RH];
+
+  uint8_t flg = ee.e.PriEn | (ee.e.bCF ? SNS_F : SNS_C); // PriEn: 1=priority, 2=enable(avg)
+
   if(bResetPri)
   {
-    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN); // clear priority and en if it changed
-    sUri += "&rmtflg="; sUri += ee.PriEn; // 1=priority, 2=enable(avg)
+    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN | SNS_F | SNS_C); // clear all flags that may have changed
+    sUri += "&rmtflg="; sUri += flg;
     bResetPri = false;
   }
-  if(ee.bPIR)
+  if(ee.e.bPIR && bPIRTrigger )
   {
     sUri += "&rmtflg=";
-    sUri += ee.PriEn; // 1=priority, 2=enable(avg)
+    sUri += flg;
     if(ee.priSecs)
     {
       sUri += "&rmtto="; sUri += ee.priSecs;
     }
+    bPIRTrigger = false;
   }
-  sUri += "&rmtname="; sUri += '1SNS';
 
   IPAddress ip(ee.hvacIP);
-  String url = ip.toString();
-  jsonPush.begin(url.c_str(), sUri.c_str(), 80, false, false, NULL, NULL);
-  jsonPush.addList(jsonListPush);
+  callQueue(ip, sUri, 80);
+}
+
+uint16_t stateTimer = 10;
+
+void sendState()
+{
+  if(nWsConnected)
+    ws.textAll(dataJson());
+  stateTimer = ee.sendRate;
+}
+
+void findHVAC() // This seems to show only 6 at a time
+{
+  int n = MDNS.queryService("iot", "tcp");
+  int d;
+  for(int i = 0; i < n; ++i)
+  {
+    char szName[38];
+    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
+    strtok(szName, "."); // remove .local
+
+    if(!strcmp(szName, "HVAC"))
+    {
+      ee.hvacIP[0] = MDNS.IP(i)[0]; // update IP
+      ee.hvacIP[1] = MDNS.IP(i)[1];
+      ee.hvacIP[2] = MDNS.IP(i)[2];
+      ee.hvacIP[3] = MDNS.IP(i)[3];
+      break;
+    }
+  }
 }
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
@@ -434,15 +552,15 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 //        client->text("alert;Restarted");
       }
       client->keepAlivePeriod(50);
-      client->text( dataJson() );
       client->text( settingsJson() );
+      client->text( dataJson() );
       client->ping();
-      openCnt++;
+      nWsConnected++;
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
       bDataMode = false; // turn off numeric display and frequent updates
-      if(openCnt)
-        openCnt--;
+      if(nWsConnected)
+        nWsConnected--;
       break;
     case WS_EVT_ERROR:    //error was received from the other end
       break;
@@ -455,12 +573,13 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         if(info->opcode == WS_TEXT){
           data[len] = 0;
 
-          char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
+          char *pCmd = strtok((char *)data, ";"); // assume format is "event;{json:x}"
           char *pData = strtok(NULL, "");
 
           if(pCmd == NULL || pData == NULL) break;
 
           uint32_t ip = client->remoteIP();
+          WsClientID = client->id();
 
           bKeyGood = (ip && verifiedIP == ip) ? true:false; // if this IP sent a good key, no need for more
           jsonParse.process(pCmd, pData);
@@ -472,16 +591,15 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   }
 }
 
+void WsSend(String s)
+{
+  ws.textAll(s);
+}
+
 void setup()
 {
-  pinMode(ESP_LED, OUTPUT);
-  digitalWrite(ESP_LED, LOW);
-//  pinMode(PIR, INPUT);
-#ifdef DEBUG
-  Serial.begin(115200);
-//  delay(3000);
-  Serial.println();
-#endif
+  eemem.init();
+  sensor.init(ee.e.bCF);
 
   // initialize dispaly
 #ifdef USE_OLED
@@ -489,12 +607,9 @@ void setup()
 //  display.flipScreenVertically();
   display.clear();
   display.display();
-#else
-  am.begin(5, 4);
 #endif
 
-  WiFi.hostname(hostName);
-  wifi.autoConnect(hostName, ee.szControlPassword);
+  wifi.autoConnect(ee.szName, ee.szControlPassword);
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
@@ -506,7 +621,7 @@ void setup()
   server.addHandler(&ws);
 
   server.on( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    if(wifi.isCfg())
+    if(wifi.state() == ws_config)
       request->send( 200, "text/html", wifi.page() );
     else
     {
@@ -543,7 +658,7 @@ void setup()
   });
 
   server.onNotFound([](AsyncWebServerRequest *request){
-//    request->send(404);
+    request->send(404);
   });
 
   server.onFileUpload([](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
@@ -554,45 +669,18 @@ void setup()
   server.begin();
 
 #ifdef OTA_ENABLE
-  ArduinoOTA.setHostname(hostName);
+  ArduinoOTA.setHostname(ee.szName);
   ArduinoOTA.begin();
+  ArduinoOTA.onStart([]() {
+    eemem.update();
+    sensor.setLED(0, false); // set it all to off
+  });
 #endif
 
   jsonParse.addList(jsonList1);
-  digitalWrite(ESP_LED, HIGH);
-  if(ee.rate == 0) ee.rate = 60;
+  sensor.setLED(0, false);
+  if(ee.sendRate == 0) ee.sendRate = 60;
   sleepTimer = ee.sleep;
-}
-
-uint16_t stateTimer = ee.rate;
-
-void sendState()
-{
-  ws.textAll(dataJson());
-  stateTimer = ee.rate;
-}
-
-RunningMedian<uint16_t, 20> tempMedian[2];
-
-void findHVAC() // This seems to show only 3 at a time
-{
-  int n = MDNS.queryService("iot", "tcp");
-  int d;
-  for(int i = 0; i < n; ++i)
-  {
-    char szName[38];
-    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
-    strtok(szName, "."); // remove .local
-
-    if(!strcmp(szName, "HVAC"))
-    {
-      ee.hvacIP[0] = MDNS.IP(i)[0]; // update IP
-      ee.hvacIP[1] = MDNS.IP(i)[1];
-      ee.hvacIP[2] = MDNS.IP(i)[2];
-      ee.hvacIP[3] = MDNS.IP(i)[3];
-      break;
-    }
-  }
 }
 
 void loop()
@@ -605,85 +693,77 @@ void loop()
 #ifdef OTA_ENABLE
   ArduinoOTA.handle();
 #endif
-  if(!wifi.isCfg() && ee.useTime)
+  if(wifi.state() == ws_connected && ee.e.bUseTime)
     utime.check(ee.tz);
 
   wifi.service();
   if(wifi.connectNew())
   {
-    MDNS.begin( hostName );
+    MDNS.begin( ee.szName );
     MDNS.addService("iot", "tcp", serverPort);
-    if(ee.useTime)
+    if(ee.e.bUseTime) // Host and HVAC return current time
       utime.start();
     findHVAC();
     CallHost(Reason_Setup, "");
   }
 
-  static bool last_pir;
-  if(digitalRead(PIR) != last_pir)
+  if(ee.pirPin)
   {
-    last_pir = digitalRead(PIR);
-    if(last_pir)
-      CallHost(Reason_Motion, "");
+    static bool last_pir;
+    if(digitalRead(ee.pirPin) != last_pir)
+    {
+      last_pir = digitalRead(ee.pirPin);
+      if(last_pir)
+      {
+        CallHost(Reason_Motion, "");
+        if(ee.e.bPIR && bPIRTrigger)
+          sendTemp();
+      }
+    }
   }
+
+  static int htimer = 10;
+  if(--htimer == 0)
+  {
+    temps.historyDump(false, ws, WsClientID);
+    htimer = 10;
+  }
+
+  if(int err = sensor.service())
+  {
+    String s = "alert;Sensor error ";
+    s += err;
+    WsSend(s);
+  }
+  checkQueue();
 
   if(sec_save != second()) // only do stuff once per second (loop is maybe 20-30 Hz)
   {
     sec_save = second();
 
-    if (hour_save != hour())
+    if(hour_save != hour())
     {
       hour_save = hour();
       if((hour_save&1) == 0)
         CallHost(Reason_Setup, "");
-      if(hour_save == 2 && ee.useTime)
-      {
+      if(hour_save == 2 && ee.e.bUseTime)
         utime.start(); // update time daily at DST change
-      }
       eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
-    }
-
-    if((second() % 5) == 0)
-    {
-      float temp2, rh2;
-      if(am.measure(temp2, rh2))
-      {
-        tempMedian[0].add(( 1.8 * temp2 + 32.0) * 10 );
-        tempMedian[0].getAverage(2, temp2);
-        tempMedian[1].add(rh2 * 10);
-        tempMedian[1].getAverage(2, rh2);
-        temp = temp2;
-        rh = rh2;
-        sendState();
-        static bool bTog;
-        if(bTog = !bTog)
-          sendTemp();
-        else
-          CallHost(Reason_Status, "");
-        sleepTimer = ee.sleep;
-      }
-      else
-      {
-       CallHost(Reason_Alert, "AM2320 error");
-      }
     }
 
     if(nWrongPass)
       nWrongPass--;
 
-    if(--stateTimer == 0) // a 60 second keepAlive
-      sendState();
-
     if(displayTimer) // temp display on thing
       displayTimer--;
 
-    if(sleepTimer && openCnt == 0 && wifi.isCfg() == false) // don't sleep until all ws connections are closed
+    if(sleepTimer && nWsConnected == 0 && wifi.state() != ws_config) // don't sleep until all ws connections are closed
     {
       if(--sleepTimer == 0)
       {
         if(ee.time_off)
         {
-          uint32_t us = ee.time_off * 60022000;  // minutes to us adjusted
+          uint32_t us = ee.time_off * 60022000;  // minutes to us calibrated
 #ifdef USE_OLED
           display.displayOff();
 #endif
@@ -692,28 +772,53 @@ void loop()
       }
     }
 
-    digitalWrite(ESP_LED, LOW);
-    delay(8);
-    digitalWrite(ESP_LED, HIGH);
+    if(--stateTimer == 0 || sensor.m_bUpdated) // a 60 second keepAlive
+    {
+      if(sensor.m_bUpdated)
+        temps.update(sensor.m_values);
+      sensor.m_bUpdated = false;
+      sendState();
+    }
+
+    static uint8_t timer = 5;
+    if(--timer == 0)
+    {
+      timer = 30;
+      if(sensor.m_values[DE_RH])
+        CallHost(Reason_Status, "");
+    }
+
+    static uint8_t sendTimer = 10;
+    if(--sendTimer == 0)
+    {
+      sendTimer = ee.sendRate;
+      sendTemp();
+    }
+    static uint8_t addTimer = 10;
+    if(--addTimer == 0)
+    {
+      addTimer = ee.logRate;
+      temps.add(sensor.m_dataFlags, (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600), ws, WsClientID);
+    }
   }
 
   if(wifi.state() == ws_config) // WiFi cfg prints AP IP
   {
     delay(40);
-    digitalWrite(ESP_LED, !digitalRead(ESP_LED) );
+    sensor.setLED(0, !sensor.m_bLED[0] );
     return;
   }
   else if(wifi.state() == ws_connecting) // WiFi connect will draw OLED
   {
-    digitalWrite(ESP_LED, LOW);
+    sensor.setLED(0, true);
     delay(8);
-    digitalWrite(ESP_LED, HIGH);
+    sensor.setLED(0, false);
     return;
   }
 
 #ifdef USE_OLED
   static bool bClear;
-  bool bDraw = (ee.bEnableOLED || displayTimer || bDataMode);
+  bool bDraw = (ee.e.bEnableOLED || displayTimer || bDataMode);
   if(bDraw == false && bClear)
     return;
 
