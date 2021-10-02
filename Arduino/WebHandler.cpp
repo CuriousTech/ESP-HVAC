@@ -56,10 +56,10 @@ int xmlState;
 void GetForecast(void);
 
 int nWrongPass;
-uint32_t lastIP;
 bool bKeyGood;
 int WsClientID;
 int WsRemoteID;
+IPAddress lastIP;
 IPAddress WsClientIP;
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
@@ -118,7 +118,6 @@ void startServer()
   wifi.autoConnect(hostName, ee.password); // Tries configured AP, then starts softAP mode for config
   hvac.m_notif = Note_Connecting;
 
-  Serial.println("");
 #ifdef USE_SPIFFS
   SPIFFS.begin();
 //  server.addHandler(new SPIFFSEditor("admin", ee.password));
@@ -129,7 +128,7 @@ void startServer()
   server.addHandler(&ws);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    if(wifi.isCfg())
+    if(wifi.state() == ws_config)
       request->send( 200, "text/html", wifi.page() );
   });
   server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -226,22 +225,23 @@ void startServer()
 #endif
 }
 
-void handleServer()
+bool handleServer()
 {
+  bool bConn = false;
 #ifdef ESP8266
   MDNS.update();
 #endif
   wifi.service();
   if(wifi.connectNew())
   {
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
+//    Serial.println("WiFi connected");
+//    Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
-    if( !MDNS.begin( hostName ) )
-      Serial.println ( "MDNS responder failed" );
+    MDNS.begin( hostName );
     // Add service to MDNS-SD
     MDNS.addService("iot", "tcp", serverPort);
     hvac.m_notif = Note_Connected;
+    bConn = true;
   }
 
   static int n;
@@ -254,6 +254,7 @@ void handleServer()
 // Handle OTA server.
   ArduinoOTA.handle();
 #endif
+  return bConn;
 }
 
 void WsSend(String s)
@@ -263,30 +264,42 @@ void WsSend(String s)
 
 void secondsServer() // called once per second
 {
-  if(nWrongPass)
-    nWrongPass--;
+
+  if(wifi.state() != ws_connected)
+    return;
 
   ws.cleanupClients();
-
-  if(hvac.stateChange() || hvac.tempChange())
-    ws.textAll( dataJson() );
-
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
     ws.textAll(s); // update anything changed
 
-  if(display.m_bUpdateFcst == true && display.m_bUpdateFcstDone == true && wifi.state() == ws_connected)
+  if(hvac.stateChange() || hvac.tempChange())
+    ws.textAll( dataJson() );
+
+  if(nWrongPass)
+    nWrongPass--;
+
+  static uint8_t nUpdateDelay = 5;
+  if(nUpdateDelay)
+    nUpdateDelay--;
+  if(display.m_bUpdateFcst && display.m_bUpdateFcstIdle)
   {
-    display.m_bUpdateFcst = false;
-    if(ee.b.bNotLocalFcst)
-      GetForecast();
-    else
-      localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+    if(nUpdateDelay == 0)
+    {
+      display.m_bUpdateFcst = false;
+      display.m_bUpdateFcstIdle = false;
+      nUpdateDelay = 60; // delay retries by 1 minute
+      if(ee.b.bNotLocalFcst)
+        GetForecast();
+      else
+        localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+    }
   }
   if(localFC.checkStatus())
   {
     hvac.enable();
-    display.m_bUpdateFcstDone = true;
+    display.m_bUpdateFcstIdle = true;
+    display.m_bFcstUpdated = true;
   }
 
   if(xmlState)
@@ -296,12 +309,13 @@ void secondsServer() // called once per second
         case XML_COMPLETED:
         case XML_DONE:
           hvac.enable();
-          display.m_bUpdateFcstDone = true;
+          display.m_bUpdateFcstIdle = true;
+          display.m_bFcstUpdated = true;
           break;
         case XML_TIMEOUT:
           hvac.disable();
           hvac.m_notif = Note_Forecast;
-          display.m_bUpdateFcstDone = true;
+          display.m_bUpdateFcstIdle = true;
           break;
       }
       xmlState = 0;
@@ -328,21 +342,22 @@ void parseParams(AsyncWebServerRequest *request)
     }
   }
 
-  uint32_t ip = request->client()->remoteIP();
+  IPAddress ip = request->client()->remoteIP();
 
-  if(strcmp(ee.password, password) || nWrongPass)
+  if( ((ip[3] != 192) && (ip[2] != 168) && (strcmp(ee.password, password) ) || nWrongPass) )
   {
     if(nWrongPass == 0)
+    {
       nWrongPass = 10;
+      jsonString js("hack");
+      js.Var("ip", ip.toString() );
+      js.Var("pass", password);
+      ws.textAll(js.Close());
+    }
     else if((nWrongPass & 0xFFFFF000) == 0 ) // time doubles for every high speed wrong password attempt.  Max 1 hour
       nWrongPass <<= 1;
     if(ip != lastIP)  // if different IP drop it down
        nWrongPass = 10;
-
-    jsonString js("hack");
-    js.Var("ip", request->client()->remoteIP().toString() );
-    js.Var("pass", password);
-    ws.textAll(js.Close());
 
     lastIP = ip;
     return;
@@ -373,11 +388,10 @@ void parseParams(AsyncWebServerRequest *request)
     {
       ee.b.bNotLocalFcst = s.toInt() ? true:false;
       display.m_bUpdateFcst = true;
-      display.m_bUpdateFcstDone = true;
     }
     else
     {
-      hvac.setVar(p->name(), s.toInt(), request->client()->remoteIP() );
+      hvac.setVar(p->name(), s.toInt(), ip );
     }
   }
 }
