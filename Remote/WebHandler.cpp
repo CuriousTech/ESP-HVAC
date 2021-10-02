@@ -151,8 +151,10 @@ void startServer()
     else
     {
       String s = pageR_T;
-      s += "WiFi State "; s += wifi.state(); s += "<br>";
       s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
+      s += "WsConnected "; s += bWscConnected; s += "<br>";
+      IPAddress ip(ee.hostIp);
+      s += "HVAC IP "; s += ip.toString(); s += "<br>";
 
       s += pageR_B;
       request->send( 200, "text/html", s );
@@ -225,7 +227,7 @@ void findHVAC()
   }
 }
 
-void handleServer()
+bool handleServer()
 {
 #ifdef ESP8266
   MDNS.update();
@@ -237,16 +239,17 @@ void handleServer()
   wifi.service();
   if(wifi.connectNew())
   {
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    if( !MDNS.begin( hostName ) )
-      Serial.println( "MDNS responder failed" );
+//    Serial.println("WiFi connected");
+//    Serial.println("IP address: ");
+//    Serial.println(WiFi.localIP());
+    MDNS.begin( hostName );
     // Add service to MDNS-SD
     MDNS.addService(0, "iot", "tcp", serverPort);
     findHVAC();
     hvac.m_notif = Note_Connected;
+    return true;
   }
+  return false;
 }
 
 void WsSend(String s) // Browser WebSocket
@@ -403,7 +406,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
       if(length == sizeof(forecastData) )
       {
         memcpy((void*)&display.m_fc, payload, length);
-        display.m_bUpdateFcstDone = true;
+        display.m_bUpdateFcstIdle = true;
       }
       break;
   }
