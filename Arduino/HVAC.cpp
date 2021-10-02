@@ -349,7 +349,8 @@ void HVAC::tempCheck()
   int16_t tempH = m_localTemp;
   int8_t sensCnt = 1;
   int16_t sensTemp = m_localTemp;
-  bool bSensPriority = false;
+  int16_t sensRh = m_localRh;
+  bool  remSens = false;
 
   for(int8_t i = 0; i < SNS_CNT; i++)
   {
@@ -357,16 +358,7 @@ void HVAC::tempCheck()
     {
       if(m_Sensor[i].temp < (ee.b.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.b.bCelcius ? 370:990)) // disregard invalid sensor data
       {
-        if( m_Sensor[i].flags & SNS_EN )
-        {
-          String s = "print;";
-          s += (char *)&m_Sensor[i].ID;
-          s += " sensor range error ";
-          s += m_Sensor[i].temp;
-          WsSend(s);
-        }
-        m_Sensor[i].flags &= ~SNS_EN; // deactivate sensor
-        m_Sensor[i].temp = 0;
+        // Checked in recieved
       }
       else if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
       {
@@ -379,33 +371,37 @@ void HVAC::tempCheck()
           WsSend(s);
         }
         // Just ingore for the moment
-        if(now() - m_Sensor[i].tm > 60*60) // 1 hour
+        if(now() - m_Sensor[i].tm > 5*60) // 5 minutes
         {
-          memset(&m_Sensor[i], 0, sizeof(Sensor) ); // kill it
-          // Todo: consolidate if needed
+          m_Sensor[i].IPID = 0; // kill it
+          remSens = true;
         }
       }
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
          m_Sensor[i].flags &= ~SNS_WARN;
          sensTemp = m_Sensor[i].temp;
+         sensRh = m_Sensor[i].rh;
          sensCnt = 1;
-         bSensPriority = true;
          break;
       }
       else if(m_Sensor[i].flags & SNS_EN)
       {
          m_Sensor[i].flags &= ~SNS_WARN;
          sensTemp += m_Sensor[i].temp;
+         sensRh += m_Sensor[i].rh;
          sensCnt++;
       }
     }
   }
   if(sensCnt > 1)
+  {
     sensTemp /= sensCnt; // average
+    sensRh /= sensCnt;
+  }
   tempL = tempH = sensTemp;
   m_inTemp = sensTemp;
-  m_rh = m_localRh; // TODO: average?
+  m_rh = sensRh;
 
   if(m_bRunning)
   {
@@ -478,6 +474,8 @@ void HVAC::tempCheck()
       }
     }
   }
+  if(remSens)
+    shiftSensors();
 }
 
 bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
@@ -964,12 +962,13 @@ const char *cmdList[] = { "cmd",
   "dl",
   "play",
   "tu",
+  "rmtid",
   "rmttemp",
   "rmtrh",
   "rmtflg",
   "rmtname",
   "rmtto",
-  "sm",
+  "sm", // 50
   NULL
 };
 
@@ -988,6 +987,9 @@ int HVAC::CmdIdx(String s )
 // WebSocket or GET/POST set params as "fanmode=1" or "fanmode":1
 void HVAC::setVar(String sCmd, int val, IPAddress ip)
 {
+
+  static uint8_t snsIdx; // current sensor in use
+
   int c = CmdIdx( sCmd );
   if(ee.b.bLock && c!= 51)
     return;
@@ -1158,52 +1160,78 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.b.bCelcius = val ? true:false;
       m_bRecheck = true;
       break;
-    case 44: // rmttemp
-      m_snsIdx = getSensorID(ip[3]);
-      if((m_Sensor[m_snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
+    case 44: // rmtid
+      if(val == 0) val = ip[3];
+      snsIdx = getSensorID(val);
+      break;
+    case 45: // rmttemp
+      snsIdx = getSensorID(ip[3]);
+      if((m_Sensor[snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
         val = val * 90 / 50 + 320;
-      else if((m_Sensor[m_snsIdx].flags & SNS_F) && ee.b.bCelcius)
+      else if((m_Sensor[snsIdx].flags & SNS_F) && ee.b.bCelcius)
         val = (val - 320) * 50 / 90;
-      m_Sensor[m_snsIdx].temp = val;
-      m_Sensor[m_snsIdx].tm = now();
-      break;
-    case 45: // rmtrh
-      m_snsIdx = getSensorID(ip[3]);
-      m_Sensor[m_snsIdx].rh = val;
-      break;
-    case 46: // rmtflg (uses last referenced rmtid)
-      if(val & SNS_NEG)
-        m_Sensor[m_snsIdx].flags &= ~(val & 0x7F);
+      if(val < (ee.b.bCelcius ? 180:650) || val > (ee.b.bCelcius ? 370:990) )
+      {
+        String s = "print;";
+        s += (char *)&m_Sensor[i].ID;
+        s += " sensor range error ";
+        s += val;
+        WsSend(s);
+        m_Sensor[i].flags &= ~(SNS_EN|SNS_PRI); // deactivate sensor        
+      }
       else
-        m_Sensor[m_snsIdx].flags |= (val & 0x7F);
+        m_Sensor[snsIdx].temp = val;
+      m_Sensor[snsIdx].tm = now();
+      break;
+    case 46: // rmtrh
+      snsIdx = getSensorID(ip[3]);
+      m_Sensor[snsIdx].rh = val;
+      break;
+    case 47: // rmtflg (uses last referenced rmtid)
+      if(val & SNS_NEG)
+        m_Sensor[snsIdx].flags &= ~(val & 0x7F);
+      else
+        m_Sensor[snsIdx].flags |= (val & 0x7F);
 
-      if(m_Sensor[m_snsIdx].flags & SNS_PRI) // remove priority from other sensors
+      if(m_Sensor[snsIdx].flags & SNS_PRI) // remove priority from other sensors
       {
         for(i = 0; i < SNS_CNT; i++)
-          if(i != m_snsIdx)
-            m_Sensor[i].flags & ~SNS_PRI;
+          if(i != snsIdx)
+            m_Sensor[i].flags &= ~SNS_PRI;
       }
       break;
-    case 47: // rmtname
-      m_snsIdx = getSensorID(ip[3]);
-      m_Sensor[m_snsIdx].ID = val;
-      if(val == '1TMR' && m_snsIdx) //swap sensors so RMT1 is top
+    case 48: // rmtname
+      snsIdx = getSensorID(ip[3]);
+      m_Sensor[snsIdx].ID = val;
+      if(val == '1TMR' && snsIdx) //swap sensors so RMT1 is top
       {
-        Sensor tmp;
-        memcpy(&tmp, &m_Sensor[0], sizeof(Sensor));
-        memcpy(&m_Sensor[0], &m_Sensor[m_snsIdx], sizeof(Sensor));
-        memcpy(&m_Sensor[m_snsIdx], &tmp, sizeof(Sensor));
-        m_snsIdx = 0;
+        swapSensors(0, snsIdx);
+        snsIdx = 0;
       }
       break;
-    case 48: // rmtto
-      m_snsIdx = getSensorID(ip[3]);
-      m_Sensor[m_snsIdx].timer = val;
+    case 49: // rmtto
+      snsIdx = getSensorID(ip[3]);
+      m_Sensor[snsIdx].timer = val;
       break;
-    case 49: // sm
+    case 50: // sm
       ee.b.nSchedMode = constrain(val, 0, 2);
       break;
   }
+}
+
+void HVAC::swapSensors(int n1, int n2)
+{
+  Sensor tmp;
+  memcpy(&tmp, &m_Sensor[n1], sizeof(Sensor));
+  memcpy(&m_Sensor[n1], &m_Sensor[n2], sizeof(Sensor));
+  memcpy(&m_Sensor[n2], &tmp, sizeof(Sensor));
+}
+
+void HVAC::shiftSensors()
+{
+  for(int i = 0; i < SNS_CNT - 1; i++)
+    if(m_Sensor[i].IPID ==  0 && m_Sensor[i+1].IPID )
+      swapSensors(i, i+1);
 }
 
 int HVAC::getSensorID(int id)
