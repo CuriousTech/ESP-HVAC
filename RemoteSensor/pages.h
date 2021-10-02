@@ -1,81 +1,157 @@
 const char page_index[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
-<head><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>WiFi Temperature Monitor</title>
-<style type="text/css">
-div,table,input{
-border-radius: 5px;
-margin-bottom: 5px;
-box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -ms-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -o-linear-gradient(top, #ffffff, #50a0ff);
-background-image: -webkit-linear-gradient(top, #efffff, #50a0ff);
-background-image: linear-gradient(top, #ffffff, #50a0ff);
-background-clip: padding-box;
-}
-body{width:230px;font-family: Arial, Helvetica, sans-serif;}
-.style5 {
-border-radius: 5px;
-box-shadow: 0px 0px 15px #000000;
-background-image: -moz-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -ms-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -o-linear-gradient(top, #ff00ff, #ffa0ff);
-background-image: -webkit-linear-gradient(top, #ff0000, #ffa0a0);
-background-image: linear-gradient(top, #ff00ff, #ffa0ff);
-}
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>WiFi Environmental Monitor</title>
+<style>
+div,table{border-radius: 3px;box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #405050);
+background-image: -ms-linear-gradient(top, #ffffff, #405050);
+background-image: -o-linear-gradient(top, #ffffff, #405050);
+background-image: -webkit-linear-gradient(top, #ffffff, #405050);
+background-image: linear-gradient(top, #ffffff, #405050);
+background-clip: padding-box;}
+input{border-radius: 5px;box-shadow: 2px 2px 12px #000000;
+background-image: -moz-linear-gradient(top, #ffffff, #207080);
+background-image: -ms-linear-gradient(top, #ffffff, #207080);
+background-image: -o-linear-gradient(top, #ffffff, #207080);
+background-image: -webkit-linear-gradient(top, #a0c0ff, #207080);
+background-image: linear-gradient(top, #ffffff, #207080);
+background-clip: padding-box;}
+body{width:490px;display:block;text-align:right;font-family: Arial, Helvetica, sans-serif;}
 </style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
 <script type="text/javascript">
 a=document.all
-oledon=0
-key=localStorage.getItem('key')
+xPadding=30
+yPadding=56
+added=false
+cf=0
+nms=['OFF','ON ']
 spri=['OFF','PRI','EN ']
-function startWS(){
-ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.250/ws")
-ws.onopen = function(evt) { }
-ws.onclose = function(evt) { alert("Connection closed."); }
-ws.onmessage = function(evt) {
+$(document).ready(function()
+{
+  key=localStorage.getItem('key')
+  if(key!=null) document.getElementById('myKey').value=key
+  openSocket()
+})
+
+function openSocket(){
+ws=new WebSocket("ws://"+window.location.host+"/ws")
+//ws=new WebSocket("ws://192.168.31.194/ws")
+ws.onopen=function(evt){setVar('hist',0)}
+ws.onclose=function(evt){alert("Connection closed");}
+ws.onmessage=function(evt){
 console.log(evt.data)
- lines = evt.data.split(';')
+ lines=evt.data.split(';')
  event=lines[0]
  data=lines[1]
- if(event == 'settings')
- {
  d=JSON.parse(data)
- a.dc.value=d.to
- oledon=d.o
- a.OLED.value=oledon?'ON ':'OFF'
- a.PIR.value=d.pir?'ON ':'OFF'
- a.prisec.value=s2t(d.prisec)
- a.PRI.value=spri[d.pri]
- }
- if(event == 'state')
+ switch(event)
  {
-  d=JSON.parse(data)
-  dt=new Date(d.t*1000)
-  a.time.innerHTML=dt.toLocaleTimeString()
-  a.temp.innerHTML=d.temp+"&degF"
-  a.rh.innerHTML=d.rh+"%"
- }
- else if(event == 'alert')
- {
-  alert(data)
+  case 'settings':
+    oledon=d.o
+    a.OLED.value=oledon?'ON ':'OFF'
+    a.ID.value=hex_to_ascii(d.ID)
+    a.PIR.value=d.pir?'ON ':'OFF'
+    a.prisec.value=s2t(d.prisec)
+    a.PRI.value=spri[d.pri]
+    a.nm.value=d.name
+    a.SRATE.value=s2t(d.srate)
+    a.LRATE.value=s2t(d.lrate)
+    a.TZ.value=d.tz
+    a.LED1.value=nms[d.l1]
+    a.LED1.setAttribute('style',d.l1?'color:blue':'')
+    a.LED2.value=nms[d.l2]
+    a.LED2.setAttribute('style',d.l2?'color:blue':'')
+    cf=d.cf
+    a.CF.value=cf?'F':'C'
+    a.CH.value=nms[d.ch]
+    a.CH.setAttribute('style',d.ch?'color:red':'')
+    break
+  case 'state':
+    dt=new Date(d.t*1000)
+    DF=d.df
+    a.time.innerHTML=dt.toLocaleTimeString()+' '+d.temp+'&deg'+ (cf?'F':'C') + ' '+d.rh+'%'
+    a.rssi.innerHTML=d.rssi+'dB  &nbsp; '
+    if(d.df & 4) a.co2.innerHTML = 'CO2: '+d.co2+'ppm'
+    s=''
+    if(d.df & 8) s += ' CH20: '+d.ch2o+'mg/m3'
+    if(d.df & 16) s += ' &nbsp;VOC: '+d.voc+'ppm '
+    a.extra.innerHTML=s+' &nbsp; '
+    break
+  case 'alert':
+    alert(data)
+    break
+  case 'ref':
+    tb=d.tb
+    btemp=d.temp
+    brh=d.rh
+    bco2=d.co2
+    bch2o=d.ch2o
+    bvoc=d.voc
+    arr=new Array()
+    break
+  case 'data':
+    for(i=0;i<d.d.length;i++){     // time, temp, rh, thrsh, state outtemp
+      n=d.d[i][0]; d.d[i][0]=tb*1000; tb-=n
+      n=d.d[i][1]; d.d[i][1]=btemp; btemp+=n
+      n=d.d[i][2]; d.d[i][2]=brh; brh+=n
+      n=d.d[i][3]; d.d[i][3]=bco2; bco2+=n
+      n=d.d[i][4]; d.d[i][4]=bch2o; bch2o+=n
+    n=d.d[i][5]; d.d[i][5]=bvoc; bvoc+=n
+    }
+    arr=arr.concat(d.d)
+    draw()
+    draw2()
+    break
+  case 'data2':
+    d.d[0][0]*=1000
+    arr=d.d.concat(arr)
+    draw()
+    draw2()
+    break
  }
 }
 }
+
 function setVar(varName, value)
 {
-  ws.send('cmd;{"key":"'+key+'","'+varName+'":'+value+'}')
+  ws.send('cmd;{"key":"'+a.myKey.value+'","'+varName+'":'+value+'}')
 }
-function setDDelay()
+
+function led1()
 {
-  setVar('TO', a.dc.value)
+  if(a.LED1.value=='OFF') l=1
+  else l=0
+  setVar('led1',l)
+  a.LED1.value=nms[l]
+  a.LED1.setAttribute('style',l?'color:blue':'')
+}
+function led2()
+{
+  if(a.LED2.value=='OFF') l=1
+  else l=0
+  setVar('led2',l)
+  a.LED2.value=nms[l]
+  a.LED2.setAttribute('style',l?'color:blue':'')
+}
+function changeNm()
+{
+  setVar('name',a.nm.value)
 }
 function setPriSec()
 {
   setVar('prisec', t2s(a.prisec.value))
+}
+function setSRate()
+{
+  setVar('srate', t2s(a.SRATE.value))
+}
+function setLRate()
+{
+  setVar('lrate', t2s(a.LRATE.value))
 }
 function oled(){
   oledon=!oledon
@@ -94,6 +170,23 @@ function pri(){
   setVar('pri', p)
   a.PRI.value=spri[p]
 }
+
+function t2hms(t)
+{
+  s=t%60
+  t=Math.floor(t/60)
+  if(t==0) return s
+  if(s<10) s='0'+s
+  m=t%60
+  t=Math.floor(t/60)
+  if(t==0) return m+':'+s
+  if(m<10) m='0'+m
+  h=t%24
+  t=Math.floor(t/24)
+  if(t==0) return h+':'+m+':'+s
+  return t+'d '+h+':'+m+':'+s
+}
+
 function s2t(elap)
 {
   m=Math.floor(elap/60)
@@ -108,27 +201,313 @@ function t2s(v)
   if(typeof v=='string') v=(+v.substr(0, v.indexOf(':'))*60)+(+v.substr(v.indexOf(':')+1))
   return v
 }
+
+function togCall()
+{
+  on=(a.CH.value=='OFF')?1:0
+  a.CH.value=nms[on]
+  a.CH.setAttribute('style',on?'color:red':'')
+  if(on) setVar('hostip',80)
+  else setVar('ch',0)
+}
+
+function setcf()
+{
+  cf=(a.CF.value=='C')?1:0
+  a.CF.value=cf?'F':'C'
+  setVar('cf',cf)
+}
+
+function setID()
+{
+  setVar('ID',ascii_to_hex(a.ID.value))
+}
+
+function hex_to_ascii(val)
+{
+  var hex  = val.toString(16)
+  var str = ''
+  for (n= hex.length-2; n >=0; n -= 2)
+    str += String.fromCharCode(parseInt(hex.substr(n, 2), 16))
+  return str
+}
+
+function ascii_to_hex(str)
+{
+  v=0
+  for(n=str.length-1;n>=0;n--)
+  {
+    v<<=8
+    v+=str.charCodeAt(n)
+  }
+  return v
+}
+
+function draw(){
+ graph = $('#chart')
+ c=graph[0].getContext('2d')
+
+ tipCanvas=document.getElementById("tip")
+ tipCtx=tipCanvas.getContext("2d")
+ tipDiv=document.getElementById("popup")
+
+ c.fillStyle=c.strokeStyle='black'
+ o=graph.offset()
+ offsetX=o.left
+ offsetY=o.top
+ yPad=3
+ c.lineWidth=2
+ c.font='italic 8pt sans-serif'
+ c.textAlign="left"
+ c.clearRect(0, 0, graph.width(), graph.height())
+ doBorder(graph)
+
+ c.lineWidth = 1
+ if(typeof(arr)=="undefined") return
+
+ // value range
+ c.textAlign="right"
+ c.textBaseline="middle"
+
+ // temp scale
+ yRange=getMaxY(1)-getMinY(1)
+ for(var i=getMinY(1);i<getMaxY(1);i+=(yRange/8))
+  c.fillText((i/10).toFixed(1),graph.width()-6,getYPixel(i,getMinY(1)))
+
+ // Temp
+ c.strokeStyle=c.fillStyle='#f00'
+ c.fillText('Temp', graph.width()-6,6)
+ drawArray(1,getMinY(1))
+
+ // rh scale
+ c.fillStyle=c.strokeStyle='black'
+ min=300
+ if(getMinY(2)<min) min=getMinY(2)
+ max=900
+ if(getMaxY(2)>max) max=getMaxY(2)
+ yRange=max-min
+ for(var i=min;i<max;i+=(yRange/8))
+  c.fillText((i/10).toFixed(),xPadding-4,getYPixel(i,min))
+
+ // RH
+ c.strokeStyle=c.fillStyle='#0f0'
+ c.fillText('Rh', xPadding-6, 6)
+ drawArray(2,min)
+
+ // request mousemove events
+ graph.mousemove(function(e){handleMouseMove(e);})
+
+ // show tooltip when mouse hovers over anything
+ function handleMouseMove(e){
+  var c=document.getElementById('chart')
+  rect=c.getBoundingClientRect()
+  dx=e.clientX-rect.x-xPadding
+  dy=e.clientY-rect.y
+
+  if((DF&0x1C)==0) popup.style.height='58px'
+  tipCtx.clearRect(0,0,tipCanvas.width,tipCanvas.height)
+  tipCtx.lineWidth=2
+  tipCtx.fillStyle="#000000"
+  tipCtx.strokeStyle='#333'
+  tipCtx.font='italic 8pt sans-serif'
+  tipCtx.textAlign="left"
+
+  idx=arr.length-(dx*arr.length/(rect.width-xPadding*2)).toFixed()
+  if(idx<0||idx>=arr.length)
+    popup.style.left="-200px"
+  else
+  {
+    tipCtx.fillText((new Date(arr[idx][0])).toLocaleTimeString()+' ',4,15)
+    tipCtx.fillText('Temp '+(arr[idx][1]/10)+'\xB0'+(cf?'F':'C'),4,29)
+    tipCtx.fillText('RH   '+(arr[idx][2]/10)+'%',4,43)
+    if(DF&4) tipCtx.fillText('CO2  '+arr[idx][3]+' mg',4,57)
+    if(DF&8) tipCtx.fillText('CH2O '+arr[idx][4]+' ppm',4,71)
+    if(DF&16) tipCtx.fillText('VOC   '+arr[idx][5]+' ppm',4,85)
+    popup=document.getElementById("popup")
+    popup.style.top=(dy+rect.y+window.pageYOffset-90)+"px"
+    popup.style.left=(dx+rect.x-40)+"px"
+  }
+ }
+}
+
+function draw2(){
+  graph = $('#chart2')
+  c=graph[0].getContext('2d')
+
+  if(typeof(arr)=="undefined") return
+
+  if(DF&0x1C && graph.height()!=200)
+   graph[0].height=200
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  yPad=yPadding
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
+  c.clearRect(0, 0, graph.width(), graph.height())
+
+  if(DF&0x1C) doBorder(graph)
+
+  c.lineWidth=1
+  // dates
+  step=Math.floor(arr.length/10)
+  if(step == 0) step = 1
+  h=graph.height()-yPad
+  for(var i=0;i<arr.length-1;i+=step){
+   c.save()
+   c.translate(getXPixel(i),h+5)
+   c.rotate(0.9)
+   date = new Date(arr[i][0])
+   c.fillText(date.toLocaleTimeString(),0,0)
+   c.restore()
+  }
+  
+  c.textAlign="right"
+  c.textBaseline="middle"
+
+  if((DF&0x1C)==0)
+    return
+
+  // CO2 scale
+  min=getMinY(3)-30
+  if(min<=0) min=0
+  yRange=getMaxY(3)-min
+  for(i=min;i<getMaxY(3);i+=(yRange/8))
+  c.fillText((i.toFixed()),graph.width()-6,getYPixel(i,min))
+
+  // CO2
+  c.strokeStyle=c.fillStyle='#f00'
+  c.fillText('CO2', graph.width()-6,6)
+  drawArray(3,min)
+
+  // VOC/CH2O scale
+  c.fillStyle='black'
+  yRange=getMaxY(4)-0
+  yRange2=getMaxY(5)-0
+  if(yRange2>yRange) yRange=yRange2
+  yRange+=2
+  for(i=0;i<yRange;i+=(yRange/4))
+    c.fillText(i.toFixed(),xPadding-4,getYPixel(i,0) )
+
+  // CH2O
+  c.strokeStyle=c.fillStyle='#00f'
+  c.fillText('CH2O', xPadding-5, 17)
+  drawArray(4,0)
+
+  // VOC
+  c.strokeStyle=c.fillStyle='#ff0'
+  c.fillText('VOC', xPadding-6, 6)
+  drawArray(5,0)
+}
+
+function drawArray(n,min)
+{
+  c.beginPath()
+  c.moveTo(getXPixel(0),getYPixel(arr[0][n],min))
+  for(var i=1;i<arr.length;i ++)
+   c.lineTo(getXPixel(i),getYPixel(arr[i][n],min))
+  c.stroke()
+}
+
+function doBorder(g)
+{
+  c.beginPath()
+  c.moveTo(xPadding,0)
+  c.lineTo(xPadding,g.height()-yPad)
+  c.lineTo(g.width()-xPadding, g.height()-yPad)
+  c.lineTo(g.width()-xPadding, 0)
+  c.stroke()
+}
+function getMaxY(v){
+  var max = 0
+  
+  for(i=0; i<arr.length-1; i++)
+  {
+    if(arr[i][v] > max)
+      max=arr[i][v]
+  }
+  return Math.ceil(max)
+}
+
+function getMaxY2(v){
+  var max = 0
+  
+  for(i=0; i<arr.length-1; i++)
+  {
+    if(arr[i][v] > max)
+      max=arr[i][v]
+      console.log(arr[i][v], max)
+  }
+  return Math.ceil(max)
+}
+
+function getMinY(v){
+  var min = 5000
+
+  for(i=0; i<arr.length; i++)
+  {
+    if(arr[i][v]<min)
+      min=arr[i][v]
+  }
+  return Math.floor(min)
+}
+
+function getXPixel(val){
+  x=(graph.width()-xPadding)-((graph.width()-26-xPadding)/arr.length)*val
+  return x.toFixed()
+}
+
+function getYPixel(val,min) {
+  y=graph.height()-( ((graph.height()-yPad)/yRange)*(val-min))-yPad
+  return y.toFixed()
+}
+
 </script>
-<body bgcolor="black" onload="{
-key=localStorage.getItem('key')
-if(key!=null) document.getElementById('myKey').value=key
-startWS()
-}">
-<div><h3> WiFi Temp Monitor </h3>
-<table align=center width=200>
-<tr align=center><td><p id="time"> 0:00:00 AM</p></td><td></td></tr>
-<tr align="center"><td><div id="temp">00.0&degF</div></td><td><div id="rh">00.0%</div></td></tr>
-<tr><td>Display: <input type="button" value="ON" id="OLED" onClick="{oled()}"></td><td></td></tr>
-<tr><td>Motion: <input type="button" value="ON" id="PIR" onClick="{pir()}"></td><td></td></tr>
-<tr><td>Enable: <input type="button" value="OFF" id="PRI" onClick="{pri()}"></td><td></td></tr>
-<tr><td>PriSec: <input id='prisec' type=text size=4 value='60' onchange="{setPriSec()}"></td>
-<tr><td>Timeout: <input id='dc' type=text size=4 value='10' onchange="{setDDelay()}"></td>
-<td></td></tr>
+<style type="text/css">
+#popup {
+  position: absolute;
+  top: 150px;
+  left: -150px;
+  z-index: 10;
+  border-style: solid;
+  border-width: 1px;
+}
+</style>
+</head>
+<body bgcolor="silver">
+<table align="right" width=480>
+<tr><td>LED1 &nbsp; LED2 &nbsp; </td><td><input id="nm" type=text size=8 onchange="changeNm();"></td><td><div id="time"></div></td></tr>
+<tr>
+<td><input name="LED1" value="OFF" type='button' onclick="{led1()}">&nbsp; <input name="LED2" value="OFF" type='button' onclick="{led2()}"> &nbsp; </td>
+<td>Report <input name="CH" value="OFF" type='button' onclick="{togCall()}"> </td><td>
+ OLED <input type="button" value="ON" id="OLED" onClick="{oled()}">
+ &nbsp; TZ<input name="TZ" type=text size=1 value='0' onchange="setVar('TZ', this.value);">
+ &nbsp; <input name="CF" value="C" type='button' onclick="{setcf()}"></td></tr>
+<tr>
+<td>Upd Rate<input id='SRATE' type=text size=4 value='10' onchange="{setSRate()}"></td>
+<td>Motion<input type="button" value="ON" id="PIR" onClick="{pir()}"></td>
+<td> Mode:<input type="button" value="OFF" id="PRI" onClick="{pri()}">
+ Timer: <input id='prisec' type=text size=4 value='60' onchange="{setPriSec()}"></td></tr>
+<tr>
+<td>Log Rate<input id='LRATE' type=text size=4 value='10' onchange="{setLRate()}"></td>
+<td><div id="rssi">0db</div></td><td>
+ <input value='Restart' type=button onclick="setVar('reset',0);"> &nbsp; 
+ <input id="myKey" name="key" type=text size=50 placeholder="password" style="width: 128px" onChange="{localStorage.setItem('key', key = document.all.myKey.value)}">
+</td></tr>
+<tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"></td><td><div id="co2"></div></td><td><div id="extra"></div></td>
+</tr>
+<tr><td> </td></tr>
 </table>
-&nbsp
+<table align="right" width=480>
+<tr><td>
+<div id="wrapper">
+<canvas id="chart" width="474" height="300"></canvas>
+<canvas id="chart2" width="474" height="56"></canvas>
+<div id="popup"><canvas id="tip" width=70 height=94></canvas></div>
 </div>
-<input id="myKey" name="key" type=text size=50 placeholder="password" style="width: 150px"><input type="button" value="Save" onClick="{localStorage.setItem('key', key=document.all.myKey.value)}">
-</body>
+</td></tr>
+</table></body>
 </html>
 )rawliteral";
 
