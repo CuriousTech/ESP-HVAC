@@ -20,7 +20,7 @@ extern void WsSend(String s);
 
 void Display::init()
 {
-  if(wifi.isCfg() ) // don't interfere with SSID config
+  if(wifi.state() == ws_config) // don't interfere with SSID config
     return;
   memset(m_points, 255, sizeof(m_points));
   memset(m_fc.Data, -127, sizeof(m_fc.Data));
@@ -36,7 +36,7 @@ void Display::init()
 // called each second
 void Display::oneSec()
 {
-  if(wifi.isCfg() )
+  if(wifi.state() == ws_config)
     return;
   updateClock();
   updateRunIndicator(false); // running stuff
@@ -60,11 +60,11 @@ void Display::oneSec()
     lastState = hvac.getState();
     lastFan = hvac.getFanRunning();
   }
-  if(m_bUpdateFcstDone)
+
+  if(nex.getPage() == Page_Thermostat && m_bFcstUpdated)
   {
-    screen(true);
-    if( drawForecast(true) )
-      m_bUpdateFcstDone = false; // only clear if data is valid
+    m_bFcstUpdated = false;
+    drawForecast(true);
   }
 }
 
@@ -352,7 +352,7 @@ bool Display::drawForecast(bool bRef)
 
   if(m_fc.Date == 0) // no data yet
   {
-    if(m_bUpdateFcstDone)
+    if(m_bUpdateFcstIdle)
       m_bUpdateFcst = true;
     return false;
   }
@@ -368,7 +368,7 @@ bool Display::drawForecast(bool bRef)
 
   if(fcCnt >= FC_CNT || m_fc.Data[fcOff] == -127 ) // no data yet
   {
-    if(m_bUpdateFcstDone)
+    if(m_bUpdateFcstIdle)
       m_bUpdateFcst = true;
     return false;
   }
@@ -611,7 +611,7 @@ void Display::updateNotification(bool bRef)
 // false: cycle to next screensaver
 bool Display::screen(bool bOn)
 {
-  if(wifi.isCfg() )
+  if(wifi.state() == ws_config )
     return false;
   static bool bOldOn = true;
 
