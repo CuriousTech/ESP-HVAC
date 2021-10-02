@@ -28,6 +28,7 @@ void WiFiManager::autoConnect(char const *apName, const char *pPass)
   _apName = apName;
   _pPass = pPass;
 
+  WiFi.hostname(apName);
   if( ee.szSSID[0] )
   {
     DEBUG_PRINT("Waiting for Wifi to connect");
