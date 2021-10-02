@@ -4,22 +4,24 @@
 eeSet ee = { sizeof(eeSet), 0xAAAA,
   "",  // saved SSID
   "", // router password
-  -5, 0,     // TZ, use utime
-  0,         // adjust for error
-  false,    // OLED
-  55, // rate
+  -5,     // TZ
+  {0,0,1,1,0,0,0}, // PirEn, bPIR, bCall, bCF, bUseTime, bEnableOLED, res
+  "Sensor1",
+  '1SNS',
+  0,  // adjust for error
+  15, // sendRate
+  60, // logRate
   "password", // device password for control
   {192,168,31,100}, 80, // host IP and port
   {192,168,31,125}, // HVAC IP
   0, // minutes off
   30, // sleep
-  0, // en/priority seconds
-  0, // PriEn
-  false, //PIR
-  ""
+  60*5, // en/priority seconds
+  12, // pirPin
+  {0},
 };
 
-eeMem::eeMem()
+void eeMem::init()
 {
   EEPROM.begin(512);
 
