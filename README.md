@@ -60,7 +60,7 @@ The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, r
 
 New Model
 ![model2](http://www.curioustech.net/images/esphvac2.jpg)  
-Remote (this uses only a few components: the 3.3V regulator, 3 capacitors, USB connector, temp sensor, and 3 required resistors)  
+Remote (this uses only a few components: the 3.3V regulator, 3 capacitors, USB connector, temp sensor, and 7 required resistors)  
 ![model2rem](http://www.curioustech.net/images/hvacremote.jpg)  
 ![model2side](http://www.curioustech.net/images/esphvac21.jpg)  
 
