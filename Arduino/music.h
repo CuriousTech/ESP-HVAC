@@ -107,7 +107,8 @@ struct musicArr{
 class Music
 {
 public:
-  Music();
+  Music(){};
+  void init(void);
   bool add(uint16_t freq, uint16_t delay);
   void service(void);
   bool play(int song);
@@ -116,7 +117,6 @@ protected:
 #define MUS_LEN 99
   musicArr m_arr[MUS_LEN+1];
   int16_t m_idx;
-  int8_t m_volume;
   bool m_bPlaying;
   uint32_t m_toneEnd;
 };
