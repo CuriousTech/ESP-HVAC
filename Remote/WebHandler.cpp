@@ -10,7 +10,6 @@
 #else
 #include <ESP8266mDNS.h>
 #endif
-#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #ifdef OTA_ENABLE
 #include <FS.h>
 #include <ArduinoOTA.h>
@@ -244,7 +243,7 @@ bool handleServer()
 //    Serial.println(WiFi.localIP());
     MDNS.begin( hostName );
     // Add service to MDNS-SD
-    MDNS.addService(0, "iot", "tcp", serverPort);
+    MDNS.addService("iot", "tcp", serverPort);
     findHVAC();
     hvac.m_notif = Note_Connected;
     return true;
