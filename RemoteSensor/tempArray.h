@@ -39,9 +39,10 @@ protected:
   tempArr m_log[LOG_CNT];
   int16_t m_idx;
   uint32_t m_lastDate;
-  uint16_t m_peakVal[6];
-  uint16_t m_lastVal[6];
+  uint16_t m_peakVal[DE_COUNT];
+  uint16_t m_lastVal[DE_COUNT];
   uint16_t m_flags;
+  uint16_t m_sampleCount;
 };
 
 #endif
