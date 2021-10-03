@@ -166,13 +166,15 @@ int melody_startrek[] = {
   
 };
 
-Music::Music()
+void Music::init()
 {
+#ifdef ESP32
   pinMode(SPEAKER, OUTPUT);
   digitalWrite(SPEAKER, LOW);
-#ifdef ESP32
-  ledcSetup(0, 5000, 8);
+  ledcSetup(0, 2000, 10);
+  ledcAttachPin(SPEAKER, 0);
 #endif
+  
 }
 
 bool Music::add(uint16_t freq, uint16_t delay)
@@ -198,22 +200,22 @@ void Music::playNote(int freq, int duration)
     if(freq)
     {
 #ifdef ESP32
-      ledcAttachPin(SPEAKER, 0);
       ledcWriteTone(0, freq);
+      int duty = 512 + freq * 500;
+      ledcWrite(SPEAKER, duty);
 #else
       analogWriteFreq(freq);
       analogWrite(SPEAKER, 40);
 #endif
-      m_volume = 40;
     }
     else
     {
 #ifdef ESP32
-      ledcDetachPin(SPEAKER);
+      ledcWrite(SPEAKER, 0);
+      ledcWriteTone(0, 0);
 #else
       analogWrite(SPEAKER, 0);
 #endif
-      m_volume = 0;
     } 
     m_toneEnd = millis() + duration;
 }
@@ -272,10 +274,10 @@ bool Music::play(int song)
     divider = pSong[thisNote + 1];
     if (divider > 0) {
       // regular note, just proceed
-      noteDuration = (wholenote) / divider;
+      noteDuration = wholenote / divider;
     } else if (divider < 0) {
       // dotted notes are represented with negative durations!!
-      noteDuration = (wholenote) / abs(divider);
+      noteDuration = wholenote / abs(divider);
       noteDuration *= 1.5; // increases the duration in half for dotted notes
     }
 
@@ -292,7 +294,8 @@ void Music::service()
   else if(millis() >= m_toneEnd)
   {
 #ifdef ESP32
-    ledcDetachPin(SPEAKER);
+    ledcWrite(SPEAKER, 0);
+    ledcWriteTone(0, 0);
 #else
     analogWrite(SPEAKER, 0);
 #endif
@@ -301,11 +304,6 @@ void Music::service()
   }
   else
   {
-    if(m_volume > 1)
-    {
-//      analogWrite(SPEAKER, m_volume);
-      m_volume--;
-    }
     return;
   }
   if(m_idx <= 0)
