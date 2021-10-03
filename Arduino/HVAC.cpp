@@ -15,7 +15,7 @@
 #include "jsonstring.h"
 #ifdef USE_AUDIO
 #include "music.h"
-Music mus;
+extern Music mus;
 #endif
 
 extern void WsSend(String s);
