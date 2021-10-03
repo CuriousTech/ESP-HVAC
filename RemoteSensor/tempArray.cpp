@@ -6,13 +6,21 @@ extern void WsSend(String s);
 
 void TempArray::update(uint16_t *pValues)
 {
-  for(int i = 0; i < 6; i++)
+  if(pValues[DE_TEMP] == 0 && pValues[DE_RH] == 0)
+    return;
+
+  for(int i = 0; i < DE_COUNT; i++)
     if(pValues[i] > m_peakVal[i])
       m_peakVal[i] = pValues[i];
+
+  m_sampleCount++;
 }
 
 void TempArray::add(uint16_t flags, uint32_t date, AsyncWebSocket &ws, int WsClientID)
 {
+  if(m_peakVal[DE_TEMP] == 0 && m_peakVal[DE_RH] == 0) // nothing to do
+    return;
+
   tempArr *p = &m_log[m_idx];
 
   m_flags = flags;
@@ -21,50 +29,54 @@ void TempArray::add(uint16_t flags, uint32_t date, AsyncWebSocket &ws, int WsCli
   p->m.tmdiff = date - m_lastDate;
   m_lastDate = date;
 
-  if(m_lastVal[DE_TEMP]) // skip initial values
+  p->m.temp = m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP];
+  p->m.rh   = m_lastVal[DE_RH ]  - m_peakVal[DE_RH ];
+
+  if(p->m.temp != ( m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP]) )
   {
-    p->m.temp = m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP];
-    p->m.rh   = m_lastVal[DE_RH ]  - m_peakVal[DE_RH ];
-
-    if(p->m.temp != ( m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP]) )
-    {
-      p->m.temp /= 2;
-      String s = "alert;Temp diff out of range ";
-      s += ( m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP]);
-      WsSend(s);
-    }
-    if(p->m.rh != ( m_lastVal[DE_RH] - m_peakVal[DE_RH]) )
-    {
-      p->m.rh /= 2;
-      String s = "alert;Rh diff out of range ";
-      s += ( m_lastVal[DE_RH] - m_peakVal[DE_RH]);
-      WsSend(s);
-    }
-
-    if(m_flags & 16)
-    {
-      p->m.co2  = m_lastVal[DE_CO2]  - m_peakVal[DE_CO2];
-      if(p->m.co2 != ( m_lastVal[DE_CO2] - m_peakVal[DE_CO2]) )
-      {
-        p->m.co2 /= 2;
-        WsSend("alert;CO2 diff out of range");
-      }
-      p->m.ch2o = m_lastVal[DE_CH2O] - m_peakVal[DE_CH2O];
-      if(p->m.ch2o != ( m_lastVal[DE_CH2O] - m_peakVal[DE_CH2O]) )
-      {
-        p->m.ch2o /= 2;
-        WsSend("alert;CO2 diff out of range");
-      }
-      p->m.voc  = m_lastVal[DE_VOC ] - m_peakVal[DE_VOC ];
-      if(p->m.voc != ( m_lastVal[DE_VOC] - m_peakVal[DE_VOC]) )
-      {
-        p->m.voc /= 2;
-        WsSend("alert;VOC diff out of range");
-      }
-    }
-    sendNew(m_peakVal, flags, date, ws, WsClientID);
+    p->m.temp /= 2;
+    String s = "alert;Temp diff out of range ";
+    s += ( m_lastVal[DE_TEMP] - m_peakVal[DE_TEMP]);
+    WsSend(s);
+  }
+  if(p->m.rh != ( m_lastVal[DE_RH] - m_peakVal[DE_RH]) )
+  {
+    p->m.rh /= 2;
+    String s = "alert;Rh diff out of range ";
+    s += ( m_lastVal[DE_RH] - m_peakVal[DE_RH]);
+    WsSend(s);
   }
 
+  if(m_flags & DF_CO2)
+  {
+    p->m.co2  = m_lastVal[DE_CO2]  - m_peakVal[DE_CO2];
+    if(p->m.co2 != ( m_lastVal[DE_CO2] - m_peakVal[DE_CO2]) )
+    {
+      p->m.co2 /= 2;
+      WsSend("alert;CO2 diff out of range");
+    }
+  }
+  if(m_flags & DF_CH2O)
+  {
+    p->m.ch2o = m_lastVal[DE_CH2O] - m_peakVal[DE_CH2O];
+    if(p->m.ch2o != ( m_lastVal[DE_CH2O] - m_peakVal[DE_CH2O]) )
+    {
+      p->m.ch2o /= 2;
+      WsSend("alert;CO2 diff out of range");
+    }
+  }
+  if(m_flags & DF_VOC)
+  {
+    p->m.voc  = m_lastVal[DE_VOC ] - m_peakVal[DE_VOC ];
+    if(p->m.voc != ( m_lastVal[DE_VOC] - m_peakVal[DE_VOC]) )
+    {
+      p->m.voc /= 2;
+      WsSend("alert;VOC diff out of range");
+    }
+  }
+
+  m_sampleCount = 0;
+  sendNew(m_peakVal, flags, date, ws, WsClientID);
   memcpy(&m_lastVal, m_peakVal, sizeof(m_lastVal));
   memset(&m_peakVal, 0, sizeof(m_peakVal)); // reset the peaks
 
