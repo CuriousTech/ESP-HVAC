@@ -7,7 +7,7 @@ enum DataEnum{
   DE_CO2,
   DE_CH2O,
   DE_VOC,
-  DE_END
+  DE_COUNT
 };
 
 #define DF_TEMP (1<<DE_TEMP)
