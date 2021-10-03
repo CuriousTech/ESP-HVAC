@@ -10,7 +10,7 @@
 #include "WiFiManager.h"
 #ifdef USE_AUDIO
 #include "music.h"
-extern Music mus;
+Music mus;
 #endif
 
 Nextion nex;
@@ -31,6 +31,9 @@ void Display::init()
   refreshAll();
   nex.itemPic(9, ee.b.bLock ? 20:21);
   updateNotification(true);
+#ifdef USE_AUDIO
+  mus.init();
+#endif
 }
 
 // called each second
@@ -66,6 +69,18 @@ void Display::oneSec()
     m_bFcstUpdated = false;
     drawForecast(true);
   }
+
+#ifdef USE_AUDIO
+  static uint8_t errCounter = 60;
+  if(hvac.m_notif >= Note_Network)
+  {
+    if(--errCounter == 0)
+    {
+      errCounter = 60;
+      mus.add(3000, 150); // notification sound
+    }
+  }
+#endif
 }
 
 void Display::buttonRepeat()
@@ -92,7 +107,9 @@ void Display::checkNextion() // all the Nextion recieved commands
   uint8_t btn;
   String s;
   static uint8_t textIdx = 0;
-
+#ifdef USE_AUDIO
+  mus.service();
+#endif
   Lines(); // draw lines at full speed
 
   if(len == 0)
@@ -118,8 +135,8 @@ void Display::checkNextion() // all the Nextion recieved commands
       }
 
 #ifdef USE_AUDIO
-//      if(cBuf[3]) // press, not release
-//        mus.add(6000, 20);
+      if(cBuf[3]) // press, not release
+        mus.add(6000, 20);
 #endif
  
       switch(cBuf[1]) // page
@@ -272,9 +289,6 @@ void Display::checkNextion() // all the Nextion recieved commands
           break;
       }
       screen(true); // back to main page
-      break;
-    case 0x24:
-      WsSend("print;Nextion buffer overflow");
       break;
   }
 }
@@ -452,7 +466,7 @@ bool Display::drawForecast(bool bRef)
 
   int h = 0;
 
-  for(int i = fcOff; i < fcOff+rng; i++) // should be 41 data points
+  for(int i = fcOff; i < fcOff+rng; i++) // should be 41 data points (close to 300ms)
   {
     int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i] - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
@@ -475,6 +489,9 @@ bool Display::drawForecast(bool bRef)
     }
     hOld = h24;
     delay(7); // avoid buffer overrun
+#ifdef USE_AUDIO
+    mus.service();
+#endif
     x2 = x1;
     y2 = y1;
     h += m_fc.Freq / 3600;
@@ -602,8 +619,8 @@ void Display::updateNotification(bool bRef)
   }
 
 #ifdef USE_AUDIO
-//  if(s != "")
-//    mus.add(3000, 200); // notification sound
+  if(s != "")
+    mus.add(3500, 180); // notification sound
 #endif
 }
 
@@ -969,17 +986,29 @@ void Display::fillGraph()
     h -= 6;
     if( h <= 0) h += 12;
     nex.line(x, 10, x, 230, rgb16(10, 20, 10) );
-    delay(2);
+    delay(3);
     nex.text(x-4, 0, 1, 0x7FF, String(h)); // draw hour above chart
   }
+#ifdef USE_AUDIO
+    mus.service();
+#endif
   yield();
   delay(3);
   drawPoints(0, rgb16( 22, 40, 10) ); // target (draw behind the other stuff)
+#ifdef USE_AUDIO
+    mus.service();
+#endif
   delay(3);
   drawPoints(1, rgb16( 22, 40, 10) ); // target threshold
+#ifdef USE_AUDIO
+    mus.service();
+#endif
   delay(3);
   drawPointsTemp(); // off/cool/heat colors
   delay(3);
+#ifdef USE_AUDIO
+    mus.service();
+#endif
   drawPointsRh( rgb16(  0, 53,  0) ); // rh green
 }
 
