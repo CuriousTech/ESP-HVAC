@@ -18,6 +18,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   30, // sleep
   60*5, // en/priority seconds
   12, // pirPin
+  {320, 1000, 0, 900, 0, 1000, 0, 10, 0, 20, 0, 1000, 0, 1000, 0, 1000}, // alert levels
   {0},
 };
 
