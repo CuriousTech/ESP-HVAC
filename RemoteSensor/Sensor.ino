@@ -32,8 +32,6 @@ SOFTWARE.
 //uncomment to enable Arduino IDE Over The Air update code
 #define OTA_ENABLE
 
-//#define USE_SPIFFS
-
 #include <Wire.h>
 #ifdef USE_OLED
 #include <ssd1306_i2c.h> // https://github.com/CuriousTech/WiFi_Doorbell/tree/master/Libraries/ssd1306_i2c
@@ -52,12 +50,9 @@ SOFTWARE.
 #include <FS.h>
 #include <ArduinoOTA.h>
 #endif
-#ifdef USE_SPIFFS
 #include <FS.h>
 #include <SPIFFSEditor.h>
-#else
 #include "pages.h"
-#endif
 #include "jsonstring.h"
 #include "TempArray.h"
 
@@ -133,6 +128,7 @@ String settingsJson()
   js.Var("ID", ee.sensorID);
   js.Var("cf", sensor.m_bCF);
   js.Var("df", sensor.m_dataFlags);
+  js.Var("si", temps.m_bSilence);
   return js.Close();
 }
 
@@ -194,6 +190,9 @@ const char *jsonList1[] = { "cmd",
   "ID", // 20
   "sleep",
   "pirpin",
+  "alertidx",
+  "alertlevel",
+  "silence",
   NULL
 };
 
@@ -203,13 +202,10 @@ void parseParams(AsyncWebServerRequest *request)
     nWrongPass = 10;
   lastIP = request->client()->remoteIP();
 
-  char temp[100];
-
   for ( uint8_t i = 0; i < request->params(); i++ )
   {
     AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
+    String s = request->urlDecode(p->value());
 
     uint8_t idx;
     for(idx = 1; jsonList1[idx]; idx++)
@@ -230,6 +226,7 @@ bool bDataMode;
 void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
   if(bKeyGood == false && iName) return;  // only allow key set
+  static int alertIdx;
 
   switch(iEvent)
   {
@@ -254,10 +251,12 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
             break;
           strncpy(ee.szName, psValue, sizeof(ee.szName));
           eemem.update();
+          delay(1000);
           ESP.reset();
           break;
         case 4: // reset
           eemem.update();
+          delay(1000);
           ESP.reset();
           break;
         case 5: // tempOffset
@@ -312,8 +311,7 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           CallHost(Reason_Setup, ""); // test
           break;
         case 19: // hist
-          if(iValue == 0)
-            temps.historyDump(true, ws, WsClientID);
+          temps.historyDump(true, ws, WsClientID);
           break;
         case 20:
           ee.sensorID = iValue;
@@ -323,6 +321,15 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           break;
         case 22:
           ee.pirPin = iValue;
+          break;
+        case 23:
+          alertIdx = constrain(iValue, 0, 16);
+          break;
+        case 24: // set alertidx first
+          ee.wAlertLevel[alertIdx] = iValue;
+          break;
+        case 25:
+          temps.m_bSilence = iValue ? true:false;
           break;
       }
       break;
@@ -379,6 +386,7 @@ void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           setTime(iValue + (ee.tz * 3600));
           utime.DST();
           setTime(iValue + ((ee.tz + utime.getDST()) * 3600));
+          temps.m_bValidDate = true;
           break;
       }
       break;
@@ -611,10 +619,8 @@ void setup()
 
   wifi.autoConnect(ee.szName, ee.szControlPassword);
 
-#ifdef USE_SPIFFS
   SPIFFS.begin();
-  server.addHandler(new SPIFFSEditor("admin", controlPassword));
-#endif
+  server.addHandler(new SPIFFSEditor("admin", ee.szControlPassword));
 
   // attach AsyncWebSocket
   ws.onEvent(onWsEvent);
@@ -627,11 +633,8 @@ void setup()
     {
       parseParams(request);
       bDataMode = true;
-#ifdef USE_SPIFFS
-      request->send(SPIFFS, "/index.html");
-#else
+//      request->send(SPIFFS, "/index.html");
       request->send_P(200, "text/html", page_index);
-#endif
     }
   });
   server.on( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
@@ -674,6 +677,10 @@ void setup()
   ArduinoOTA.onStart([]() {
     eemem.update();
     sensor.setLED(0, false); // set it all to off
+    temps.saveData();
+    SPIFFS.end();
+    ws.textAll("alert;OTA Update Started");
+    ws.closeAll();
   });
 #endif
 
@@ -681,6 +688,7 @@ void setup()
   sensor.setLED(0, false);
   if(ee.sendRate == 0) ee.sendRate = 60;
   sleepTimer = ee.sleep;
+  temps.init(sensor.m_dataFlags);
 }
 
 void loop()
@@ -694,8 +702,10 @@ void loop()
   ArduinoOTA.handle();
 #endif
   if(wifi.state() == ws_connected && ee.e.bUseTime)
-    utime.check(ee.tz);
-
+  {
+    if(utime.check(ee.tz))
+      temps.m_bValidDate = true;
+  }
   wifi.service();
   if(wifi.connectNew())
   {
@@ -726,7 +736,7 @@ void loop()
   if(--htimer == 0)
   {
     temps.historyDump(false, ws, WsClientID);
-    htimer = 10;
+    htimer = 20;
   }
 
   if(int err = sensor.service())
@@ -798,7 +808,7 @@ void loop()
     if(--addTimer == 0)
     {
       addTimer = ee.logRate;
-      temps.add(sensor.m_dataFlags, (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600), ws, WsClientID);
+      temps.add( (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600), ws, WsClientID);
     }
   }
 
