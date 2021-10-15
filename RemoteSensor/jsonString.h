@@ -87,13 +87,13 @@ public:
     m_cnt++;
   }
 
-  void Array(char *key, String sVal[], int n)
+  void Array(char *key, char *sVal[])
   {
     if(m_cnt) s += ",";
     s += "\"";
     s += key;
     s += "\":[";
-    for(int i = 0; i < n; i++)
+    for(int i = 0; sVal[i]; i++)
     {
       if(i) s += ",";
       s += "\"";
