@@ -45,12 +45,9 @@ public:
     bool isCfg(void);
     int state(void);
 
-    //for convenience
-    String urldecode(const char*);
 private:
     int _state;
     int _timer;
-    int _wifiCnt;
 
     const String HTTP_HEAD = "<!DOCTYPE html><html lang=\"en\"><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><title>Config ESP</title>";
     const String HTTP_STYLE = "<style>div,input {margin-bottom: 5px;}body{width:200px;display:block;margin-left:auto;margin-right:auto;}</style>";
