@@ -36,6 +36,7 @@ struct eeSet // EEPROM backed data
   uint32_t  sleep;
   uint32_t  priSecs;
   uint8_t   pirPin;
+  uint16_t  wAlertLevel[16]; // L/H
   uint8_t   res[32];
 };
 
