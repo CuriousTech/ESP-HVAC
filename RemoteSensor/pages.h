@@ -28,6 +28,7 @@ xPadding=30
 yPadding=56
 added=false
 cf=0
+showidx=0
 nms=['OFF','ON ']
 spri=['OFF','PRI','EN ']
 $(document).ready(function()
@@ -39,7 +40,7 @@ $(document).ready(function()
 
 function openSocket(){
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.194/ws")
+//ws=new WebSocket("ws://192.168.31.195/ws")
 ws.onopen=function(evt){setVar('hist',0)}
 ws.onclose=function(evt){alert("Connection closed");}
 ws.onmessage=function(evt){
@@ -69,38 +70,52 @@ console.log(evt.data)
     a.CF.value=cf?'F':'C'
     a.CH.value=nms[d.ch]
     a.CH.setAttribute('style',d.ch?'color:red':'')
+    bSi=+d.si
+  a.SIL.setAttribute('style',bSi?'color:red':'')
     break
   case 'state':
     dt=new Date(d.t*1000)
     DF=d.df
     a.time.innerHTML=dt.toLocaleTimeString()+' '+d.temp+'&deg'+ (cf?'F':'C') + ' '+d.rh+'%'
     a.rssi.innerHTML=d.rssi+'dB  &nbsp; '
-    if(d.df & 4) a.co2.innerHTML = 'CO2: '+d.co2+'ppm'
+    if(d.df & 4) a.co2.innerHTML = label[2]+': '+d.co2+'ppm'
     s=''
-    if(d.df & 8) s += ' CH20: '+d.ch2o+'mg/m3'
-    if(d.df & 16) s += ' &nbsp;VOC: '+d.voc+'ppm '
+    if(d.df & 8) s += ' '+label[3]+': '+d.ch2o+'mg/m3'
+    if(d.df & 16) s += ' &nbsp;'+label[4]+': '+d.voc+'ppm '
     a.extra.innerHTML=s+' &nbsp; '
     break
   case 'alert':
-    alert(data)
+    alert(d.text)
     break
   case 'ref':
     tb=d.tb
-    btemp=d.temp
-    brh=d.rh
-    bco2=d.co2
-    bch2o=d.ch2o
-    bvoc=d.voc
+    base=d.base
+    decs=d.dec
+    label=d.label
     arr=new Array()
+    arrW=new Array()
+    arrD=new Array()
+  fl(0)
+  s='Alert &nbsp; '
+  for(i=0;i<label.length;i++)
+    if(DF&(1<<i)) s+=' &nbsp; &nbsp;&nbsp; '+label[i]+' &nbsp; '
+    else s+=' &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; '
+  a.labels.innerHTML=s
+    for(i=0;i<10;i++)
+    {
+     if(DF&(1<<(i>>1))){
+     dec=1
+     for(j=0;j<decs[i>>1];j++) dec*=10
+     document.getElementById('al'+i).value=(d.alert[i]/dec)
+     }
+    }
     break
   case 'data':
     for(i=0;i<d.d.length;i++){     // time, temp, rh, thrsh, state outtemp
       n=d.d[i][0]; d.d[i][0]=tb*1000; tb-=n
-      n=d.d[i][1]; d.d[i][1]=btemp; btemp+=n
-      n=d.d[i][2]; d.d[i][2]=brh; brh+=n
-      n=d.d[i][3]; d.d[i][3]=bco2; bco2+=n
-      n=d.d[i][4]; d.d[i][4]=bch2o; bch2o+=n
-    n=d.d[i][5]; d.d[i][5]=bvoc; bvoc+=n
+      for(j=0;j<base.length;j++){
+        n=d.d[i][j+1]; d.d[i][j+1]=base[j]+n; base[j]+=n
+      }
     }
     arr=arr.concat(d.d)
     draw()
@@ -112,6 +127,14 @@ console.log(evt.data)
     draw()
     draw2()
     break
+  case 'weekly':
+    arrW=arrW.concat(d.d)
+    draw4()
+  break
+  case 'daily':
+    arrD=arrD.concat(d.d)
+    draw3()
+  break
  }
 }
 }
@@ -171,6 +194,22 @@ function pri(){
   a.PRI.value=spri[p]
 }
 
+function fl(n)
+{
+ showidx=n
+ for(i=0;i<label.length;i++)
+ {
+  flg=document.getElementById('FLG'+i)
+  if(DF&(1<<i)){
+  flg.setAttribute('style',(showidx==i)?'color:red':'')
+  flg.value=label[i]
+  }
+  else flg.setAttribute('style','visibility:hidden')
+ }
+ draw3()
+ draw4()
+}
+
 function t2hms(t)
 {
   s=t%60
@@ -223,12 +262,27 @@ function setID()
   setVar('ID',ascii_to_hex(a.ID.value))
 }
 
+function setAL(n)
+{
+  setVar('alertidx',n)
+  mul=1
+  for(j=0;j<decs[n>>1];j++) mul*=10
+  setVar('alertlevel',document.getElementById('al'+n).value*mul)
+}
+
+function setSilence()
+{
+  bSi^=1
+  setVar('silence',bSi)
+  a.SIL.setAttribute('style',bSi?'color:red':'')
+}
+
 function hex_to_ascii(val)
 {
-  var hex  = val.toString(16)
-  var str = ''
-  for (n= hex.length-2; n >=0; n -= 2)
-    str += String.fromCharCode(parseInt(hex.substr(n, 2), 16))
+  hex=val.toString(16)
+  str=''
+  for(n=hex.length-2;n>=0;n-=2)
+    str+=String.fromCharCode(parseInt(hex.substr(n,2),16))
   return str
 }
 
@@ -281,9 +335,9 @@ function draw(){
 
  // rh scale
  c.fillStyle=c.strokeStyle='black'
- min=300
+ min=350
  if(getMinY(2)<min) min=getMinY(2)
- max=900
+ max=850
  if(getMaxY(2)>max) max=getMaxY(2)
  yRange=max-min
  for(var i=min;i<max;i+=(yRange/8))
@@ -318,11 +372,11 @@ function draw(){
   else
   {
     tipCtx.fillText((new Date(arr[idx][0])).toLocaleTimeString()+' ',4,15)
-    tipCtx.fillText('Temp '+(arr[idx][1]/10)+'\xB0'+(cf?'F':'C'),4,29)
-    tipCtx.fillText('RH   '+(arr[idx][2]/10)+'%',4,43)
-    if(DF&4) tipCtx.fillText('CO2  '+arr[idx][3]+' mg',4,57)
-    if(DF&8) tipCtx.fillText('CH2O '+arr[idx][4]+' ppm',4,71)
-    if(DF&16) tipCtx.fillText('VOC   '+arr[idx][5]+' ppm',4,85)
+    tipCtx.fillText(label[0]+' '+(arr[idx][1]/10)+'\xB0'+(cf?'F':'C'),4,29)
+    tipCtx.fillText(label[1]+'   '+(arr[idx][2]/10)+'%',4,43)
+    if(DF&4) tipCtx.fillText(label[2]+'  '+arr[idx][3]+' mg',4,57)
+    if(DF&8) tipCtx.fillText(label[3]+' '+arr[idx][4]+' ppm',4,71)
+    if(DF&16) tipCtx.fillText(label[4]+'   '+arr[idx][5]+' ppm',4,85)
     popup=document.getElementById("popup")
     popup.style.top=(dy+rect.y+window.pageYOffset-90)+"px"
     popup.style.left=(dx+rect.x-40)+"px"
@@ -370,14 +424,14 @@ function draw2(){
     return
 
   // CO2 scale
-  min=getMinY(3)-30
+  min=getMinY(3)-20
   if(min<=0) min=0
   yRange=getMaxY(3)-min
   for(i=min;i<getMaxY(3);i+=(yRange/8))
   c.fillText((i.toFixed()),graph.width()-6,getYPixel(i,min))
 
   // CO2
-  c.strokeStyle=c.fillStyle='#f00'
+  c.strokeStyle=c.fillStyle='#f0f'
   c.fillText('CO2', graph.width()-6,6)
   drawArray(3,min)
 
@@ -392,12 +446,12 @@ function draw2(){
 
   // CH2O
   c.strokeStyle=c.fillStyle='#00f'
-  c.fillText('CH2O', xPadding-5, 17)
+  c.fillText(label[3], xPadding-5, 17)
   drawArray(4,0)
 
   // VOC
   c.strokeStyle=c.fillStyle='#ff0'
-  c.fillText('VOC', xPadding-6, 6)
+  c.fillText(label[4], xPadding-6, 6)
   drawArray(5,0)
 }
 
@@ -419,6 +473,7 @@ function doBorder(g)
   c.lineTo(g.width()-xPadding, 0)
   c.stroke()
 }
+
 function getMaxY(v){
   var max = 0
   
@@ -426,18 +481,6 @@ function getMaxY(v){
   {
     if(arr[i][v] > max)
       max=arr[i][v]
-  }
-  return Math.ceil(max)
-}
-
-function getMaxY2(v){
-  var max = 0
-  
-  for(i=0; i<arr.length-1; i++)
-  {
-    if(arr[i][v] > max)
-      max=arr[i][v]
-      console.log(arr[i][v], max)
   }
   return Math.ceil(max)
 }
@@ -461,6 +504,129 @@ function getXPixel(val){
 function getYPixel(val,min) {
   y=graph.height()-( ((graph.height()-yPad)/yRange)*(val-min))-yPad
   return y.toFixed()
+}
+
+function draw3(){ // daily for 1 week
+  graph = $('#chart3')
+  c=graph[0].getContext('2d')
+
+  if(graph.height()!=200)
+   graph[0].height=200
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  yPad=20
+  c.lineWidth=2
+  c.font='italic 8pt sans-serif'
+  c.textAlign="left"
+  c.clearRect(0, 0, graph.width(), graph.height())
+
+  dys=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+  c.lineWidth=1
+  // dates
+  y=graph.height()-yPad+10
+  for(var i=0;i<arrD.length;i++){
+   x=graph.width()/arrD.length*i+20
+   c.fillText(dys[i],x,y)
+  }
+  dots2=[]
+  c.textAlign="right"
+  c.textBaseline="middle"
+  date=new Date()
+  c.lineWidth=20
+  draw_scale(arrD,graph.width(),graph.height()-yPad,2,1,date.getDay())
+}
+
+function draw4(){ // 52 weeks
+  graph = $('#chart4')
+  c=graph[0].getContext('2d')
+
+  if(graph.height()!=200)
+   graph[0].height=200
+
+  c.fillStyle='black'
+  c.strokeStyle='black'
+  yPad=20
+  c.lineWidth=3
+  c.textAlign="left"
+  c.clearRect(0,0,graph.width(), graph.height())
+
+  mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+  c.lineWidth=1
+  // dates
+  y=graph.height()-yPad+10
+  for(var i=0;i<12;i++){
+   x=graph.width()/12*i
+   c.fillText(mon[i],x,y)
+  }
+  c.textAlign="right"
+  c.textBaseline="middle"
+  date=new Date()
+  c.lineWidth=4
+  
+  cd=new Date()
+  oneJan=new Date(cd.getFullYear(),0,1)
+  days=Math.floor((cd-oneJan)/(24*60*60*1000))
+  wks=Math.ceil((cd.getDay()+1+days)/7)
+  draw_scale(arrW,graph.width(),graph.height()-yPad,1,1,wks)
+}
+
+function draw_scale(ar,w,h,o,p,ct)
+{
+  min=20000
+  max=0
+  
+  idx=showidx*2
+  for(i=0;i<ar.length;i++)
+  {
+    if(ar[i][idx]==0&&ar[i][idx+1]==0) continue
+    if(ar[i][idx]<min) min=ar[i][idx]
+    if(ar[i][idx+1]>max) max=ar[i][idx+1]
+  }
+
+  yRange=max-min
+  div=1
+  for(i=0;i<decs[showidx];i++) div*=10
+  for(i=min;i<max;i+=(yRange/8))
+  {
+    n=i/div
+    c.fillText(n.toFixed(decs[showidx]),graph.width()-6,chartY(i,yRange))
+  }
+  c.textAlign="center"
+  lw=c.lineWidth
+  clr=['#F00','#0F0','#F0F','#FF0','#00F']
+  for(i=0;i<ar.length;i++)
+  {
+    x=+(i*((w-10)/ar.length)+10).toFixed()
+    x+=(lw/2)
+    c.strokeStyle=clr[showidx]
+      bt=ar[i][idx+1]*(h-10)/max
+      if(min==0) bb=0
+      else bb=ar[i][idx]*(h-10)/min
+    c.beginPath()
+      c.moveTo(x,chartY(ar[i][idx+1],max-min))
+      c.lineTo(x,chartY(ar[i][idx],max-min))
+    c.stroke()
+    x+=lw+1
+    if(i==ct)
+    {
+      c.strokeStyle="#000"
+      c.lineWidth=1
+      c.beginPath()
+        c.moveTo(x-1,o+h-20)
+        c.lineTo(x-1,o)
+      c.stroke()
+      c.lineWidth=lw
+    }
+  }
+}
+
+function chartY(n,rng)
+{
+  h=graph.height()-yPad
+  return h-((h/rng)*(n-min))
 }
 
 </script>
@@ -495,18 +661,31 @@ function getYPixel(val,min) {
  <input value='Restart' type=button onclick="setVar('reset',0);"> &nbsp; 
  <input id="myKey" name="key" type=text size=50 placeholder="password" style="width: 128px" onChange="{localStorage.setItem('key', key = document.all.myKey.value)}">
 </td></tr>
+
+<tr><td colspan=3 id="labels"></tr>
+<tr><td colspan=3><input name="SIL" value="Silence" type='button' onclick="{setSilence()}">&nbsp; &nbsp; High &nbsp; <input id='al1' type=text size=4 onchange="{setAL(1)}"><input id='al3' type=text size=4 onchange="{setAL(3)}"> <input id='al5' type=text size=4 onchange="{setAL(5)}"> <input id='al7' type=text size=4 onchange="{setAL(7)}"> <input id='al9' type=text size=4 onchange="{setAL(9)}"></td></tr>
+<tr><td colspan=3>Low &nbsp; <input id='al0' type=text size=4 onchange="{setAL(0)}"><input id='al2' type=text size=4 onchange="{setAL(2)}"> <input id='al4' type=text size=4 onchange="{setAL(4)}"> <input id='al6' type=text size=4 onchange="{setAL(6)}"> <input id='al8' type=text size=4 onchange="{setAL(8)}"></td></tr>
+
 <tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"></td><td><div id="co2"></div></td><td><div id="extra"></div></td>
 </tr>
-<tr><td> </td></tr>
 </table>
 <table align="right" width=480>
 <tr><td>
 <div id="wrapper">
 <canvas id="chart" width="474" height="300"></canvas>
 <canvas id="chart2" width="474" height="56"></canvas>
+<canvas id="chart3" width="474" height="56"></canvas>
+<canvas id="chart4" width="474" height="56"></canvas>
 <div id="popup"><canvas id="tip" width=70 height=94></canvas></div>
 </div>
 </td></tr>
+<tr><td colspan=3>
+<input id="FLG0" type='button' onclick="{fl(0)}">
+<input id="FLG1" type='button' onclick="{fl(1)}">
+<input id="FLG2" type='button' onclick="{fl(2)}">
+<input id="FLG3" type='button' onclick="{fl(3)}">
+<input id="FLG4" type='button' onclick="{fl(4)}">
+ </td></tr>
 </table></body>
 </html>
 )rawliteral";
