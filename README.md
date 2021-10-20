@@ -65,4 +65,4 @@ Remote (this uses only a few components: the 3.3V regulator, 3 capacitors, USB c
 ![model2side](http://www.curioustech.net/images/esphvac21.jpg)  
 
 Sensor web page  
-![envmon](http://www.curioustech.net/images/envmon.png)  
+![envmon](http://www.curioustech.net/images/sensor3.png)  
