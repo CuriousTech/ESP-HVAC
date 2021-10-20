@@ -310,7 +310,7 @@ void HVAC::resetTotal()
   sendCmd("resettotal", 0);
 }
 
-void HVAC::setVar(String sCmd, int val, IPAddress ip) // remote settings
+void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip) // remote settings
 {
 }
 
