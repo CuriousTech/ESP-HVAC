@@ -40,7 +40,7 @@ $(document).ready(function()
 
 function openSocket(){
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.195/ws")
+//ws=new WebSocket("ws://192.168.31.194/ws")
 ws.onopen=function(evt){setVar('hist',0)}
 ws.onclose=function(evt){alert("Connection closed");}
 ws.onmessage=function(evt){
@@ -436,6 +436,7 @@ function draw2(){
   drawArray(3,min)
 
   // VOC/CH2O scale
+  min=0
   c.fillStyle='black'
   yRange=getMaxY(4)-0
   yRange2=getMaxY(5)-0
@@ -459,7 +460,7 @@ function drawArray(n,min)
 {
   c.beginPath()
   c.moveTo(getXPixel(0),getYPixel(arr[0][n],min))
-  for(var i=1;i<arr.length;i ++)
+  for(var i=1;i<arr.length;i++)
    c.lineTo(getXPixel(i),getYPixel(arr[i][n],min))
   c.stroke()
 }
@@ -527,7 +528,7 @@ function draw3(){ // daily for 1 week
   // dates
   y=graph.height()-yPad+10
   for(var i=0;i<arrD.length;i++){
-   x=graph.width()/arrD.length*i+20
+   x=(graph.width()-yPad)/arrD.length*i+10
    c.fillText(dys[i],x,y)
   }
   dots2=[]
@@ -535,7 +536,7 @@ function draw3(){ // daily for 1 week
   c.textBaseline="middle"
   date=new Date()
   c.lineWidth=20
-  draw_scale(arrD,graph.width(),graph.height()-yPad,2,1,date.getDay())
+  draw_scale(arrD,graph.width()-20,graph.height()-yPad,2,date.getDay())
 }
 
 function draw4(){ // 52 weeks
@@ -558,7 +559,7 @@ function draw4(){ // 52 weeks
   // dates
   y=graph.height()-yPad+10
   for(var i=0;i<12;i++){
-   x=graph.width()/12*i
+   x=(graph.width()-yPad)/12*i+10
    c.fillText(mon[i],x,y)
   }
   c.textAlign="right"
@@ -570,14 +571,13 @@ function draw4(){ // 52 weeks
   oneJan=new Date(cd.getFullYear(),0,1)
   days=Math.floor((cd-oneJan)/(24*60*60*1000))
   wks=Math.ceil((cd.getDay()+1+days)/7)
-  draw_scale(arrW,graph.width(),graph.height()-yPad,1,1,wks)
+  draw_scale(arrW,graph.width()-40,graph.height()-yPad,1,wks)
 }
 
-function draw_scale(ar,w,h,o,p,ct)
+function draw_scale(ar,w,h,o,ct)
 {
   min=20000
   max=0
-  
   idx=showidx*2
   for(i=0;i<ar.length;i++)
   {
@@ -589,7 +589,7 @@ function draw_scale(ar,w,h,o,p,ct)
   yRange=max-min
   div=1
   for(i=0;i<decs[showidx];i++) div*=10
-  for(i=min;i<max;i+=(yRange/8))
+  for(i=min;i<=max;i+=(yRange/8))
   {
     n=i/div
     c.fillText(n.toFixed(decs[showidx]),graph.width()-6,chartY(i,yRange))
@@ -599,7 +599,7 @@ function draw_scale(ar,w,h,o,p,ct)
   clr=['#F00','#0F0','#F0F','#FF0','#00F']
   for(i=0;i<ar.length;i++)
   {
-    x=+(i*((w-10)/ar.length)+10).toFixed()
+    x=+(i*(w/ar.length)+10).toFixed()
     x+=(lw/2)
     c.strokeStyle=clr[showidx]
       bt=ar[i][idx+1]*(h-10)/max
@@ -615,7 +615,7 @@ function draw_scale(ar,w,h,o,p,ct)
       c.strokeStyle="#000"
       c.lineWidth=1
       c.beginPath()
-        c.moveTo(x-1,o+h-20)
+        c.moveTo(x-1,o+h-10)
         c.lineTo(x-1,o)
       c.stroke()
       c.lineWidth=lw
@@ -625,8 +625,8 @@ function draw_scale(ar,w,h,o,p,ct)
 
 function chartY(n,rng)
 {
-  h=graph.height()-yPad
-  return h-((h/rng)*(n-min))
+  h=graph.height()-yPad-4
+  return h-((h/rng)*(n-min))+4
 }
 
 </script>
