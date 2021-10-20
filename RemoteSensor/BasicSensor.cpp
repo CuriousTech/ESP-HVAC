@@ -18,7 +18,14 @@ void BasicInterface::init(bool bCF)
 
 int BasicInterface::service()
 {
-  if((second() % 5) == 0)
+  static uint8_t lastSec;
+
+  if(second() == lastSec)
+    return 0;
+
+  lastSec = second();
+
+  if((lastSec % 5) == 0)
   {
     float ftemp, frh;
     if(m_am.measure(ftemp, frh))
@@ -64,7 +71,6 @@ int BasicInterface::status()
 
 void BasicInterface::setLED(uint8_t no, bool bOn)
 {
-  no = constrain(no, 0, 1);
   m_bLED[0] = bOn;
   digitalWrite(ESP_LED, !bOn);   // No external LED
 }
