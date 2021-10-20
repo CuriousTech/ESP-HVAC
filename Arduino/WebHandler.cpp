@@ -22,12 +22,11 @@
 #include "eeMem.h"
 #ifdef USE_SPIFFS
 #include <FS.h>
-#ifdef ESP32
-#include <SPIFFS.h>
+ #ifdef ESP32
+ #include <SPIFFS.h>
+ #endif
 #endif
-#else
 #include "pages.h"
-#endif
 #include <XMLReader.h>
 #include "jsonstring.h"
 #include "forecast.h"
@@ -181,11 +180,13 @@ void startServer()
     request->send(200, "text/plain", js.Close());
   });
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-#ifdef USE_SPIFFS
-    request->send(SPIFFS, "/favicon.ico");
-#else
-    request->send_P(200, "text/html", page_favicon);
-#endif
+//#ifdef USE_SPIFFS
+//    request->send(SPIFFS, "/favicon.ico");
+//#else
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "image/x-icon", favicon, sizeof(favicon));
+    response->addHeader("Content-Encoding", "gzip");
+    request->send(response);
+//#endif
 //    request->send(404);
   });
   server.on ( "/dbglog", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -324,34 +325,29 @@ void secondsServer() // called once per second
 
 void parseParams(AsyncWebServerRequest *request)
 {
-  char temp[100];
-  char password[64];
-
   if(request->params() == 0)
     return;
+
+  bool bPassGood;
 
   for( uint8_t i = 0; i < request->params(); i++ ) // password may be at end
   {
     AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
+    String s = request->urlDecode(p->value());
 
     if(p->name() == "key")
-    {
-      s.toCharArray(password, sizeof(password));
-    }
+      bPassGood = s.equals(String(ee.password));
   }
 
   IPAddress ip = request->client()->remoteIP();
 
-  if( ((ip[3] != 192) && (ip[2] != 168) && (strcmp(ee.password, password) ) || nWrongPass) )
+  if( (ip[0] != 192 && ip[1] != 168 && !bPassGood) || nWrongPass )
   {
     if(nWrongPass == 0)
     {
       nWrongPass = 10;
       jsonString js("hack");
       js.Var("ip", ip.toString() );
-      js.Var("pass", password);
       ws.textAll(js.Close());
     }
     else if((nWrongPass & 0xFFFFF000) == 0 ) // time doubles for every high speed wrong password attempt.  Max 1 hour
@@ -368,8 +364,7 @@ void parseParams(AsyncWebServerRequest *request)
   for ( uint8_t i = 0; i < request->params(); i++ )
   {
     AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
+    String s = request->urlDecode(p->value());
 
     if(p->name() == "key");
     else if(p->name() == "ssid")
@@ -391,7 +386,7 @@ void parseParams(AsyncWebServerRequest *request)
     }
     else
     {
-      hvac.setVar(p->name(), s.toInt(), ip );
+      hvac.setVar(p->name(), s.toInt(), (char *)s.c_str(), ip );
     }
   }
 }
@@ -550,10 +545,10 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       switch(iName)
       {
         case 0: // temp
-          hvac.setVar("rmttemp", iValue, WsClientIP);
+          hvac.setVar("rmttemp", iValue, psValue, WsClientIP);
           break;
         case 1: // rh
-          hvac.setVar("rmtrh", iValue, WsClientIP);
+          hvac.setVar("rmtrh", iValue, psValue, WsClientIP);
           break;
       }
       break;
@@ -622,7 +617,7 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       else // 4+
       {
         if(bKeyGood)
-          hvac.setVar(cmdList[iName+1], iValue, WsClientIP); // 5 is "fanmode"
+          hvac.setVar(cmdList[iName+1], iValue, psValue, WsClientIP); // 5 is "fanmode"
       }
       break;
     case 2: // alert
