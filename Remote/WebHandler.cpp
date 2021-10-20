@@ -282,13 +282,11 @@ void secondsServer() // called once per second
 
 void parseParams(AsyncWebServerRequest *request)
 {
-  char temp[100];
   int val;
 
   for ( uint8_t i = 0; i < request->params(); i++ ) {
     AsyncWebParameter* p = request->getParam(i);
-    p->value().toCharArray(temp, 100);
-    String s = wifi.urldecode(temp);
+    String s = request->urlDecode(p->value());
     int val = s.toInt();
  
     switch( p->name().charAt(0) )
