@@ -46,7 +46,6 @@ public:
     String page(void);
     void setSSID(int idx);
     void setPass(const char *p);
-    String urldecode(const char*);
     bool isCfg(void);
     int state(void);
 private:
