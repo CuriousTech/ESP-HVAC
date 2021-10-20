@@ -604,6 +604,14 @@ void WsSend(String s)
   ws.textAll(s);
 }
 
+void alert(String txt)
+{
+  String s = "alert;{\"text\":\"";
+  s += txt;
+  s += "\"}";
+  ws.textAll(s);
+}
+
 void setup()
 {
   eemem.init();
@@ -679,7 +687,7 @@ void setup()
     sensor.setLED(0, false); // set it all to off
     temps.saveData();
     SPIFFS.end();
-    ws.textAll("alert;OTA Update Started");
+    alert("OTA Update Started");
     ws.closeAll();
   });
 #endif
@@ -736,15 +744,16 @@ void loop()
   if(--htimer == 0)
   {
     temps.historyDump(false, ws, WsClientID);
-    htimer = 20;
+    htimer = 30;
   }
 
   if(int err = sensor.service())
   {
-    String s = "alert;Sensor error ";
+    String s = "Sensor error ";
     s += err;
-    WsSend(s);
+    alert(s);
   }
+
   checkQueue();
 
   if(sec_save != second()) // only do stuff once per second (loop is maybe 20-30 Hz)
