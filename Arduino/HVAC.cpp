@@ -42,6 +42,10 @@ void HVAC::init()
   m_idleTimer = ee.idleMin - 60; // about 1 minute
   m_setHeat = ee.b.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
+
+  m_Sensor[0].IP= 192 | 168<<8 | 1<<24; // Setup sensor 0 as internal sensor
+  m_Sensor[0].ID = 'NTNI';
+  m_Sensor[0].flags = SNS_EN;
 }
 
 // Switch the fan on/off
@@ -345,16 +349,16 @@ void HVAC::tempCheck()
 
   int8_t mode = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode;
 
-  int16_t tempL = m_localTemp;
-  int16_t tempH = m_localTemp;
-  int8_t sensCnt = 1;
-  int16_t sensTemp = m_localTemp;
-  int16_t sensRh = m_localRh;
+  int16_t tempL = 0;
+  int16_t tempH = 0;
+  int8_t sensCnt = 0;
+  int16_t sensTemp = 0;
+  int16_t sensRh = 0;
   bool  remSens = false;
 
   for(int8_t i = 0; i < SNS_CNT; i++)
   {
-    if(m_Sensor[i].IPID)
+    if(m_Sensor[i].IP)
     {
       if(m_Sensor[i].temp < (ee.b.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.b.bCelcius ? 370:990)) // disregard invalid sensor data
       {
@@ -373,7 +377,7 @@ void HVAC::tempCheck()
         // Just ingore for the moment
         if(now() - m_Sensor[i].tm > 5*60) // 5 minutes
         {
-          m_Sensor[i].IPID = 0; // kill it
+          m_Sensor[i].IP = 0; // kill it
           remSens = true;
         }
       }
@@ -399,6 +403,13 @@ void HVAC::tempCheck()
     sensTemp /= sensCnt; // average
     sensRh /= sensCnt;
   }
+  else if(sensCnt == 0) // make sure internal sensor and others aren't disabled by webpage
+  {
+    sensTemp = m_Sensor[0].temp;
+    sensRh = m_Sensor[0].rh;
+    m_Sensor[0].flags = SNS_EN;
+  }
+
   tempL = tempH = sensTemp;
   m_inTemp = sensTemp;
   m_rh = sensRh;
@@ -752,8 +763,9 @@ void HVAC::enableRemote()
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
-  m_localTemp = Temp + ee.adj; // Using remote vars for local here
-  m_localRh = rh;
+  m_Sensor[0].temp = Temp + ee.adj;
+  m_Sensor[0].rh = rh;
+  m_Sensor[0].tm = now();
 
   // Auto1 == auto humidifier when running, Auto2 = even when not running (turns fan on)
   if(ee.b.humidMode >= HM_Auto1)
@@ -894,8 +906,6 @@ String HVAC::getPushData()
   js.Var("s" , getState() );
   js.Var("it", m_inTemp);
   js.Var("rh", m_rh);
-  js.Var("lt", m_localTemp); // always local
-  js.Var("lh", m_localRh);
   js.Var("tt", m_targetTemp);
   js.Var("fm", m_filterMinutes);
   js.Var("ot", m_outTemp);
@@ -985,9 +995,8 @@ int HVAC::CmdIdx(String s )
 }
 
 // WebSocket or GET/POST set params as "fanmode=1" or "fanmode":1
-void HVAC::setVar(String sCmd, int val, IPAddress ip)
+void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
 {
-
   static uint8_t snsIdx; // current sensor in use
 
   int c = CmdIdx( sCmd );
@@ -1160,12 +1169,20 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       ee.b.bCelcius = val ? true:false;
       m_bRecheck = true;
       break;
-    case 44: // rmtid
-      if(val == 0) val = ip[3];
-      snsIdx = getSensorID(val);
+    case 44: // rmtid (used by web page)
+      {
+        int i;
+      
+        for(i = 0; i < SNS_CNT; i++) // find ID
+        {
+          if((m_Sensor[i].IP >> 24) == val)
+            break;
+        }
+        if(i < SNS_CNT)  snsIdx = i;
+      }
       break;
     case 45: // rmttemp
-      snsIdx = getSensorID(ip[3]);
+      snsIdx = getSensorID(ip);
       if((m_Sensor[snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
         val = val * 90 / 50 + 320;
       else if((m_Sensor[snsIdx].flags & SNS_F) && ee.b.bCelcius)
@@ -1177,14 +1194,14 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
         s += " sensor range error ";
         s += val;
         WsSend(s);
-        m_Sensor[i].flags &= ~(SNS_EN|SNS_PRI); // deactivate sensor        
+        m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI); // deactivate sensor        
       }
       else
         m_Sensor[snsIdx].temp = val;
       m_Sensor[snsIdx].tm = now();
       break;
     case 46: // rmtrh
-      snsIdx = getSensorID(ip[3]);
+      snsIdx = getSensorID(ip);
       m_Sensor[snsIdx].rh = val;
       break;
     case 47: // rmtflg (uses last referenced rmtid)
@@ -1201,16 +1218,16 @@ void HVAC::setVar(String sCmd, int val, IPAddress ip)
       }
       break;
     case 48: // rmtname
-      snsIdx = getSensorID(ip[3]);
+      snsIdx = getSensorID(ip);
       m_Sensor[snsIdx].ID = val;
-      if(val == '1TMR' && snsIdx) //swap sensors so RMT1 is top
+      if(val == '1TMR' && snsIdx != 1) //swap sensors so RMT1 is top
       {
-        swapSensors(0, snsIdx);
+        swapSensors(1, snsIdx);
         snsIdx = 0;
       }
       break;
     case 49: // rmtto
-      snsIdx = getSensorID(ip[3]);
+      snsIdx = getSensorID(ip);
       m_Sensor[snsIdx].timer = val;
       break;
     case 50: // sm
@@ -1229,32 +1246,32 @@ void HVAC::swapSensors(int n1, int n2)
 
 void HVAC::shiftSensors()
 {
-  for(int i = 0; i < SNS_CNT - 1; i++)
-    if(m_Sensor[i].IPID ==  0 && m_Sensor[i+1].IPID )
+  for(int i = 1; i < SNS_CNT - 1; i++)
+    if(m_Sensor[i].IP ==  0 && m_Sensor[i+1].IP )
       swapSensors(i, i+1);
 }
 
-int HVAC::getSensorID(int id)
+int HVAC::getSensorID(uint32_t id)
 {
   int i;
 
-  for(i = 0; i < SNS_CNT; i++) // find ID
+  for(i = 1; i < SNS_CNT; i++) // find ID
   {
-    if(m_Sensor[i].IPID == id)
+    if(m_Sensor[i].IP == id)
       break;
   }
   if(i == SNS_CNT) // not found
-    for(i = 0; i < SNS_CNT; i++)
+    for(i = 1; i < SNS_CNT; i++)
     {
-      if(m_Sensor[i].IPID == 0)
+      if(m_Sensor[i].IP == 0)
         break;
     }
   if(i < SNS_CNT)
   {
-    m_Sensor[i].IPID = id;
+    m_Sensor[i].IP = id;
     return i;
   }
-  return 0;
+  return 1;
 }
 
 void HVAC::dayTotals(int d)
