@@ -44,7 +44,6 @@ void TempArray::update(uint16_t Values[])
   if(m_nWeekDay >= 0)
     logLH(Values, m_daily, m_nWeekDay);
 
- WsSend("print;update");
   m_sampleCount++;
 }
 
@@ -121,7 +120,7 @@ void TempArray::resetLogEntry(LHLog log[], int idx)
 
 void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
 {
-  if((m_peakVal[DE_TEMP] == 0 && m_peakVal[DE_RH] == 0) || m_bValidDate == false) // nothing to do
+  if( (m_peakVal[DE_TEMP] == 0 && m_peakVal[DE_RH] == 0) || m_bValidDate == false) // nothing to do
     return;
 
   tempArr *p = &m_log[m_idx];
@@ -137,7 +136,6 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
   {
     p->m.temp /= 2;
     rangeAlert("Temp", val);
-    p->m.error |= DF_TEMP;
   }
   val = m_lastVal[DE_RH ] - m_peakVal[DE_RH ];
   p->m.rh = val;
@@ -145,7 +143,6 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
   {
     p->m.rh /= 2;
     rangeAlert("Rh", val);
-    p->m.error |= DF_RH;
   }
 
   if(m_dataFlags & DF_CO2)
@@ -156,7 +153,6 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
     {
       p->m.co2 /= 2;
       rangeAlert("CO2", val );
-      p->m.error |= DF_CO2;
     }
   }
   if(m_dataFlags & DF_CH2O)
@@ -167,7 +163,6 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
     {
       p->m.ch2o /= 2;
       rangeAlert("CH2O", val );
-      p->m.error |= DF_CH2O;
     }
   }
   if(m_dataFlags & DF_VOC)
@@ -178,7 +173,6 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
     {
       p->m.voc /= 2;
       rangeAlert("VOC", val );
-      p->m.error |= DF_VOC;
     }
   }
 
@@ -191,7 +185,7 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
 
   uint32_t tmDiff = date - makeTime(tm);
   int8_t week = tmDiff / (60*60*24*7);
-  bool bReset = (m_nWeek != -1 && week != m_nWeek);
+  bool bReset = (m_nWeek != -1 && week != m_nWeek) || (m_weekly[week].temp[0] == 0 && m_weekly[week].temp[1] == 0); // initial range fix
 
   m_nWeek = week;
 
@@ -202,7 +196,7 @@ void TempArray::add(uint32_t date, AsyncWebSocket &ws, int WsClientID)
 
   if(weekday()-1 != m_nWeekDay)
   {
-    bReset = (m_nWeekDay != -1);
+    bReset = (m_nWeekDay != -1) || (m_daily[weekday() - 1].temp[0] == 0 && m_daily[weekday() - 1].temp[1] == 0);
     m_nWeekDay = weekday() - 1;
     if(bReset)
     {
@@ -319,14 +313,9 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
       out += ",";
       out += m_log[aidx].m.voc;
     }
-    out += ",";
-    out += m_log[aidx].m.error;
     out += "]";
     if( out.length() == len) // memory full
-    {
-    ws.text(WsClientID, "print;mem");
       break;
-    }
   }
   out += "]}";
   if(bC == false) // done
