@@ -157,7 +157,8 @@ function draw(){
 
   c.lineWidth = 1
   // dates
-  step = Math.floor(arr.length / 15)
+  if(typeof(arr)=="undefined") return
+  step=Math.floor(arr.length/15)
   if(step == 0) step = 1
   for(var i=0;i<arr.length-1;i+=step){
 	c.save()
@@ -350,7 +351,7 @@ function getMaxY(){
 		if(drawMode&32&&arr[i][5]>max)
 		  max=arr[i][5]
 		for(j=6;j<arr[i].length;j++)
-		  if(arr[i][j]>max)
+		  if(drawMode&1<<(j-4)&&arr[i][j]>max)
 			max=arr[i][j]
 	}
 	return Math.ceil(max)
@@ -368,7 +369,7 @@ function getMinY(){
 		if(drawMode&32&&arr[i][5]<min)
 		  min=arr[i][5]
 		for(j=6;j<arr[i].length;j++)
-		  if(arr[i][j]<min)
+		  if(drawMode&1<<(j-4)&&arr[i][j]<min)
 			min=arr[i][j]
 	}
 	return Math.floor(min)
