@@ -148,12 +148,15 @@ public:
     bool bSend = false;
     for(int i = 0; i < SNS_CNT; i++)
     {
-      if(sns[i].IPID)
+      if(sns[i].IP)
       {
         if(bSend) s += ",";
         bSend = true;
         s += "[";
-        s += sns[i].IPID;
+        IPAddress ip(sns[i].IP);
+        s += "\"";
+        s += ip.toString();
+        s += "\"";
         s += ",";
         s += sns[i].temp;
         s += ",";
