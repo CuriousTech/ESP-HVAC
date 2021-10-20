@@ -69,18 +69,6 @@ void Display::oneSec()
     m_bFcstUpdated = false;
     drawForecast(true);
   }
-
-#ifdef USE_AUDIO
-  static uint8_t errCounter = 60;
-  if(hvac.m_notif >= Note_Network)
-  {
-    if(--errCounter == 0)
-    {
-      errCounter = 60;
-      mus.add(3000, 150); // notification sound
-    }
-  }
-#endif
 }
 
 void Display::buttonRepeat()
@@ -576,7 +564,7 @@ void Display::Note(char *cNote)
 // update the notification text box
 void Display::updateNotification(bool bRef)
 {
-  static uint8_t note_last = Note_Init; // Needs a clear after startup
+  static uint8_t note_last = Note_None; // Needs a clear after startup
   if(!bRef && note_last == hvac.m_notif) // nothing changed
     return;
   note_last = hvac.m_notif;
@@ -612,16 +600,21 @@ void Display::updateNotification(bool bRef)
       break;
   }
   nex.itemText(12, s);
-  if(s != "" && bRef == false) // refresh shouldn't be resent
-  {
-    s = "alert;{\"text\":\"" + s + "\"}";
-    WsSend(s);
-  }
-
-#ifdef USE_AUDIO
   if(s != "")
-    mus.add(3500, 180); // notification sound
+  {
+    if(bRef == false) // refresh shouldn't be resent
+    {
+      s = "alert;{\"text\":\"" + s + "\"}";
+      WsSend(s);
+    }
+#ifdef USE_AUDIO
+    if(bRef == false || hvac.m_notif >= Note_Network) // once / repeats if important
+    {
+      mus.add(3500, 180);
+      mus.add(2500, 100); // notification sound
+    }
 #endif
+  }
 }
 
 // true: set screen backlight to bright plus switch to thermostat
@@ -944,9 +937,9 @@ void Display::addGraphPoints()
   p->bits.rh = hvac.m_rh;
   p->bits.fan = hvac.getFanRunning();
   p->bits.state = hvac.getState(); 
-  p->t2.localTemp = hvac.m_localTemp;
-  p->t2.sens0 = hvac.m_Sensor[0].temp;
-  p->t2.sens1 = hvac.m_Sensor[1].temp;
+  p->t2.localTemp = hvac.m_Sensor[0].temp;
+  p->t2.sens0 = hvac.m_Sensor[1].temp;
+  p->t2.sens1 = hvac.m_Sensor[2].temp;
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
   m_points[m_pointsIdx].t.u = 0xFFFFFFFF; // mark as invalid data/end
