@@ -18,12 +18,12 @@ var ws
 function startEvents()
 {
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.125/ws")
+//ws=new WebSocket("ws://192.168.31.46/ws")
 ws.onopen=function(evt){}
 ws.onclose=function(evt){alert("Connection closed.");}
 
 ws.onmessage = function(evt){
-// console.log(evt.data)
+ console.log(evt.data)
  lines=evt.data.split(';')
  event=lines[0]
  data=lines[1]
@@ -50,8 +50,7 @@ ws.onmessage = function(evt){
  }
  else if(event == 'state')
  {
-	a.it0.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
-	a.loc.innerHTML=(+Json.lt/10).toFixed(1)+' '+(+Json.lh/10).toFixed(1)+'%'
+	a.loc.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
 	snd=Json.snd
 	if(snd) setSenders()
  }
@@ -74,21 +73,26 @@ function setSenders()
 
  for(i=0;i<snd.length;i++)
  {
-	document.getElementById('s'+i).innerHTML=(snd[i][4].length)?snd[i][4]:snd[i][0]
+	document.getElementById('shr'+i).value=snd[i][4]
 	document.getElementById('sndpri'+i).setAttribute('class',snd[i][3]&1?'style5':'')
 	document.getElementById('snda'+i).setAttribute('class',snd[i][3]&2?'style5':'')
 	document.getElementById('rt'+i).innerHTML=(snd[i][1])?(snd[i][1]/10).toFixed(1)+' '+(snd[i][2]/10).toFixed(1)+'%':''
  }
 }
 
+function jmp(v)
+{
+	window.location.assign('http://'+snd[+v.charAt(3)][0])
+}
+
 function setVar(varName, value)
 {
- ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+	ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
 function setSnd(n,v)
 {
-	setVar('rmtid',snd[n][0])
+	setVar('rmtid',snd[n][0].split('.')[3])
 	flg=(snd[n][3]&1<<v)?0x100:0;
 	flg|=1<<v
 	snd[n][3]^=1<<v
@@ -140,8 +144,8 @@ function t2s(v)
 //--></script>
 </head>
 <body onload="{
- myStorage1 = localStorage.getItem('myStoredText1')
- if(myStorage1  != null){
+ myStorage1=localStorage.getItem('myStoredText1')
+ if(myStorage1!= null){
 	document.getElementById('myToken').value=myStorage1
  }
  startEvents()
@@ -161,16 +165,18 @@ function t2s(v)
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
-<tr id="int" style="visibility:collapse"><td>Internal</td><td id="it0"></td><td id="loc" colspan=2></td><td></td></tr>
-<tr id="snd0" style="visibility:collapse"><td id="s0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
-<tr id="snd1" style="visibility:collapse"><td id="s1"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
-<tr id="snd2" style="visibility:collapse"><td id="s2"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
-<tr id="snd3" style="visibility:collapse"><td id="s3"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,0)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,1)}"></td><td id="rt3" colspan=2></td><td></td></tr>
-<tr id="snd4" style="visibility:collapse"><td id="s4"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,0)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,1)}"></td><td id="rt4" colspan=2></td><td></td></tr>
+<tr id="int" style="visibility:collapse"><td></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
+<tr id="snd0" style="visibility:collapse"><td id="s0"><input type="submit" ID="shr0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
+<tr id="snd1" style="visibility:collapse"><td id="s1"><input type="submit" ID="shr1" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
+<tr id="snd2" style="visibility:collapse"><td id="s2"><input type="submit" ID="shr2" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
+<tr id="snd3" style="visibility:collapse"><td id="s3"><input type="submit" ID="shr3" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri3" onClick="{setSnd(3,0)}"><input type="button" value="En" id="snda3" onClick="{setSnd(3,1)}"></td><td id="rt3" colspan=2></td><td></td></tr>
+<tr id="snd4" style="visibility:collapse"><td id="s4"><input type="submit" ID="shr4" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri4" onClick="{setSnd(4,0)}"><input type="button" value="En" id="snda4" onClick="{setSnd(4,1)}"></td><td id="rt4" colspan=2></td><td></td></tr>
+<tr id="snd5" style="visibility:collapse"><td id="s5"><input type="submit" ID="shr5" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,0)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,1)}"></td><td id="rt5" colspan=2></td><td></td></tr>
+<tr id="snd6" style="visibility:collapse"><td id="s6"><input type="submit" ID="shr6" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri6" onClick="{setSnd(6,0)}"><input type="button" value="En" id="snda6" onClick="{setSnd(6,1)}"></td><td id="rt6" colspan=2></td><td></td></tr>
 </table>
 <p>
 <table style="width: 290px">
-<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="e6bba7456a7c9" style="width: 98px"
+<tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="password" style="width: 98px"
  onChange="{
  localStorage.setItem('myStoredText1', a.myToken.value)
  alert(a.myToken.value+' Has been stored')
