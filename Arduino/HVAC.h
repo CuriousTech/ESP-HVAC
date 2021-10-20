@@ -64,15 +64,14 @@ enum FanMode
 enum Notif
 {
   Note_None,
-  Note_CycleLimit,
-  Note_Filter,
-  Note_Network,
   Note_Connecting,
   Note_Connected,
-  Note_Forecast,
   Note_RemoteOff,
   Note_RemoteOn,
-  Note_Init
+  Note_CycleLimit,
+  Note_Network, // Sound errors below this point
+  Note_Forecast,
+  Note_Filter,
 };
 
 enum HeatMode
@@ -113,7 +112,7 @@ struct Sensor
 {
   uint32_t tm;
   uint32_t timer; // seconds, priority timer
-  uint8_t IPID; // .xxx of IP
+  uint32_t IP; //
   uint8_t flags;
   int16_t temp;
   uint16_t rh;
@@ -151,7 +150,7 @@ public:
   bool    checkFilter(void);
   void    resetTotal(void);
   bool    tempChange(void);
-  void    setVar(String sCmd, int val, IPAddress ip); // remote settings
+  void    setVar(String sCmd, int val, char *psValue, IPAddress ip); // remote settings
   void    updateVar(int iName, int iValue); // host values
   void    setSettings(int iName, int iValue);// remote settings
   void    enable(void);
@@ -188,7 +187,7 @@ private:
   void  costAdd(int secs, int mode, int hm);
   int   CmdIdx(String s);
   void  sendCmd(const char *szName, int value);
-  int   getSensorID(int val);
+  int   getSensorID(uint32_t val);
   void  swapSensors(int n1, int n2);
   void  shiftSensors(void);
 
