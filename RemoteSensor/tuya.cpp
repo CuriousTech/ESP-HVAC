@@ -41,7 +41,7 @@ void TuyaInterface::init(bool bCF)
   m_bCF = bCF;
 }
 
-int TuyaInterface::service()
+int TuyaInterface::service(int8_t tcal, int8_t rhcal)
 {
   static uint8_t inBuffer[52];
   static uint8_t idx;
@@ -142,6 +142,7 @@ int TuyaInterface::service()
                     if(val == 0) break; // reset
                     if(m_bCF)
                       val = val * 90 / 50 + 320;
+                    val += tcal;
                     if(val != m_values[DE_TEMP] )
                       m_bUpdated = true;
                     m_values[DE_TEMP] = val;
@@ -150,7 +151,7 @@ int TuyaInterface::service()
                     if(val == 0) break; // reset
                     if(val != m_values[DE_RH] )
                       m_bUpdated = true;
-                    m_values[DE_RH] = val;
+                    m_values[DE_RH] = val + rhcal;
                     break;
                   case 0x15: // 15 02 00 04 00 00 00 01  // VOC
                     if(val != m_values[DE_VOC] )
@@ -167,13 +168,14 @@ int TuyaInterface::service()
                   case 1: // 01 02 00 04 00 00 00 FC  // temp 00FC = 25.2C 77.36F
                     if(m_bCF)
                       val = val * 90 / 50 + 320;
-
+                    val += tcal;
                     if(val != m_values[DE_TEMP] )
                       m_bUpdated = true;
                     m_values[DE_TEMP] = val;
                     break;
                   case 2: // 02 02 00 04 00 00 00 3B   // rh 003B = 55%
                     val *= 10;
+                    val += rhcal;
                     if(val != m_values[DE_RH])
                       m_bUpdated = true;
                     m_values[DE_RH] = val;
