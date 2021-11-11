@@ -24,7 +24,7 @@ SOFTWARE.
 // Simple remote sensor for HVAC, with OLED display, AM2320 and PIR sensor or button
 // This uses HTTP GET to send temp/rh
 
-// Build with Arduino IDE 1.8.9, esp8266 SDK 2.5.0
+// Build with Arduino IDE 1.8.9, esp8266 SDK 2.5.0, 1MB (FS:64KB) (SPIFFS)
 
 // Uncomment if using a direct OLED display
 //#define USE_OLED
@@ -138,7 +138,7 @@ String dataJson()
 
   js.Var("t", (uint32_t)now() - ( (ee.tz + utime.getDST() ) * 3600) );
   js.Var("df", sensor.m_dataFlags);
-  js.Var("temp", String( (float)(sensor.m_values[DE_TEMP]+ee.tempCal) / 10, 1 ) );
+  js.Var("temp", String( (float)sensor.m_values[DE_TEMP] / 10, 1 ) );
   js.Var("rh", String((float)sensor.m_values[DE_RH] / 10, 1) );
   js.Var("st", sleepTimer);
   int sig = WiFi.RSSI();
@@ -193,6 +193,7 @@ const char *jsonList1[] = { "cmd",
   "alertidx",
   "alertlevel",
   "silence",
+  "rhOffset",
   NULL
 };
 
@@ -260,7 +261,7 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           ESP.reset();
           break;
         case 5: // tempOffset
-          ee.tempCal = iValue;
+          ee.tempCal = constrain(iValue, -80, 80);
           break;
         case 6: // OLED
           ee.e.bEnableOLED = iValue;
@@ -330,6 +331,9 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           break;
         case 25:
           temps.m_bSilence = iValue ? true:false;
+          break;
+        case 26:
+          ee.rhCal = iValue;
           break;
       }
       break;
@@ -747,7 +751,7 @@ void loop()
     htimer = 30;
   }
 
-  if(int err = sensor.service())
+  if(int err = sensor.service(ee.tempCal, ee.rhCal))
   {
     String s = "Sensor error ";
     s += err;
@@ -856,7 +860,7 @@ void loop()
 
     Scroller(s);
 
-    display.drawPropString(2, 47, String((float)temp/10 + ((float)ee.tempCal/10), 1) + "]");
+    display.drawPropString(2, 47, String((float)temp/10, 1) + "]");
     display.drawPropString(64, 47, String((float)rh/10, 1) + "%");
     bClear = false;
   }
