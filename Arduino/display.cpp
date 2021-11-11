@@ -368,6 +368,9 @@ bool Display::drawForecast(bool bRef)
     }
   }
 
+  if(fcOff > FC_CNT/2 && m_bUpdateFcstIdle) // Hasn't updated in a long time
+    m_bUpdateFcst = true;
+
   if(fcCnt >= FC_CNT || m_fc.Data[fcOff] == -127 ) // no data yet
   {
     if(m_bUpdateFcstIdle)
@@ -558,7 +561,10 @@ void Display::Note(char *cNote)
 {
   screen(true);
   nex.itemText(12, cNote);
-  WsSend(String("alert;")+cNote);
+  String s = "alert;{\"text\":\"";
+  s += cNote;
+  s += "\"}";
+  WsSend(s);
 }
 
 // update the notification text box
