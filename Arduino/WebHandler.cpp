@@ -265,7 +265,6 @@ void WsSend(String s)
 
 void secondsServer() // called once per second
 {
-
   if(wifi.state() != ws_connected)
     return;
 
@@ -279,6 +278,9 @@ void secondsServer() // called once per second
 
   if(nWrongPass)
     nWrongPass--;
+
+  if(display.m_fc.loadDate + (3600*6) < now() && display.m_bUpdateFcstIdle) // > 6 hours old
+    display.m_bUpdateFcst = true;
 
   static uint8_t nUpdateDelay = 5;
   if(nUpdateDelay)
@@ -299,6 +301,7 @@ void secondsServer() // called once per second
   if(localFC.checkStatus())
   {
     hvac.enable();
+    display.m_fc.loadDate = now();
     display.m_bUpdateFcstIdle = true;
     display.m_bFcstUpdated = true;
   }
@@ -312,6 +315,7 @@ void secondsServer() // called once per second
           hvac.enable();
           display.m_bUpdateFcstIdle = true;
           display.m_bFcstUpdated = true;
+          display.m_fc.loadDate = now();
           break;
         case XML_TIMEOUT:
           hvac.disable();
@@ -632,6 +636,7 @@ int shiftFc(uint32_t newTm)
 {
   if(display.m_fc.Date == 0) // not filled in yet
     return 0;
+
   uint32_t tm2 = display.m_fc.Date;
   int fcIdx;
   for(fcIdx = 0; fcIdx < FC_CNT-4 && display.m_fc.Data[fcIdx] != -127; fcIdx++)
