@@ -234,12 +234,12 @@ void HVAC::service()
         else
         {
           fanSwitch(true);
-          if(!digitalRead(P_HEAT) == HEAT_ON)
+          if( digitalRead(P_HEAT) == HEAT_OFF )
           {
             if(digitalRead(P_REV) != REV_OFF)  // set heatpump to heat (if cools, reverse this)
             {
               digitalWrite(P_REV, REV_OFF);
-              delay(2000);
+              delay(1000);
             }
             digitalWrite(P_COOL, COOL_ON);
           }
@@ -360,11 +360,7 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IP)
     {
-      if(m_Sensor[i].temp < (ee.b.bCelcius ? 180:650) || m_Sensor[i].temp > (ee.b.bCelcius ? 370:990)) // disregard invalid sensor data
-      {
-        // Checked in recieved
-      }
-      else if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
+      if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
       {
         if( (m_Sensor[i].flags & SNS_WARN) == 0)
         {
@@ -377,7 +373,7 @@ void HVAC::tempCheck()
         // Just ingore for the moment
         if(now() - m_Sensor[i].tm > 5*60) // 5 minutes
         {
-          m_Sensor[i].IP = 0; // kill it
+          if(i) m_Sensor[i].IP = 0; // kill it
           remSens = true;
         }
       }
@@ -1172,7 +1168,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
     case 44: // rmtid (used by web page)
       {
         int i;
-      
+
         for(i = 0; i < SNS_CNT; i++) // find ID
         {
           if((m_Sensor[i].IP >> 24) == val)
