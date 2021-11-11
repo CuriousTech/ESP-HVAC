@@ -33,13 +33,13 @@ void TempArray::saveData()
 
 void TempArray::update(uint16_t Values[])
 {
-  if(Values[DE_TEMP] == 0 && Values[DE_RH] == 0)
+  if(Values[DE_TEMP] == 0 && Values[DE_RH] == 0) // check for invalid data
     return;
 
   for(int i = 0; i < DE_COUNT; i++)
     if(Values[i] > m_peakVal[i])
       m_peakVal[i] = Values[i];
-  if(m_nWeek >= 0)
+  if(m_nWeek >= 0) // check for valid date
     logLH(Values, m_weekly, m_nWeek);
   if(m_nWeekDay >= 0)
     logLH(Values, m_daily, m_nWeekDay);
@@ -259,6 +259,9 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
     js.Array("alert", ee.wAlertLevel, sizeof(ee.wAlertLevel)/sizeof(uint16_t));
     ws.text(WsClientID, js.Close());
   }
+
+  if(ws.availableForWrite(WsClientID) == false)
+    return;
 
   switch(m_nSending)
   {
