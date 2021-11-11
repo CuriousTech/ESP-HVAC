@@ -13,6 +13,7 @@
 struct forecastData
 {
   uint32_t Date;
+  uint32_t loadDate;
   uint16_t Freq;
   int8_t Data[FC_CNT];
 };
