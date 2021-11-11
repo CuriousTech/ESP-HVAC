@@ -11,7 +11,7 @@ class BasicInterface
 public:
   BasicInterface(){};
   void init(bool bCF);
-  int service(void);
+  int service(int8_t tcal, int8_t rhcal);
   void setLED(uint8_t no, bool bOn);
   void setCF(bool f);
   int status(void);
