@@ -17,7 +17,8 @@ void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool 
     m_bDone = false;
     m_bCelcius = bCelcius;
     m_serverIP = serverIP;
-    m_ac.connect(serverIP, port);
+    if(!m_ac.connect(serverIP, port))
+      m_bDone = true;
 }
 
 bool Forecast::checkStatus()
@@ -84,6 +85,7 @@ void Forecast::_onDisconnect(AsyncClient* client)
   (void)client;
 
   const char *p = m_pBuffer;
+  m_bDone = true;
   if(p == NULL)
     return;
   if(m_bufIdx == 0)
@@ -104,11 +106,11 @@ void Forecast::_onDisconnect(AsyncClient* client)
       if(!bFirst)
       {
         bFirst = true;
+        fcIdx = makeroom(tm);
         if(m_pfd->Date == 0)
           m_pfd->Date = tm;
-        fcIdx = makeroom(tm);
       }
-      else if(bFirst)
+      else
       {
         m_pfd->Freq = tm - lastTm;
       }
@@ -123,6 +125,5 @@ void Forecast::_onDisconnect(AsyncClient* client)
     while(*p == '\r' || *p == '\n') p ++;
   }
   m_pfd->Data[fcIdx] = -127;
-  m_bDone = true;
   delete m_pBuffer;
 }
