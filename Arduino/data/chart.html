@@ -33,7 +33,7 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws=new WebSocket("ws://"+window.location.host+"/ws")
-// ws=new WebSocket("ws://192.168.31.125/ws")
+// ws=new WebSocket("ws://192.168.31.46/ws")
  ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -391,7 +391,7 @@ function getRHPixel(val) {
 
 function stateColor(s)
 {
-  sts=Array('gray','blue','red','red')
+  sts=Array('gray','blue','yellow','red')
   if(s==1) return 'cyan'
   return sts[s>>1]
 }
@@ -644,8 +644,8 @@ function drawFC(){
 		cPos=i;
 		c.strokeStyle='#fff'
 		c.beginPath()
-		c.moveTo(getXPixel2(cPos)-xOff,getYPixel3(iMax))
-		c.lineTo(getXPixel2(cPos)-xOff,getYPixel3(iMin))
+		c.moveTo(getXPixel2(cPos)-xOff,graph2.height()-18)
+		c.lineTo(getXPixel2(cPos)-xOff,1)
 		c.stroke()
 		c.fillStyle='#000'
 		c.textAlign="center"
