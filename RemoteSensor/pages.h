@@ -130,11 +130,11 @@ console.log(evt.data)
   case 'weekly':
     arrW=arrW.concat(d.d)
     draw4()
-  break
+    break
   case 'daily':
     arrD=arrD.concat(d.d)
     draw3()
-  break
+    break
  }
 }
 }
@@ -337,7 +337,7 @@ function draw(){
  c.fillStyle=c.strokeStyle='black'
  min=350
  if(getMinY(2)<min) min=getMinY(2)
- max=850
+ max=450
  if(getMaxY(2)>max) max=getMaxY(2)
  yRange=max-min
  for(var i=min;i<max;i+=(yRange/8))
@@ -549,7 +549,6 @@ function draw4(){ // 52 weeks
   c.fillStyle='black'
   c.strokeStyle='black'
   yPad=20
-  c.lineWidth=3
   c.textAlign="left"
   c.clearRect(0,0,graph.width(), graph.height())
 
@@ -559,7 +558,7 @@ function draw4(){ // 52 weeks
   // dates
   y=graph.height()-yPad+10
   for(var i=0;i<12;i++){
-   x=(graph.width()-yPad)/12*i+10
+   x=(graph.width()-yPad-10)/12*i+10
    c.fillText(mon[i],x,y)
   }
   c.textAlign="right"
@@ -570,7 +569,7 @@ function draw4(){ // 52 weeks
   cd=new Date()
   oneJan=new Date(cd.getFullYear(),0,1)
   days=Math.floor((cd-oneJan)/(24*60*60*1000))
-  wks=Math.ceil((cd.getDay()+1+days)/7)
+  wks=Math.ceil((cd.getDay()+1+days)/7)-1
   draw_scale(arrW,graph.width()-40,graph.height()-yPad,1,wks)
 }
 
@@ -599,24 +598,23 @@ function draw_scale(ar,w,h,o,ct)
   clr=['#F00','#0F0','#F0F','#FF0','#00F']
   for(i=0;i<ar.length;i++)
   {
-    x=+(i*(w/ar.length)+10).toFixed()
-    x+=(lw/2)
+    x=((i*(w/ar.length))+10+(lw/2))
     c.strokeStyle=clr[showidx]
-      bt=ar[i][idx+1]*(h-10)/max
-      if(min==0) bb=0
-      else bb=ar[i][idx]*(h-10)/min
+    bt=ar[i][idx+1]*(h-10)/max
+    if(min==0) bb=0
+    else bb=ar[i][idx]*(h-10)/min
     c.beginPath()
-      c.moveTo(x,chartY(ar[i][idx+1],max-min))
-      c.lineTo(x,chartY(ar[i][idx],max-min))
+    c.moveTo(x,chartY(ar[i][idx+1],max-min))
+    c.lineTo(x,chartY(ar[i][idx],max-min))
     c.stroke()
-    x+=lw+1
     if(i==ct)
     {
       c.strokeStyle="#000"
       c.lineWidth=1
       c.beginPath()
-        c.moveTo(x-1,o+h-10)
-        c.lineTo(x-1,o)
+    dw=((w/ar.length)/2)+(lw/2)-10
+      c.moveTo(x+dw,o+h)
+      c.lineTo(x+dw,o)
       c.stroke()
       c.lineWidth=lw
     }
