@@ -16,7 +16,7 @@ void BasicInterface::init(bool bCF)
   m_bCF = bCF;
 }
 
-int BasicInterface::service()
+int BasicInterface::service(int8_t tcal, int8_t rhcal)
 {
   static uint8_t lastSec;
 
@@ -31,17 +31,20 @@ int BasicInterface::service()
     if(m_am.measure(ftemp, frh))
     {
       m_status = 0;
+      
       if(m_bCF)
-        m_tempMedian[0].add(( 1.8 * ftemp + 32.0) * 10 );
+        ftemp = ( 1.8 * ftemp + 32.0) * 10;
       else
-        m_tempMedian[0].add( ftemp * 10 );
+        ftemp *= 10;
+      ftemp += tcal;
+      m_tempMedian[0].add( ftemp);
       m_tempMedian[0].getAverage(2, ftemp);
       m_tempMedian[1].add(frh * 10);
       m_tempMedian[1].getAverage(2, frh);
       if(m_values[DE_TEMP] != (uint16_t)ftemp || m_values[DE_RH] != (uint16_t)frh)
         m_bUpdated = true;
       m_values[DE_TEMP] = ftemp;
-      m_values[DE_RH] = frh;
+      m_values[DE_RH] = frh + rhcal;
     }
     else
     {
