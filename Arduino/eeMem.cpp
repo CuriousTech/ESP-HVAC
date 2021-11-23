@@ -48,7 +48,6 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
 
 eeMem::eeMem()
 {
-  // ESP32 Do not call EEPROM.begin() before setup()
 }
 
 bool eeMem::init()
@@ -65,15 +64,25 @@ bool eeMem::init()
   for(int i = 0; i < sizeof(eeSet); i++, addr++)
     data[i] = EEPROM.read( addr );
 #endif
-  if(pwTemp[0] != sizeof(eeSet)) return true; // revert to defaults if struct size changes
+  if(pwTemp[0] != sizeof(eeSet))
+  {
+    m_eeStatus = 1;
+    return true; // revert to defaults if struct size changes
+  }
   uint16_t sum = pwTemp[1];
   pwTemp[1] = 0;
   pwTemp[1] = Fletcher16(data, sizeof(eeSet) );
-  if(pwTemp[1] != sum) return true; // revert to defaults if sum fails
+  if(pwTemp[1] != sum)
+  {
+    if(pwTemp[1] == 0) m_eeStatus |= 4;
+    m_eeStatus |= 2;
+    return true; // revert to defaults if sum fails
+  }
   memcpy(&ee, data, sizeof(eeSet) );
+  return true;
 }
 
-void eeMem::update() // write the settings if changed
+bool eeMem::update() // write the settings if changed
 {
 #ifdef ESP32
   EEPROM.writeBytes(0, &ee, sizeof(eeSet));
@@ -83,7 +92,7 @@ void eeMem::update() // write the settings if changed
   for(int i = 0; i < sizeof(eeSet); i++, addr++)
     EEPROM.write(addr, pData[i] );
 #endif
-  EEPROM.commit();
+  return EEPROM.commit();
 }
 
 bool eeMem::check()
