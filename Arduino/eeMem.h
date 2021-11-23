@@ -59,9 +59,9 @@ struct eeSet // EEPROM backed data
   uint16_t ccf;
   uint16_t cfm;         // cubic feet per minute
   uint16_t compressorWatts;
-  uint8_t fanWatts;
-  uint8_t furnaceWatts; // inducer motor mostly
-  uint8_t humidWatts;
+  uint8_t  fanWatts;
+  uint8_t  furnaceWatts; // inducer motor mostly
+  uint8_t  humidWatts;
   uint16_t furnacePost;
   uint16_t diffLimit;  // in/out thermal differential limit
   int16_t  fcOffset[2]; // forecast offset adjust
@@ -76,9 +76,10 @@ class eeMem
 {
 public:
   eeMem();
-  void update(void);
-  bool check(void);
   bool init(void);
+  bool check(void);
+  bool update(void);
+  uint8_t m_eeStatus;
 private:
   uint16_t Fletcher16( uint8_t* data, int count);
 };
