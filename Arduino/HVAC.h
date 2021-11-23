@@ -2,6 +2,9 @@
 #include <ESP8266WiFi.h>
 #endif
 
+// Uncomment to compile for remote
+#define REMOTE
+
 //  HVAC Control
 //
 #ifndef HVAC_H
@@ -143,7 +146,6 @@ public:
   int16_t getSetTemp(int mode, int hl); // get temp set for a mode (cool/heat, hi/lo)
   void    setTemp(int mode, int16_t Temp, int hl); // set temp for a mode
   void    enableRemote(void);
-  bool    isRemote(void);          // just indicate remote unit or not
   void    updateIndoorTemp(int16_t Temp, int16_t rh);
   void    updateOutdoorTemp(int16_t outTemp);
   void    resetFilter(void);    // reset the filter hour count
