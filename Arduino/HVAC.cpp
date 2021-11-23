@@ -18,10 +18,19 @@
 extern Music mus;
 #endif
 
+#ifdef REMOTE
+#include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
+#include "WebHandler.h"
+
+extern void WscSend(String s); // remote WebSocket
+bool bValidData;
+#endif
+
 extern void WsSend(String s);
 
 HVAC::HVAC()
 {
+#ifndef REMOTE
   pinMode(P_FAN, OUTPUT);
   pinMode(P_COOL, OUTPUT);
   pinMode(P_REV, OUTPUT);
@@ -33,6 +42,7 @@ HVAC::HVAC()
   digitalWrite(P_REV, REV_OFF); // LOW = HEAT, HIGH = COOL
   digitalWrite(P_COOL, COOL_OFF);
   digitalWrite(P_HUMID, HUMID_OFF); // LOW = ON
+#endif
 }
 
 void HVAC::init()
@@ -43,50 +53,194 @@ void HVAC::init()
   m_setHeat = ee.b.heatMode;
   m_filterMinutes = ee.filterMinutes; // save a few EEPROM writes
 
+#ifndef REMOTE
   m_Sensor[0].IP= 192 | 168<<8 | 1<<24; // Setup sensor 0 as internal sensor
   m_Sensor[0].ID = 'NTNI';
   m_Sensor[0].flags = SNS_EN;
+#endif
 }
 
-// Switch the fan on/off
-void HVAC::fanSwitch(bool bOn)
+// Failsafe: shut everything off
+void HVAC::disable()
 {
-  if(bOn == m_bFanRunning)
+#ifndef REMOTE
+  digitalWrite(P_HEAT, HEAT_OFF);
+  digitalWrite(P_COOL, COOL_OFF);
+  digitalWrite(P_HUMID, HUMID_OFF);
+  fanSwitch(false);
+  m_bHumidRunning = false;
+  m_bRunning = false;
+  m_bEnabled = false;
+#endif
+}
+
+bool HVAC::getFanRunning()
+{
+  return (m_bRunning || m_furnaceFan || m_bFanRunning);
+}
+
+bool HVAC::getHumidifierRunning()
+{
+  return m_bHumidRunning;
+}
+
+uint8_t HVAC::getMode()
+{
+  return ee.b.Mode;
+}
+
+int8_t HVAC::getAutoMode()
+{
+  return m_AutoMode;
+}
+
+int8_t HVAC::getSetMode()
+{
+  return m_setMode;
+}
+
+void HVAC::enableRemote()
+{
+#ifdef REMOTE // remote sensor priority toggle
+  m_bRemoteStream = !m_bRemoteStream;
+  sendCmd("rmtflg", m_bRemoteStream ? SNS_PRI : (SNS_NEG|SNS_PRI)); // set or unset priority
+#else
+  if(m_bRemoteStream) // remote sensor stop
+  {
+    m_bRemoteDisconnect = true;
+    m_bRemoteStream = false;
+    m_notif = Note_None;
+  }
+#endif
+}
+
+void HVAC::updateVar(int iName, int iValue)// host values (sent to remote)
+{
+#ifdef REMOTE
+  switch(iName)
+  {
+    case 0: // r
+      m_bRunning = iValue;
+      break;
+    case 1: // fr
+      m_bFanRunning = iValue;
+      break;
+    case 2: // s
+      break;
+    case 3: // it
+      break;
+    case 4: // rh
+      break;
+    case 5: // tt
+      m_targetTemp = iValue;
+      break;
+    case 6: // fm
+      ee.filterMinutes = iValue;
+      break;
+    case 7: // outTemp
+      break;
+    case 8: // outmin
+      break;
+    case 9: // outmax
+      break;
+    case 10: // ct
+      m_cycleTimer = iValue;
+      break;
+    case 11: // ft
+      m_fanOnTimer = iValue;
+      break;
+    case 12: // rt
+      m_runTotal = iValue;
+      break;
+    case 13: // h
+      m_bHumidRunning = iValue;
+      break;
+    case 14: // lt (localTemp on host)
+      m_inTemp = iValue;
+      break;
+    case 15: // lh
+      m_rh = iValue;
+      break;
+    case 16: // rmt
+      m_bRemoteStream = false; // command to kill remote temp send
+      break;
+  }
+#endif
+}
+
+// Remote: send a command as JSON: cmd {key:password, command:value}
+void HVAC::sendCmd(const char *szName, int value)
+{
+#ifdef REMOTE
+  jsonString js("cmd");
+  js.Var("key", ee.password);
+  js.Var((char *)szName, value);
+  WscSend(js.Close());
+#endif
+}
+
+void HVAC::enable()
+{
+#ifndef REMOTE
+  m_bEnabled = true;
+  m_bRecheck = true;
+#endif
+}
+
+int8_t HVAC::getFan()
+{
+  return m_FanMode;
+}
+
+// User:Set fan mode
+void HVAC::setFan(int8_t m)
+{
+#ifdef REMOTE
+  if(m == m_FanMode || !bValidData)  // requested fan operating mode change
     return;
 
-  digitalWrite(P_FAN, bOn ? FAN_ON:FAN_OFF);
-  m_bFanRunning = bOn;
-  if(bOn)
-  {
-    if(ee.b.humidMode == HM_Fan) // run humidifier when fan is on
-        humidSwitch(true);
-  }
-  else
-  {
-    m_iSecs[2] += m_fanOnTimer;
-    costAdd(m_fanOnTimer, Mode_Fan, 0);
-    m_fanOnTimer = 0;       // reset fan on timer
-    humidSwitch(false);
-  }
+  sendCmd("fanmode", m);
+  m_FanMode = m;
+#else
+  if(m == m_FanMode)     // requested fan operating mode change
+    return;
+
+  m_FanMode = m;
+  if(!m_bRunning)
+    fanSwitch(m == FM_On ? true:false); // manual fan on/off if not running
+#endif
 }
 
-void HVAC::humidSwitch(bool bOn)
+// returns filter over 200 hours
+bool HVAC::checkFilter(void)
 {
-  if(m_bHumidRunning == bOn) return;
-  digitalWrite(P_HUMID, bOn ? HUMID_ON:HUMID_OFF); // turn humidifier on
-  m_bHumidRunning = bOn;
-  if(bOn)
-    m_humidTimer++;
-  else
+  return (m_filterMinutes >= 60*200);
+}
+
+// Update outdoor temp
+void HVAC::updateOutdoorTemp(int16_t outTemp)
+{
+  m_outTemp = outTemp;
+}
+
+int16_t HVAC::getSetTemp(int mode, int hl)
+{
+  switch(mode)
   {
-    costAdd(m_humidTimer, Mode_Humid, 0);
-    m_humidTimer = 0;
+    case Mode_Cool:
+      return ee.coolTemp[hl];
+    case Mode_Heat:
+      return ee.heatTemp[hl];
+    case Mode_Auto:
+      return (m_AutoMode == Mode_Cool) ? ee.coolTemp[hl] : ee.heatTemp[hl];
   }
+  return 0;
 }
 
 // Accumulate fan running times
 void HVAC::filterInc()
 {
+#ifndef REMOTE
   static uint32_t nSecs = 0;
 
   nSecs ++;  // add last run time to total counter
@@ -95,23 +249,32 @@ void HVAC::filterInc()
     m_filterMinutes++;
     nSecs -= 60;     // and subtract a minute
   }
-}
-
-// Failsafe: shut everything off
-void HVAC::disable()
-{
-  digitalWrite(P_HEAT, HEAT_OFF);
-  digitalWrite(P_COOL, COOL_OFF);
-  digitalWrite(P_HUMID, HUMID_OFF);
-  fanSwitch(false);
-  m_bHumidRunning = false;
-  m_bRunning = false;
-  m_bEnabled = false;
+#endif
 }
 
 // Service: called once per second
 void HVAC::service()
 {
+#ifdef REMOTE
+  tempCheck();
+
+  if(!bValidData) // hasn't gotten data from host yet
+    return;
+  static uint16_t old[4];
+  if(m_remoteTimer) // let user change values for some time before sending
+  {
+    if(--m_remoteTimer == 0)
+    {
+      if(old[0] != ee.coolTemp[0])  sendCmd("cooltempl", old[0] = ee.coolTemp[0]); 
+      if(old[1] != ee.coolTemp[1])  sendCmd("cooltemph", old[1] = ee.coolTemp[1]);
+      if(old[2] != ee.heatTemp[0])  sendCmd("heattempl", old[2] = ee.heatTemp[0]);
+      if(old[3] != ee.heatTemp[1])  sendCmd("heattemph", old[3] = ee.heatTemp[1]);
+
+      if(ee.b.heatMode != m_setHeat)  sendCmd("heatmode", ee.b.heatMode = m_setHeat);
+      if(ee.b.Mode != m_setMode)      sendCmd("mode", ee.b.Mode = m_setMode);
+    }
+  }
+#else
   if(m_bFanRunning || m_bRunning || m_furnaceFan)  // furance runs fan seperately
   {
     filterInc();
@@ -281,53 +444,20 @@ void HVAC::service()
   }
 
   tempCheck();
-}
-
-void HVAC::costAdd(int secs, int mode, int hm)
-{
-  switch(mode)
-  {
-    case Mode_Cool:
-      m_iSecs[0] += secs;
-      break;
-    case Mode_Heat:
-      switch(hm)
-      {
-        case Heat_HP:
-          m_iSecs[0] += secs;
-          break;
-        case Heat_NG:
-          m_iSecs[1] += secs;
-          break;
-      }
-      break;
-    case Mode_Fan:
-      break;
-    case Mode_Humid:
-      break;
-  }
-  dayTotals(day() - 1);
-  monthTotal(month() - 1, day());
-}
-
-bool HVAC::stateChange()
-{
-  static bool bFan = false;
-  static uint8_t lastMode = 0;
-  static uint8_t nState = 0;
-
-  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning() || m_bRemoteDisconnect)
-  {
-    lastMode = getMode();
-    nState = getState();
-    bFan = getFanRunning();
-    return true;
-  }
-  return false;
+#endif // !REMOTE
 }
 
 bool HVAC::tempChange()
 {
+#ifdef REMOTE
+  static uint16_t nTemp = 0;
+
+  if(nTemp == m_localTemp)
+    return false;
+
+  nTemp = m_localTemp;
+  return true;
+#else
   static uint16_t nTemp = 0;
   static uint16_t nTarget = 0;
   bool bRet = false;
@@ -339,11 +469,13 @@ bool HVAC::tempChange()
     bRet = true;
   }
   return bRet;
+#endif
 }
 
 // Control switching of system by temp
 void HVAC::tempCheck()
 {
+#ifndef REMOTE
   if(m_bEnabled == false)    // hasn't been set yet
     return;
 
@@ -483,6 +615,148 @@ void HVAC::tempCheck()
   }
   if(remSens)
     shiftSensors();
+#endif
+}
+
+uint8_t HVAC::getState()
+{
+  if( m_bRunning == false) return 0;
+
+  // Check if NG furnace is running, which controls the fan automatically
+  uint8_t state = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode; // convert auto to just cool / heat
+
+  if(state == Mode_Heat && ( ee.b.heatMode == Heat_NG || (ee.b.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
+    state = 3; // so logs will only be 1, 2 or 3.
+
+  return state;
+}
+
+bool HVAC::stateChange()
+{
+  static bool bFan = false;
+  static uint8_t lastMode = 0;
+  static uint8_t nState = 0;
+
+#ifdef REMOTE
+  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning())   // erase prev highlight
+#else
+  if(getMode() != lastMode || getState() != nState || bFan != getFanRunning() || m_bRemoteDisconnect)
+#endif
+  {
+    lastMode = getMode();
+    nState = getState();
+    bFan = getFanRunning();
+    return true;
+  }
+  return false;
+}
+
+uint8_t HVAC::getHeatMode()
+{
+#ifdef REMOTE
+  return m_setHeat; // for faster visual update
+#else
+  return ee.b.heatMode;
+#endif
+}
+
+void HVAC::setHeatMode(int mode)
+{
+#ifdef REMOTE
+  m_setHeat = mode % 3;
+  m_remoteTimer = 2;
+#else
+  m_setHeat = mode % 3;
+#endif
+}
+
+// User:Set a new control mode
+void HVAC::setMode(int mode)
+{
+  m_setMode = mode % 5;
+
+#ifdef REMOTE
+  m_remoteTimer = 2;
+#else
+  if(!m_bRunning)
+  {
+    if(m_setMode == Mode_Off && m_FanMode != FM_On)
+    {
+      fanSwitch(false); // fan may be on
+      m_fanPreElap = 0;
+      m_fanPreTimer = 0;
+    }
+    if(m_idleTimer < ee.idleMin - 60)
+      m_idleTimer = ee.idleMin - 60;        // shorten the idle time
+    if(m_idleTimer >= ee.idleMin)
+      m_idleTimer = ee.idleMin - 10;        // but at least 10 seconds so mode can be chosen
+  }
+#endif
+}
+
+#ifndef REMOTE
+
+// Switch the fan on/off
+void HVAC::fanSwitch(bool bOn)
+{
+  if(bOn == m_bFanRunning)
+    return;
+
+  digitalWrite(P_FAN, bOn ? FAN_ON:FAN_OFF);
+  m_bFanRunning = bOn;
+  if(bOn)
+  {
+    if(ee.b.humidMode == HM_Fan) // run humidifier when fan is on
+        humidSwitch(true);
+  }
+  else
+  {
+    m_iSecs[2] += m_fanOnTimer;
+    costAdd(m_fanOnTimer, Mode_Fan, 0);
+    m_fanOnTimer = 0;       // reset fan on timer
+    humidSwitch(false);
+  }
+}
+
+void HVAC::humidSwitch(bool bOn)
+{
+  if(m_bHumidRunning == bOn) return;
+  digitalWrite(P_HUMID, bOn ? HUMID_ON:HUMID_OFF); // turn humidifier on
+  m_bHumidRunning = bOn;
+  if(bOn)
+    m_humidTimer++;
+  else
+  {
+    costAdd(m_humidTimer, Mode_Humid, 0);
+    m_humidTimer = 0;
+  }
+}
+
+void HVAC::costAdd(int secs, int mode, int hm)
+{
+  switch(mode)
+  {
+    case Mode_Cool:
+      m_iSecs[0] += secs;
+      break;
+    case Mode_Heat:
+      switch(hm)
+      {
+        case Heat_HP:
+          m_iSecs[0] += secs;
+          break;
+        case Heat_NG:
+          m_iSecs[1] += secs;
+          break;
+      }
+      break;
+    case Mode_Fan:
+      break;
+    case Mode_Humid:
+      break;
+  }
+  dayTotals(day() - 1);
+  monthTotal(month() - 1, day());
 }
 
 bool HVAC::preCalcCycle(int16_t tempL, int16_t tempH)
@@ -579,123 +853,50 @@ void HVAC::calcTargetTemp(int mode)
   }
 }
 
-uint8_t HVAC::getState()
+// Current control settings modified since last call
+String HVAC::settingsJsonMod()
 {
-  if( m_bRunning == false) return 0;
+  static eeSet eeOld;
+  bool bSend = false;
+  static int8_t AutoMode, FanMode, RemoteFlags, ovrTemp;
 
-  // Check if NG furnace is running, which controls the fan automatically
-  uint8_t state = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode; // convert auto to just cool / heat
-
-  if(state == Mode_Heat && ( ee.b.heatMode == Heat_NG || (ee.b.heatMode == Heat_Auto && m_AutoHeat == Heat_NG) ) )  // convert any NG mode to 3
-    state = 3; // so logs will only be 1, 2 or 3.
-
-  return state;
-}
-
-bool HVAC::getFanRunning()
-{
-  return (m_bRunning || m_furnaceFan || m_bFanRunning);
-}
-
-uint8_t HVAC::getMode()
-{
-  return ee.b.Mode;
-}
-
-void HVAC::setHeatMode(int mode)
-{
-  m_setHeat = mode % 3;
-}
-
-uint8_t HVAC::getHeatMode()
-{
-  return ee.b.heatMode;
-}
-
-int8_t HVAC::getAutoMode()
-{
-  return m_AutoMode;
-}
-
-bool HVAC::getHumidifierRunning()
-{
-  return m_bHumidRunning;
-}
-
-int8_t HVAC::getSetMode()
-{
-  return m_setMode;
-}
-
-// User:Set a new control mode
-void HVAC::setMode(int mode)
-{
-  m_setMode = mode % 5;
-  if(!m_bRunning)
+  if(AutoMode != m_AutoMode || FanMode != m_FanMode || ovrTemp != m_ovrTemp)
   {
-    if(m_setMode == Mode_Off && m_FanMode != FM_On)
-    {
-      fanSwitch(false); // fan may be on
-      m_fanPreElap = 0;
-      m_fanPreTimer = 0;
-    }
-    if(m_idleTimer < ee.idleMin - 60)
-      m_idleTimer = ee.idleMin - 60;        // shorten the idle time
-    if(m_idleTimer >= ee.idleMin)
-      m_idleTimer = ee.idleMin - 10;        // but at least 10 seconds so mode can be chosen
+    AutoMode = m_AutoMode; FanMode = m_FanMode; ovrTemp = m_ovrTemp;
+    bSend = true;
   }
-}
 
-void HVAC::enable()
-{
-  m_bEnabled = true;
-  m_bRecheck = true;
-}
-
-int8_t HVAC::getFan()
-{
-  return m_FanMode;
-}
-
-// User:Set fan mode
-void HVAC::setFan(int8_t m)
-{
-  if(m == m_FanMode)     // requested fan operating mode change
-    return;
-
-  m_FanMode = m;
-  if(!m_bRunning)
-    fanSwitch(m == FM_On ? true:false); // manual fan on/off if not running
-}
-
-int16_t HVAC::getSetTemp(int mode, int hl)
-{
-  switch(mode)
+  if( memcmp(&eeOld, &ee, sizeof(eeSet)) )
   {
-    case Mode_Cool:
-      return ee.coolTemp[hl];
-    case Mode_Heat:
-      return ee.heatTemp[hl];
-    case Mode_Auto:
-      return (m_AutoMode == Mode_Cool) ? ee.coolTemp[hl] : ee.heatTemp[hl];
+    memcpy(&eeOld, &ee, sizeof(eeSet));
+    bSend = true;
   }
-  return 0;
+  return bSend ? settingsJson() : "";
 }
+
+#endif
+
+#ifdef REMOTE
+#define min(a,b) ((a) < (b) ? (a) : (b)) // Why???
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#endif
 
 // User:Set new control temp
 void HVAC::setTemp(int mode, int16_t Temp, int hl)
 {
   if(mode == Mode_Auto)
-  {
     mode = m_AutoMode;
-  }
+  int8_t save;
 
-  int save;
-
+#ifdef REMOTE
+  m_remoteTimer = 2; // 2 second hold before transmit
+#endif
   switch(mode)
   {
     case Mode_Off:        // keep a value at least
+#ifndef REMOTE
       calcTargetTemp(m_modeShadow);
+#endif
       break;
  
     case Mode_Cool:
@@ -714,9 +915,10 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
       ee.heatTemp[1] = min(ee.coolTemp[0] - (ee.b.bCelcius ? 11:20), ee.heatTemp[1]); // Keep 2.0 degree differential for Auto mode
       ee.heatTemp[0] = ee.heatTemp[1] - save;                      // shift heat low by original diff
 
+#ifndef REMOTE
       if(ee.b.Mode == Mode_Cool)
         calcTargetTemp(ee.b.Mode);
-
+#endif
       break;
     case Mode_Heat:
       if(Temp < (ee.b.bCelcius ? 170:630) || Temp > (ee.b.bCelcius ? 360:860) )    // ensure sane values
@@ -733,32 +935,41 @@ void HVAC::setTemp(int mode, int16_t Temp, int hl)
       save = ee.coolTemp[1] - ee.coolTemp[0];
       ee.coolTemp[0] = max(ee.heatTemp[1] - (ee.b.bCelcius ? 11:20), ee.coolTemp[0]);
       ee.coolTemp[1] = ee.coolTemp[0] + save;
-
+#ifndef REMOTE
       if(ee.b.Mode == Mode_Heat)
         calcTargetTemp(ee.b.Mode);
-
+#endif
       break;
-  }
-}
-
-bool HVAC::isRemote()
-{
-  return false;
-}
-
-void HVAC::enableRemote()
-{
-  if(m_bRemoteStream) // if using external sensor, stop
-  {
-    m_bRemoteDisconnect = true;
-    m_bRemoteStream = false;
-    m_notif = Note_None;
   }
 }
 
 // Update when DHT22/SHT21 changes
 void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
 {
+#ifdef REMOTE
+  m_localTemp = Temp + ee.adj;
+  m_localRh = rh;
+
+  if( m_bRemoteStream )
+  {
+    m_inTemp = Temp + ee.adj;
+    m_rh = rh;
+  }
+
+  static int16_t oldTemp;
+  static int16_t oldRh;
+  static uint32_t secs;
+
+  if(m_localTemp != oldTemp || m_localRh != oldRh || now() - secs > 30)
+  {
+    oldTemp = m_localTemp;
+    oldRh = m_localRh;
+    secs = now();
+    sendCmd("rmtname", '1TMR'); // RMT1
+    sendCmd("rmttemp", m_localTemp);
+    sendCmd("rmtrh", m_localRh);
+  }
+#else
   m_Sensor[0].temp = Temp + ee.adj;
   m_Sensor[0].rh = rh;
   m_Sensor[0].tm = now();
@@ -797,12 +1008,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
       }
     }
   }
-}
-
-// Update outdoor temp
-void HVAC::updateOutdoorTemp(int16_t outTemp)
-{
-  m_outTemp = outTemp;
+#endif
 }
 
 void HVAC::resetFilter()
@@ -810,25 +1016,26 @@ void HVAC::resetFilter()
   m_filterMinutes = 0;
   if(m_notif == Note_Filter)
     m_notif = Note_None;
-}
-
-// returns filter over 200 hours
-bool HVAC::checkFilter(void)
-{
-  return (m_filterMinutes >= 60*200);
+#ifdef REMOTE
+  sendCmd("resetfilter", 0);
+#endif
 }
 
 void HVAC::resetTotal()
 {
   m_runTotal = 0;
+
+#ifdef REMOTE
+  sendCmd("resettotal", 0);
+#endif
 }
 
 // Current control settings
 String HVAC::settingsJson()
 {
   jsonString js("settings");
-
-  js.Var("m",  ee.b.Mode);
+  js.Var("m", ee.b.Mode);
+#ifndef REMOTE
   js.Var("am", m_AutoMode);
   js.Var("hm", ee.b.heatMode);
   js.Var("fm", m_FanMode);
@@ -851,9 +1058,6 @@ String HVAC::settingsJson()
   js.Var("fct", 0);
   js.Var("at",  ee.awayTime);
   js.Var("ad",  ee.awayDelta[m_modeShadow == Mode_Heat]);
-  js.Var("ppk", ee.ppkwh);
-  js.Var("ccf", ee.ccf);
-  js.Var("cfm", ee.cfm);
   js.Var("fcr", ee.fcRange);
   js.Var("fcd", ee.fcDisplay);
   js.Var("cw",  ee.compressorWatts);
@@ -861,63 +1065,52 @@ String HVAC::settingsJson()
   js.Var("frnw", ee.furnaceWatts);
   js.Var("hfw", ee.humidWatts);
   js.Var("ffp", ee.furnacePost);
-  js.Var("dl",  ee.diffLimit);
   js.Var("fco", ee.fcOffset[m_modeShadow == Mode_Heat]);
   js.Var("fim", ee.fanIdleMax);
   js.Var("far", ee.fanAutoRun);
   js.Var("sm", ee.b.nSchedMode);
   js.Var("tu", ee.b.bCelcius);
   js.Var("lock", ee.b.bLock);
+#endif
+  js.Var("ppk", ee.ppkwh);
+  js.Var("ccf", ee.ccf);
+  js.Var("cfm", ee.cfm);
+  js.Var("dl",  ee.diffLimit);
+  js.Var("ees", eemem.m_eeStatus);
   return js.Close();
-}
-
-// Current control settings modified since last call
-String HVAC::settingsJsonMod()
-{
-  static eeSet eeOld;
-  bool bSend = false;
-  static int8_t AutoMode, FanMode, RemoteFlags, ovrTemp;
-
-  if(AutoMode != m_AutoMode || FanMode != m_FanMode || ovrTemp != m_ovrTemp)
-  {
-    AutoMode = m_AutoMode; FanMode = m_FanMode; ovrTemp = m_ovrTemp;
-    bSend = true;
-  }
-
-  if( memcmp(&eeOld, &ee, sizeof(eeSet)) )
-  {
-    memcpy(&eeOld, &ee, sizeof(eeSet));
-    bSend = true;
-  }
-  return bSend ? settingsJson() : "";
 }
 
 // Constant changing values
 String HVAC::getPushData()
 {
   jsonString js("state");
-  js.Var("t", (long)(now() - ((ee.tz+m_DST) * 3600)) );
+  js.Var("t", (long)now() - ((ee.tz+m_DST) * 3600));
   js.Var("r", m_bRunning);
   js.Var("fr", getFanRunning() );
-  js.Var("s" , getState() );
   js.Var("it", m_inTemp);
+  js.Var("ct", m_cycleTimer );
+#ifdef REMOTE
+  js.Var("tempi", m_localTemp );
+  js.Var("rhi", m_localRh );
+#else
+  js.Var("s" , getState() );
   js.Var("rh", m_rh);
   js.Var("tt", m_targetTemp);
   js.Var("fm", m_filterMinutes);
   js.Var("ot", m_outTemp);
   js.Var("ol", m_outMin);
   js.Var("oh", m_outMax);
-  js.Var("ct", m_cycleTimer);
   js.Var("ft", m_fanOnTimer);
   js.Var("rt", m_runTotal);
   js.Var("h",  m_bHumidRunning);
   js.Var("aw", m_bAway);
 
   js.Array("snd", m_Sensor);
-
+#endif
   return js.Close();
 }
 
+#ifndef REMOTE
 const char *cmdList[] = { "cmd",
   "key",
   "data",
@@ -990,9 +1183,12 @@ int HVAC::CmdIdx(String s )
   return iCmd - 5;
 }
 
+#endif
+
 // WebSocket or GET/POST set params as "fanmode=1" or "fanmode":1
 void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
 {
+#ifndef REMOTE
   static uint8_t snsIdx; // current sensor in use
 
   int c = CmdIdx( sCmd );
@@ -1230,8 +1426,10 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       ee.b.nSchedMode = constrain(val, 0, 2);
       break;
   }
+#endif
 }
 
+#ifndef REMOTE
 void HVAC::swapSensors(int n1, int n2)
 {
   Sensor tmp;
@@ -1269,9 +1467,11 @@ int HVAC::getSensorID(uint32_t id)
   }
   return 1;
 }
+#endif
 
 void HVAC::dayTotals(int d)
 {
+#ifndef REMOTE
   ee.iSecsDay[d][0] += m_iSecs[0];
   ee.iSecsDay[d][1] += m_iSecs[1];
   ee.iSecsDay[d][2] += m_iSecs[2];
@@ -1286,12 +1486,14 @@ void HVAC::dayTotals(int d)
   js.Var("d1", ee.iSecsDay[d][1]);
   js.Var("d2", ee.iSecsDay[d][2]);
   WsSend( js.Close() );
+#endif
 }
-
-static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
 
 void HVAC::monthTotal(int m, int dys)
 {
+#ifndef REMOTE
+  static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+
   uint32_t sec[3] = {0}; // This doesn't clear if not implied
   if(dys == -1) // use days of month
     dys = monthDays[m];
@@ -1304,12 +1506,75 @@ void HVAC::monthTotal(int m, int dys)
   ee.iSecsMon[m][0] = sec[0];
   ee.iSecsMon[m][1] = sec[1];
   ee.iSecsMon[m][2] = sec[2];
-}
-
-void HVAC::updateVar(int iName, int iValue)// host values
-{
+#endif
 }
 
 void HVAC::setSettings(int iName, int iValue)// remote settings
 {
+#ifdef REMOTE
+  switch(iName)
+  {
+    case 0:
+      m_setMode = ee.b.Mode = iValue;
+      if(ee.b.Mode) m_modeShadow = ee.b.Mode;
+      bValidData = true;
+      break;
+    case 1:
+      m_AutoMode = iValue;
+      break;
+    case 2:
+      m_setHeat = ee.b.heatMode = iValue;
+      break;
+    case 3:
+      m_FanMode = iValue;
+      break;
+    case 4:
+      m_ovrTemp = iValue;
+      break;
+    case 5:
+      ee.eHeatThresh = iValue;
+      break;
+    case 6:
+      ee.coolTemp[0] = iValue;
+      break;
+    case 7:
+      ee.coolTemp[1] = iValue;
+      break;
+    case 8:
+      ee.heatTemp[0] = iValue;
+      break;
+    case 9:
+      ee.heatTemp[1] = iValue;
+      break;
+    case 10:
+      ee.idleMin = iValue;
+      break;
+    case 11:
+      ee.cycleMin = iValue;
+      break;
+    case 12:
+      ee.cycleMax = iValue;
+      break;
+    case 13:
+      ee.cycleThresh[ee.b.Mode == Mode_Heat] = iValue;
+      break;
+    case 14:
+      break;
+    case 15:
+      ee.overrideTime = iValue;
+      break;
+    case 16:
+      ee.b.humidMode = iValue;
+      break;
+    case 17:
+      ee.rhLevel[0] = iValue;
+      break;
+    case 18:
+      ee.rhLevel[1] = iValue;
+      break;
+    case 19: // tu
+      ee.b.bCelcius = iValue;
+      break;
+  }
+#endif
 }
