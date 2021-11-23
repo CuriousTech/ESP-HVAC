@@ -1,7 +1,7 @@
 // Do all the web stuff here
 
 #define OTA_ENABLE  //uncomment to enable Arduino IDE Over The Air update code
-#define USE_SPIFFS  // saves 11K of program space, loses 800 bytes dynamic
+#define USE_SPIFFS  // saves 11K of program space, loses 800 bytes dynamic (ESP8266 64K SPIFFS)
 
 #ifdef ESP32
 #include <ESPmDNS.h>
@@ -9,15 +9,20 @@
 #include <ESP8266mDNS.h>
 #endif
 
-#include "WiFiManager.h"
 #ifdef OTA_ENABLE
-#include <FS.h>
 #include <ArduinoOTA.h>
 #endif
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
+#include "WiFiManager.h"
 #include "WebHandler.h"
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
+
+#ifdef REMOTE
+#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
+#include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
+#endif
+
 #include "display.h"
 #include "eeMem.h"
 #ifdef USE_SPIFFS
@@ -31,14 +36,18 @@
 #include "jsonstring.h"
 #include "forecast.h"
 //-----------------
-const char *hostName = "HVAC";
 int serverPort = 80;
 
+#ifdef REMOTE
+const char *hostName = "HVACRemote";
+WebSocketsClient wsc;
+bool bWscConnected;
+#else
+const char *hostName = "HVAC";
 IPAddress ipFcServer(192,168,31,100);    // local forecast server and port
 int nFcPort = 80;
 Forecast localFC;
-
-String sDbgLog;
+#endif
 
 //-----------------
 AsyncWebServer server( serverPort );
@@ -46,13 +55,16 @@ AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 extern HVAC hvac;
 extern Display display;
 WiFiManager wifi;  // AP page:  192.168.4.1
-//AsyncClient fc_client;
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
 
+#ifdef REMOTE
+void startListener(void);
+#else
 int xmlState;
 void GetForecast(void);
+#endif
 
 int nWrongPass;
 bool bKeyGood;
@@ -60,6 +72,40 @@ int WsClientID;
 int WsRemoteID;
 IPAddress lastIP;
 IPAddress WsClientIP;
+
+#ifdef REMOTE
+const char pageR_T[] = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<head>
+<title>ESP-HVAC Remote</title>
+</head>
+<body">
+<strong><em>CuriousTech HVAC Remote</em></strong><br>
+)rawliteral";
+
+const char pageR_B[] = R"rawliteral(
+<br><small>&copy 2016 CuriousTech.net</small>
+</body>
+</html>
+)rawliteral";
+
+// values sent at an interval of 30 seconds unless they change sooner
+const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
+const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", "tu", NULL };
+const char *cmdList[] = { "cmd",
+  "key",
+  "data",
+  "sum",
+  NULL};
+  
+const char *jsonList3[] = { "alert", NULL };
+#else
+const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
+extern const char *cmdList[];
+const char *jsonList3[] = { "alert", NULL };
+#endif
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -76,15 +122,16 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       }
       client->text( hvac.settingsJson() );
       client->text( dataJson() );
-//      client->ping();
       break;
     case WS_EVT_DISCONNECT:    //client disconnected
     case WS_EVT_ERROR:    //error was received from the other end
+#ifndef REMOTE
       if(hvac.m_bRemoteStream && client->id() == WsRemoteID) // stop remote
       {
         hvac.m_bRemoteStream = false;
         hvac.m_notif = Note_RemoteOff;
       }
+#endif
       break;
     case WS_EVT_PONG:    //pong message was received (in response to a ping request maybe)
       break;
@@ -107,10 +154,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
   }
 }
 
-const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
-extern const char *cmdList[];
-const char *jsonList3[] = { "alert", NULL };
-
 void startServer()
 {
   WiFi.hostname(hostName);
@@ -129,7 +172,21 @@ void startServer()
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     if(wifi.state() == ws_config)
       request->send( 200, "text/html", wifi.page() );
+#ifdef REMOTE
+    else
+    {
+      String s = pageR_T;
+      s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
+      s += "WsConnected "; s += bWscConnected; s += "<br>";
+      IPAddress ip(ee.hostIp);
+      s += "HVAC IP "; s += ip.toString(); s += "<br>";
+
+      s += pageR_B;
+      request->send( 200, "text/html", s );
+    }
+#endif
   });
+#ifndef REMOTE
   server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
 #ifdef USE_SPIFFS
@@ -138,7 +195,7 @@ void startServer()
     request->send_P(200, "text/html", page_index);
 #endif
   });
-
+#endif
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
     request->send ( 200, "text/html", "OK" );
@@ -147,7 +204,7 @@ void startServer()
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     request->send ( 200, "text/json",  hvac.settingsJson());
   });
-
+#ifndef REMOTE
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
 #ifdef USE_SPIFFS
@@ -171,6 +228,7 @@ void startServer()
     request->send_P(200, "text/html", page_styles);
 #endif
   });
+#endif // !REMOTE
   server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
     parseParams(request);
@@ -187,11 +245,6 @@ void startServer()
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
 //#endif
-//    request->send(404);
-  });
-  server.on ( "/dbglog", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/html", sDbgLog);
-    sDbgLog = "";
   });
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
@@ -209,6 +262,9 @@ void startServer()
   server.begin();
 
   remoteParse.addList(jsonList1);
+#ifdef REMOTE
+  remoteParse.addList(jsonList2);
+#endif
   remoteParse.addList(cmdList);
   remoteParse.addList(jsonList3);
 
@@ -226,31 +282,60 @@ void startServer()
 #endif
 }
 
+#ifdef REMOTE
+void findHVAC() // find the HVAC on iot domain
+{
+  // Find HVAC
+  int cnt = MDNS.queryService("iot", "tcp");
+  for(int i = 0; i < cnt; ++i)
+  {
+    char szName[38];
+    MDNS.hostname(i).toCharArray(szName, sizeof(szName));
+    strtok(szName, "."); // remove .local
+
+    if(!strcmp(szName, "HVAC"))
+    {
+      ee.hostIp[0] = MDNS.IP(i)[0]; // update IP
+      ee.hostIp[1] = MDNS.IP(i)[1];
+      ee.hostIp[2] = MDNS.IP(i)[2];
+      ee.hostIp[3] = MDNS.IP(i)[3];
+      break;
+    }
+  }
+}
+#endif
+
 bool handleServer()
 {
   bool bConn = false;
 #ifdef ESP8266
   MDNS.update();
 #endif
+
   wifi.service();
   if(wifi.connectNew())
   {
 //    Serial.println("WiFi connected");
 //    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
+//    Serial.println(WiFi.localIP());
     MDNS.begin( hostName );
     // Add service to MDNS-SD
     MDNS.addService("iot", "tcp", serverPort);
     hvac.m_notif = Note_Connected;
     bConn = true;
+#ifdef REMOTE
+    findHVAC();
+#endif
   }
 
+#ifndef REMOTE
   static int n;
   if(++n >= 10)
   {
     historyDump(false);
     n = 0;
   }
+#endif
 #ifdef OTA_ENABLE
 // Handle OTA server.
   ArduinoOTA.handle();
@@ -258,13 +343,37 @@ bool handleServer()
   return bConn;
 }
 
-void WsSend(String s)
+void WsSend(String s) // mostly for debug
 {
   ws.textAll(s);
 }
 
+#ifdef REMOTE
+void WscSend(String s) // remote WebSocket
+{
+  wsc.sendTXT(s);
+}
+#endif
+
 void secondsServer() // called once per second
 {
+#ifdef REMOTE
+  if(hvac.tempChange())
+  {
+    ws.textAll(dataJson()); // not used?
+  }
+
+  static uint8_t start = 4; // give it time to settle before initial connect
+  if(start && wifi.state() == ws_connected)
+    if(--start == 0)
+        startListener();
+
+  if(display.m_bUpdateFcst && bWscConnected)
+  {
+     display.m_bUpdateFcst = false;
+     WscSend("cmd;{\"bin\":1}"); // forcast data
+  }
+#else
   if(wifi.state() != ws_connected)
     return;
 
@@ -325,6 +434,7 @@ void secondsServer() // called once per second
       }
       xmlState = 0;
   }
+#endif // !REMOTE
 }
 
 void parseParams(AsyncWebServerRequest *request)
@@ -332,6 +442,58 @@ void parseParams(AsyncWebServerRequest *request)
   if(request->params() == 0)
     return;
 
+#ifdef REMOTE
+  int val;
+
+  for ( uint8_t i = 0; i < request->params(); i++ ) {
+    AsyncWebParameter* p = request->getParam(i);
+    String s = request->urlDecode(p->value());
+    int val = s.toInt();
+ 
+    switch( p->name().charAt(0) )
+    {
+      case 'T': // temp offset
+          ee.adj = val;
+          break;
+      case 'f': // get forecast
+          display.m_bUpdateFcst = true;
+          break;
+      case 'H': // host  (from browser type: hTtp://thisip/?H=hostip)
+          {
+            IPAddress ip;
+            ip.fromString(s);
+            ee.hostIp[0] = ip[0];
+            ee.hostIp[1] = ip[1];
+            ee.hostIp[2] = ip[2];
+            ee.hostIp[3] = ip[3];
+            startListener(); // reset the URI
+          }
+          break;
+      case 'R': // remote
+          if(ee.b.bLock) break;
+          if(val)
+          {
+            if(hvac.m_bRemoteStream == false)
+              hvac.enableRemote(); // enable
+          }
+          else
+          {
+            if(hvac.m_bRemoteStream == true)
+              hvac.enableRemote(); // disable
+          }
+          break;
+      case 'Z': // Timezone
+          ee.tz = val;
+          break;
+      case 's': // SSID
+          s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
+          break;
+      case 'p': // AP password
+          wifi.setPass(s.c_str());
+          break;
+    }
+  }
+#else
   bool bPassGood;
 
   for( uint8_t i = 0; i < request->params(); i++ ) // password may be at end
@@ -393,6 +555,7 @@ void parseParams(AsyncWebServerRequest *request)
       hvac.setVar(p->name(), s.toInt(), (char *)s.c_str(), ip );
     }
   }
+#endif // !REMOTE
 }
 
 // Pushed data
@@ -403,6 +566,7 @@ String dataJson()
 
 void historyDump(bool bStart)
 {
+#ifndef REMOTE
   static bool bSending;
   static int entryIdx;
   static int tempMin;
@@ -493,10 +657,12 @@ void historyDump(bool bStart)
     bSending = false;
   if(bSending == false)
     ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+#endif
 }
 
 void appendDump(uint32_t startTime)
 {
+#ifndef REMOTE
   String out = "data2;{\"d\":[";
 
   uint32_t tb = display.m_lastPDate;
@@ -539,10 +705,36 @@ void appendDump(uint32_t startTime)
     out += "]}";
     ws.text(WsClientID, out);
   }
+#endif
 }
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
 {
+#ifdef REMOTE
+  switch(iEvent)
+  {
+    case 0: // state
+      hvac.updateVar(iName, iValue);
+      break;
+    case 1: // settings
+      hvac.setSettings(iName, iValue);
+      break;
+    case 2: // cmdList
+      switch(iName)
+      {
+        case 0: // key
+          break;
+        case 1: // data
+          break;
+        case 2: // sum
+          break;
+      }
+      break;
+    case 3: // alert
+      display.Note(psValue);
+      break;
+  }
+#else
   switch(iEvent)
   {
     case 0: // state
@@ -628,10 +820,52 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
       display.Note(psValue);
       break;
   }
+#endif
 }
+
+#ifdef REMOTE
+void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
+{
+  switch(type)
+  {
+    case WStype_DISCONNECTED:
+      bWscConnected = false;
+      hvac.m_notif = Note_Network;
+      break;
+    case WStype_CONNECTED:
+      bWscConnected = true;
+      if(hvac.m_notif == Note_Network) // remove net disconnect error
+        hvac.m_notif = Note_None;
+      break;
+    case WStype_TEXT:
+      {
+        char *pCmd = strtok((char *)payload, ";");
+        char *pData = strtok(NULL, "");
+        if(pCmd == NULL || pData == NULL) break;
+        remoteParse.process(pCmd, pData);
+      }
+      break;
+    case WStype_BIN:
+      if(length == sizeof(forecastData) )
+      {
+        memcpy((void*)&display.m_fc, payload, length);
+        display.m_bUpdateFcstIdle = true;
+      }
+      break;
+  }
+}
+
+void startListener()
+{
+  wsc.onEvent(webSocketEvent);
+  IPAddress ip(ee.hostIp);
+  wsc.begin(ip, ee.hostPort, "/ws");
+}
+#endif
 
 //---
 
+#ifndef REMOTE
 int shiftFc(uint32_t newTm)
 {
   if(display.m_fc.Date == 0) // not filled in yet
@@ -742,3 +976,5 @@ void GetForecast()
   if(!xml.begin("forecast.weather.gov", 80, path))
     WsSend("alert;Forecast URL invalid");
 }
+
+#endif
