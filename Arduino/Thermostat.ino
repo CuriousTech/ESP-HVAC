@@ -23,6 +23,8 @@ SOFTWARE.
 
 // Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
 // ESP32 Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, 16MB?, Default 4MB with spiffs
+// For remote unit, uncomment #define REMOTE in HVAC.h
+
 #include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
@@ -268,7 +270,7 @@ void loop()
           if((hour_save & 1) == 0) // every other hour
           {
             ee.filterMinutes = hvac.m_filterMinutes;
-            eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+            eemem.update();
           }
         }
       }
