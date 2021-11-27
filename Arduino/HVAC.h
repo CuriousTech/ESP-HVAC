@@ -3,7 +3,7 @@
 #endif
 
 // Uncomment to compile for remote
-#define REMOTE
+//#define REMOTE
 
 //  HVAC Control
 //
