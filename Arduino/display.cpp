@@ -750,6 +750,10 @@ void Display::updateModes() // update any displayed settings
       nex.itemPic(7, 10);
     else
       nex.itemPic(7, nMode + 13);
+
+    hvac.m_bLink = true;
+    m_adjustMode = (nMode == Mode_Heat) ? 2:0; // set adjust to selected heat/cool
+    updateAdjMode(false);
   }
 
   if(heatMode != hvac.getHeatMode())
