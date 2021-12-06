@@ -117,6 +117,7 @@ void HVAC::enableRemote()
 void HVAC::updateVar(int iName, int iValue)// host values (sent to remote)
 {
 #ifdef REMOTE
+
   switch(iName)
   {
     case 0: // r
@@ -128,8 +129,10 @@ void HVAC::updateVar(int iName, int iValue)// host values (sent to remote)
     case 2: // s
       break;
     case 3: // it
+      m_inTemp = iValue;
       break;
     case 4: // rh
+      m_rh = iValue;
       break;
     case 5: // tt
       m_targetTemp = iValue;
@@ -156,10 +159,8 @@ void HVAC::updateVar(int iName, int iValue)// host values (sent to remote)
       m_bHumidRunning = iValue;
       break;
     case 14: // lt (localTemp on host)
-      m_inTemp = iValue;
       break;
-    case 15: // lh
-      m_rh = iValue;
+    case 15: // lh (local Rh)
       break;
     case 16: // rmt
       m_bRemoteStream = false; // command to kill remote temp send
@@ -873,7 +874,6 @@ String HVAC::settingsJsonMod()
   }
   return bSend ? settingsJson() : "";
 }
-
 #endif
 
 #ifdef REMOTE
@@ -1076,7 +1076,6 @@ String HVAC::settingsJson()
   js.Var("ccf", ee.ccf);
   js.Var("cfm", ee.cfm);
   js.Var("dl",  ee.diffLimit);
-  js.Var("ees", eemem.m_eeStatus);
   return js.Close();
 }
 
