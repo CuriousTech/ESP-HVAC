@@ -100,12 +100,12 @@ const char *cmdList[] = { "cmd",
   "sum",
   NULL};
   
-const char *jsonList3[] = { "alert", NULL };
 #else
 const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
 extern const char *cmdList[];
-const char *jsonList3[] = { "alert", NULL };
 #endif
+
+const char *jsonList3[] = { "alert", NULL };
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -272,12 +272,12 @@ void startServer()
   ArduinoOTA.setHostname(hostName);
   ArduinoOTA.begin();
   ArduinoOTA.onStart([]() {
-    SPIFFS.end();
     hvac.disable();
     hvac.dayTotals(day() - 1); // save for reload
     ee.filterMinutes = hvac.m_filterMinutes;
     if(eemem.check())
       eemem.update();
+    SPIFFS.end();
   });
 #endif
 }
@@ -850,6 +850,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
       {
         memcpy((void*)&display.m_fc, payload, length);
         display.m_bUpdateFcstIdle = true;
+        display.m_bFcstUpdated = true;
       }
       break;
   }
