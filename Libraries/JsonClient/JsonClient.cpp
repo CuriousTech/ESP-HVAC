@@ -77,10 +77,11 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
 
   m_nPort = port;
   m_bKeepAlive = bKeepAlive;
-  m_timeOut = millis();
+  m_timer = millis();
   m_pHeaders = pHeaders;
   m_bPost = bPost;
   m_retryCnt = 0;
+  m_to = to;
   m_ac.setRxTimeout(to);
   return connect();
 }
@@ -111,6 +112,11 @@ void JsonClient::end()
 
 int JsonClient::status()
 {
+  if(m_Status != JC_IDLE && m_bKeepAlive == false)
+  {
+    if(millis() - m_timer > m_to)
+      end();
+  }
   return m_Status;
 }
 
@@ -164,6 +170,7 @@ bool JsonClient::connect()
 
   m_Status = JC_NO_CONNECT;
   m_callback(-1, m_Status, m_nPort, m_pszHost);
+  m_ac.stop();
   m_Status = JC_IDLE;
   m_retryCnt++;
   return false;
@@ -173,6 +180,7 @@ void JsonClient::_onDisconnect(AsyncClient* client)
 {
   (void)client;
 
+  m_ac.stop();
   if(m_bKeepAlive == false)
   {
     m_Status = JC_DONE;
@@ -261,7 +269,7 @@ void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
       m_bufcnt = 0;
     }
   }
-  m_timeOut = millis();
+  m_timer = millis();
 }
 
 void JsonClient::processLine()
@@ -324,7 +332,7 @@ void JsonClient::processLine()
       {
         if(!strcmp(pPair[0], m_jsonList[m_event][i]))
         {
-            int n = atoi(pPair[1]);
+            int n = atol(pPair[1]);
             if(!strcmp(pPair[1], "true")) n = 1; // bool case
             m_callback(m_event, i-1, n, pPair[1]);
             break;
