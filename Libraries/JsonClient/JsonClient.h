@@ -66,7 +66,8 @@ private:
   uint16_t m_nPort;
   uint16_t m_nBufSize;
   char     *m_pBuffer;
-  unsigned long m_timeOut;
+  uint32_t m_timer;
+  uint32_t m_to;
   int8_t m_brace;
   int8_t m_bracket;
   int8_t m_inBrace;
