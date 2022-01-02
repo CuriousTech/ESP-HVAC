@@ -635,13 +635,13 @@ void historyDump(bool bStart)
     if(gpt.t2.sens0 || gpt.t2.sens1)
     {
       out += ",";
-      out += gpt.t2.localTemp - tempMin;
-      out += ",";
       out += gpt.t2.sens0 - tempMin;
-      if(gpt.t2.sens1)
+      out += ",";
+      out += gpt.t2.sens1 - tempMin;
+      if(gpt.t2.sens2)
       {
         out += ",";
-        out += gpt.t2.sens1 - tempMin;
+        out += gpt.t2.sens2 - tempMin;
       }
     }
     out += "]";
@@ -689,13 +689,13 @@ void appendDump(uint32_t startTime)
     if(gpt.t2.sens0 || gpt.t2.sens1)
     {
       out += ",";
-      out += gpt.t2.localTemp;
-      out += ",";
       out += gpt.t2.sens0;
-      if(gpt.t2.sens1)
+      out += ",";
+      out += gpt.t2.sens1;
+      if(gpt.t2.sens2)
       {
         out += ",";
-        out += gpt.t2.sens1;
+        out += gpt.t2.sens2;
       }
     }
     out += "]";
