@@ -79,7 +79,6 @@ public:
   bool init(void);
   bool check(void);
   bool update(void);
-  uint8_t m_eeStatus;
 private:
   uint16_t Fletcher16( uint8_t* data, int count);
 };
