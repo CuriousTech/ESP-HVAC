@@ -564,7 +564,7 @@ $(document).ready(function()
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
  ws=new WebSocket("ws://"+window.location.host+"/ws")
-// ws=new WebSocket("ws://192.168.31.125/ws")
+// ws=new WebSocket("ws://192.168.31.46/ws")
  ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
@@ -771,13 +771,13 @@ function draw(){
   c.fillStyle='#0f0'
   c.fillText('Rh',2,y-=10)
   c.fillStyle='rgba(0,0,255)'
-  c.fillText('Internal',2,y-=10)
+  c.fillText(snd[0][4],2,y-=10)
   c.fillStyle='rgba(200,180,0)'
   y-=10
-  if(snd[0]) c.fillText(snd[0][4],2,y)
+  if(snd[1]) c.fillText(snd[1][4],2,y)
   c.fillStyle='rgba(100,100,50)'
   y-=10
-  if(snd[1]) c.fillText(snd[1][4],2,y)
+  if(snd[2]) c.fillText(snd[2][4],2,y)
   c.fillStyle='#fa0'
   c.fillText('Out',2,y-=10)
 
@@ -922,7 +922,7 @@ function getRHPixel(val) {
 
 function stateColor(s)
 {
-  sts=Array('gray','blue','red','red')
+  sts=Array('gray','blue','yellow','red')
   if(s==1) return 'cyan'
   return sts[s>>1]
 }
@@ -1175,8 +1175,8 @@ function drawFC(){
     cPos=i;
     c.strokeStyle='#fff'
     c.beginPath()
-    c.moveTo(getXPixel2(cPos)-xOff,getYPixel3(iMax))
-    c.lineTo(getXPixel2(cPos)-xOff,getYPixel3(iMin))
+    c.moveTo(getXPixel2(cPos)-xOff,graph2.height()-18)
+    c.lineTo(getXPixel2(cPos)-xOff,1)
     c.stroke()
     c.fillStyle='#000'
     c.textAlign="center"
