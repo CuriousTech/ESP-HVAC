@@ -45,9 +45,9 @@ typedef union temps2
   uint32_t u;
   struct
   {
-    uint32_t localTemp:11;
-    uint32_t sens0:10;
+    uint32_t sens0:11;
     uint32_t sens1:11;
+    uint32_t sens2:10;
   };
 };
 
