@@ -493,14 +493,16 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IP)
     {
-      if(now() - m_Sensor[i].tm > 70) // disregard expired sensor data
+      if(now() - m_Sensor[i].tm > 100) // disregard expired sensor data
       {
         if( (m_Sensor[i].flags & SNS_WARN) == 0)
         {
           m_Sensor[i].flags |= SNS_WARN;
           String s = "print;";
           s += (char*)&m_Sensor[i].ID;
-          s += " sensor data expired";
+          s += " sensor data expired ";
+          s += (now() - m_Sensor[i].tm);
+          s += "s";
           WsSend(s);
         }
         // Just ingore for the moment
@@ -1381,11 +1383,11 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       if(val < (ee.b.bCelcius ? 180:650) || val > (ee.b.bCelcius ? 370:990) )
       {
         String s = "print;";
-        s += (char *)&m_Sensor[i].ID;
+        s += (char *)&m_Sensor[snsIdx].ID;
         s += " sensor range error ";
-        s += val;
+        s += String(val / 10);
         WsSend(s);
-        m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI); // deactivate sensor        
+        m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI); // deactivate sensor
       }
       else
         m_Sensor[snsIdx].temp = val;
