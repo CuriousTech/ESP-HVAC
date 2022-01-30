@@ -21,8 +21,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.15 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
-// ESP32 Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, 16MB?, Default 4MB with spiffs
+// Build with Arduino IDE 1.8.19 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
+// ESP32: (1.0.6) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, Default 4MB with spiffs
 // For remote unit, uncomment #define REMOTE in HVAC.h
 
 #include "WiFiManager.h"
@@ -277,5 +277,5 @@ void loop()
     }
 
   }
-  delay(8); // rotary encoder and lines() need 8ms minimum
+  delay(9); // rotary encoder and lines() need 8ms minimum
 }
