@@ -17,11 +17,11 @@ struct flags_t
   uint16_t Mode:3;
   uint16_t heatMode:2;
   uint16_t humidMode:3;
-  uint16_t nSchedMode:2;
+  uint16_t nSchedMode:3; // 0=forecast, 1=sine, 2=flat
+  uint16_t nFcstSource:2; // 0=local, 1=OpenWeatherMap
   uint16_t bCelcius:1;
   uint16_t bLock:1;
-  uint16_t bNotLocalFcst:1;
-  uint16_t res:3;
+  uint16_t res:1;
 };
 
 struct eeSet // EEPROM backed data
@@ -33,7 +33,7 @@ struct eeSet // EEPROM backed data
   uint16_t coolTemp[2]; // cool to temp *10 low/high
   uint16_t heatTemp[2]; // heat to temp *10 low/high
   flags_t  b;           // see flags_t
-  int8_t   cycleThresh[2]; // temp range for cycle *10
+  int8_t   cycleThresh[2]; // temp range for cycle *10 [cool|heat]
   uint8_t  eHeatThresh; // degree threshold to switch to gas
   uint16_t cycleMin;    // min time to run
   uint16_t cycleMax;    // max time to run
@@ -49,7 +49,7 @@ struct eeSet // EEPROM backed data
   uint16_t awayTime;    // time limit for away offset (in minutes)
   uint8_t  hostIp[4];
   uint16_t hostPort;
-  char     zipCode[8];  // Your zipcode
+  char     cityID[8];  // For OpenWeatherMap
   char     password[24];
   uint8_t  fcRange; // number in forecasts (3 hours)
   uint8_t  fcDisplay; // number in forecasts (3 hours)
@@ -67,7 +67,8 @@ struct eeSet // EEPROM backed data
   int16_t  fcOffset[2]; // forecast offset adjust
   uint16_t fanIdleMax; // in minutes
   uint8_t  fanAutoRun;
-  uint8_t  reserved[17];
+  int16_t  sineOffset[2]; // sine offset adjust (cool/heat)
+  uint8_t  reserved[13];
 }; // 512 bytes
 
 extern eeSet ee;
