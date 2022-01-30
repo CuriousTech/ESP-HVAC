@@ -255,10 +255,10 @@ void Display::checkNextion() // all the Nextion recieved commands
     case 0x70:// string return from keyboard
       switch(textIdx)
       {
-        case 0: // zipcode edit
+        case 0: // city ID edit
           if(strlen(cBuf + 1) < 5)
             break;
-          strncpy(ee.zipCode, cBuf + 1, sizeof(ee.zipCode));
+          strncpy(ee.cityID, cBuf + 1, sizeof(ee.cityID));
           break;
         case 1: // password edit
           if(strlen(cBuf + 1) < 5)
