@@ -60,8 +60,8 @@ FC Shift (in minutes): Shifts the forecast for the temperature adjust. Use the s
 
 ![remotepage](http://www.curioustech.net/images/hvacweb.png)  
 
-The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, yellow is HP, rh is green, the target/threshold is at 3.0, and probably adjusted in the middle.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit, and now multiple sensors.  The daily/monthly cost summary will be changed to a chart.  
-![chartpage](http://www.curioustech.net/images/hvacchart2.png)  
+The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, NG is red, HP is yellow, rh is green, the target/threshold is the wave.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit, and now multiple sensors.  
+![chartpage](http://www.curioustech.net/images/hvacchart.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
 
