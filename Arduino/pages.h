@@ -546,6 +546,27 @@ background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
 background-image: linear-gradient(top,#ffffff,#a0a0a0);
 background-clip: padding-box;
 }
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+.btn {
+    background-color: #50a0ff;
+    padding: 1px;
+    font-size: 12px;
+    min-width: 50px;
+    border: none;
+}
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #919191;
+    min-width: 40px;
+    min-height: 1px;
+    z-index: 1;
+}
+.dropdown:hover .dropdown-content {display: block;}
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
@@ -554,6 +575,7 @@ var graph;
 xPadding=30
 yPadding=56
 drawMode=3
+schedMode=1
 var yRange
 var Json
 var a=document.all
@@ -584,7 +606,11 @@ $(document).ready(function()
       frnw=+Json.frnw
       md=+Json.m
       dl=+Json.dl
-      a.fco.value=fco=+Json.fco
+      schedMode=+Json.sm
+      fco=+Json.fco
+      so=+Json.so
+      if(schedMode==0) a.fco.value=fco
+      else a.fco.value=so
       a.fcr.value=fcr=+Json.fcr
       ct=+Json.ct
       c0=+Json.c0
@@ -911,12 +937,12 @@ function getXPixel(val){
   return x.toFixed()
 }
 
-function getYPixel(val) {
-  y=graph.height()-( ((graph.height()-yPadding)/yRange)*(val-getMinY()))-yPadding
+function getYPixel(val){
+  y=graph.height()-(((graph.height()-yPadding)/yRange)*(val-getMinY()))-yPadding
   return y.toFixed()
 }
 
-function getRHPixel(val) {
+function getRHPixel(val){
   return graph.height()-(((graph.height()-yPadding)/1000)*val)-yPadding
 }
 
@@ -927,7 +953,7 @@ function stateColor(s)
   return sts[s>>1]
 }
 
-function setVar(varName, value)
+function setVar(varName,value)
 {
  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
@@ -1120,6 +1146,7 @@ function drawFC(){
   offsetY=canvasOffset.top
   yPad=18
   if(fcr>fc.length) fcr=fc.length
+  if(fcr==0) fcr=23
   c.lineWidth=2
   c.font='italic 8pt sans-serif'
   c.textAlign="left"
@@ -1157,16 +1184,25 @@ function drawFC(){
 
   // temp lines
   c.fillStyle="red"
-  date = new Date(fcDate*1000)
-  dt=date.getDate()
-  fl=(fcDate+fcFreq*(fc.length-1))/60
+  fcl=fc.length
+  if(fcl==0){
+  fcl=58
+  fcDate=(new Date()).valueOf()/1000-(60*60*24)
+    fcFreq=10800
+  fcr=23
+  }
   cPos=0
-  for(i=1;i<fc.length;i++){
-  c.strokeStyle=(fc[i]<32)?"blue":"red"
-  c.beginPath()
-  c.moveTo(getXPixel2(i),getYPixel2(fc[i]))
-  c.lineTo(getXPixel2(i-1),getYPixel2(fc[i-1]))
-  c.stroke()
+  fl=(fcDate+fcFreq*(fcl-1))/60
+  date=new Date(fcDate*1000)
+  dt=date.getDate()
+  for(i=1;i<fcl;i++){
+  if(fc.length){
+    c.strokeStyle=(fc[i]<32)?"blue":"red"
+    c.beginPath()
+    c.moveTo(getXPixel2(i),getYPixel2(fc[i]))
+    c.lineTo(getXPixel2(i-1),getYPixel2(fc[i-1]))
+    c.stroke()
+  }
   date = new Date((fcDate+fcFreq*i)*1000)
   if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
   {
@@ -1199,16 +1235,23 @@ function drawFC(){
   c.beginPath()
   strt=cPos-fcr
   if(strt<0) strt=0
+  date=new Date(fcDate*1000)
   c.moveTo(getXPixel2(strt)-xOff,getTT(strt,0))
   for(i=strt+1;i<=cPos+fcr;i++)
+  {
+    date=new Date((fcDate+(fcFreq*i))*1000)
     c.lineTo(getXPixel2(i)-xOff,getTT(i,0))
+  }
   for(i=cPos+fcr;i>=strt;i--)
+  {
+    date=new Date((fcDate+(fcFreq*i))*1000)
     c.lineTo(getXPixel2(i)-xOff,getTT(i,(md==2)?ct:-ct))
+  }
   c.closePath()
   c.fill()
 }
 function getXPixel2(val){
-  x=xPadding+((graph2.width()-xPadding*2)/fc.length)*val
+  x=xPadding+((graph2.width()-xPadding*2)/fcl)*val
   return +x.toFixed()
 }
 
@@ -1224,6 +1267,8 @@ function getYPixel3(val){
 }
 function getTT(i,th)
 {
+  if(schedMode==0)
+  {
   min2=150
   max2=-30
   strt1=i-fcr
@@ -1236,9 +1281,33 @@ function getTT(i,th)
     }
   }
   tt=(fc[i]-min2)*iRng/(max2-min2)+iMin+th
+  }else if(schedMode==1){
+    m=((date.getHours()+14)*60+date.getMinutes()+so)/4
+  r=(iRng/2)*Math.sin(Math.PI * (180-m) / 180)
+  tt=r+iMin+th
+  if(md==2) tt+=(iRng/2)
+  else tt-=(iRng/2)
+  }else if(schedMode==2){
+  tt=iMin+th
+  }
   h=graph2.height()-18
   o=70+ct*2
   return h-(o/2)-((h-o)/iRng*(tt-iMin))
+}
+function setSched(n)
+{
+ schedMode=n
+ setVar('sm',n)
+ if(n==0) a.fco.value=fco
+ else a.fco.value=so
+ drawFC()
+}
+function setShift(n)
+{
+ if(schedMode==0) fco=n
+ else so=n
+ setVar('fco',n)
+ drawFC()
 }
 </script>
 <style type="text/css">
@@ -1299,10 +1368,19 @@ function getTT(i,th)
 <canvas id="chart" width="700" height="200"></canvas>
 </div>
 <table><tr>
-<td>Shift:<input type=text size=1 id="fco" onchange="{fco=+this.value;drawFC()}"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+<td>Shift:<input type=text size=1 id="fco" onchange="setShift(+this.value)"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
  Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
  High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
  Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
+</td><td>&nbsp;
+<div class="dropdown">
+  <button class="dropbtn">Mode:</button>
+  <div class="dropdown-content">
+  <button class="btn" id="s0" onclick="setSched(0)">Forecast</button>
+  <button class="btn" id="s1" onclick="setSched(1)">Sine</button>
+  <button class="btn" id="s2" onclick="setSched(2)">Flat</button>
+  </div>
+</div>
 </td>
 <td></td>
 </tr></table>
