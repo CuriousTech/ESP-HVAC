@@ -180,14 +180,6 @@ void HVAC::sendCmd(const char *szName, int value)
 #endif
 }
 
-void HVAC::enable()
-{
-#ifndef REMOTE
-  m_bEnabled = true;
-  m_bRecheck = true;
-#endif
-}
-
 int8_t HVAC::getFan()
 {
   return m_FanMode;
@@ -477,9 +469,6 @@ bool HVAC::tempChange()
 void HVAC::tempCheck()
 {
 #ifndef REMOTE
-  if(m_bEnabled == false)    // hasn't been set yet
-    return;
-
   int8_t mode = (ee.b.Mode == Mode_Auto) ? m_AutoMode : ee.b.Mode;
 
   int16_t tempL = 0;
@@ -505,8 +494,7 @@ void HVAC::tempCheck()
           s += "s";
           WsSend(s);
         }
-        // Just ingore for the moment
-        if(now() - m_Sensor[i].tm > 5*60) // 5 minutes
+        if(now() - m_Sensor[i].tm > 5*60) // Inactive 5 minutes. Remove the sensor
         {
           if(i) m_Sensor[i].IP = 0; // kill it
           remSens = true;
@@ -515,10 +503,12 @@ void HVAC::tempCheck()
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
          m_Sensor[i].flags &= ~SNS_WARN;
-         sensTemp = m_Sensor[i].temp;
-         sensRh = m_Sensor[i].rh;
-         sensCnt = 1;
-         break;
+         for(int j = 0; i < 3; j++) // Priority biases x3
+         {
+           sensTemp += m_Sensor[i].temp;
+           sensRh += m_Sensor[i].rh;
+           sensCnt++;
+         }
       }
       else if(m_Sensor[i].flags & SNS_EN)
       {
@@ -824,24 +814,64 @@ void HVAC::calcTargetTemp(int mode)
   int16_t L = m_outMin * 10;
   int16_t H = m_outMax * 10;
 
-  if( H-L == 0) // divide by 0
-    return;
+  if( H-L == 0 && ee.b.nSchedMode == 0) // divide by 0
+    ee.b.nSchedMode = 1;
 
-  switch(mode)
+  switch(ee.b.nSchedMode)
   {
-    case Mode_Off:
-    case Mode_Cool:
-      m_targetTemp = (m_outTemp-L) * (ee.coolTemp[1]-ee.coolTemp[0]) / (H-L) + ee.coolTemp[0];
-      m_targetTemp = constrain(m_targetTemp, ee.coolTemp[0], ee.coolTemp[1]); // just for safety
-      if(m_targetTemp < m_outTemp - ee.diffLimit) // increase to differential limit
-        m_targetTemp = m_outTemp - ee.diffLimit;
+    case SM_Forecast:
+      switch(mode)
+      {
+        case Mode_Off:
+        case Mode_Cool:
+          m_targetTemp = (m_outTemp-L) * (ee.coolTemp[1]-ee.coolTemp[0]) / (H-L) + ee.coolTemp[0];
+          m_targetTemp = constrain(m_targetTemp, ee.coolTemp[0], ee.coolTemp[1]); // just for safety
+          if(m_targetTemp < m_outTemp - ee.diffLimit) // increase to differential limit
+            m_targetTemp = m_outTemp - ee.diffLimit;
+          break;
+        case Mode_Heat:
+          m_targetTemp = (m_outTemp-L) * (ee.heatTemp[1]-ee.heatTemp[0]) / (H-L) + ee.heatTemp[0];
+          m_targetTemp = constrain(m_targetTemp, ee.heatTemp[0], ee.heatTemp[1]);
+          break;
+      }
       break;
-    case Mode_Heat:
-      m_targetTemp = (m_outTemp-L) * (ee.heatTemp[1]-ee.heatTemp[0]) / (H-L) + ee.heatTemp[0];
-      m_targetTemp = constrain(m_targetTemp, ee.heatTemp[0], ee.heatTemp[1]); // just for safety
+    case SM_Sine:
+      switch(mode)
+      {
+        case Mode_Off:
+        case Mode_Cool:
+          {
+            float m = ( (hour() + 14) * 60 + minute() + ee.sineOffset[0] ) / 4;
+            float r = (ee.coolTemp[1] - ee.coolTemp[0]) / 2;
+            float fs = r * sin(PI * (180 - m) / 180);
+            m_targetTemp = (fs + ee.coolTemp[0] - r);
+          }
+          m_targetTemp = constrain(m_targetTemp, ee.coolTemp[0], ee.coolTemp[1]); // just for safety
+          break;
+        case Mode_Heat:
+          {
+            float m = ( (hour() + 14) * 60 + minute() + ee.sineOffset[1] ) / 4;
+            float r = (ee.heatTemp[1] - ee.heatTemp[0]) / 2;
+            float fs = r * sin(PI * (180 - m) / 180);
+            m_targetTemp = (fs + ee.heatTemp[0] + r);
+          }
+          m_targetTemp = constrain(m_targetTemp, ee.heatTemp[0], ee.heatTemp[1]);
+          break;
+      }
+      break;
+    case SM_Flat:
+      switch(mode)
+      {
+        case Mode_Off:
+        case Mode_Cool:
+          m_targetTemp = ee.coolTemp[1];
+          break;
+        case Mode_Heat:
+          m_targetTemp = ee.heatTemp[0];
+          break;
+      }
       break;
   }
-
   m_targetTemp += m_ovrTemp; // override/away is normally 0, unless set remotely with a timeout
 
   switch(mode)
@@ -1068,11 +1098,13 @@ String HVAC::settingsJson()
   js.Var("hfw", ee.humidWatts);
   js.Var("ffp", ee.furnacePost);
   js.Var("fco", ee.fcOffset[m_modeShadow == Mode_Heat]);
+  js.Var("so", ee.sineOffset[m_modeShadow == Mode_Heat]);
   js.Var("fim", ee.fanIdleMax);
   js.Var("far", ee.fanAutoRun);
   js.Var("sm", ee.b.nSchedMode);
   js.Var("tu", ee.b.bCelcius);
   js.Var("lock", ee.b.bLock);
+  js.Var("fcs", ee.b.nFcstSource);
 #endif
   js.Var("ppk", ee.ppkwh);
   js.Var("ccf", ee.ccf);
@@ -1169,6 +1201,7 @@ const char *cmdList[] = { "cmd",
   "rmtname",
   "rmtto",
   "sm", // 50
+  "fcs",
   NULL
 };
 
@@ -1283,7 +1316,10 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       ee.fanIdleMax = val;
       break;
     case 23: // fco
-      ee.fcOffset[ee.b.Mode == Mode_Heat] = constrain(val, -1080, 1079); // 18 hours max
+      if(ee.b.nSchedMode == 0)
+        ee.fcOffset[ee.b.Mode == Mode_Heat] = constrain(val, -1080, 1079); // +/-18 hours max
+      else if(ee.b.nSchedMode == 1)
+        ee.sineOffset[ee.b.Mode == Mode_Heat] = constrain(val, -1440, 1439); // +/-24 hours max
       break;
     case 24: // awaytime
       ee.awayTime = val; // no limit
@@ -1426,6 +1462,9 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
     case 50: // sm
       ee.b.nSchedMode = constrain(val, 0, 2);
       break;
+    case 51: // fcs
+      ee.b.nFcstSource = constrain(val, 0, 3);
+      break;
   }
 #endif
 }
@@ -1466,7 +1505,7 @@ int HVAC::getSensorID(uint32_t id)
     m_Sensor[i].IP = id;
     return i;
   }
-  return 1;
+  return 1; // Don't return internal (0)
 }
 #endif
 
@@ -1559,7 +1598,8 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
     case 13:
       ee.cycleThresh[ee.b.Mode == Mode_Heat] = iValue;
       break;
-    case 14:
+    case 14: // tu
+      ee.b.bCelcius = iValue;
       break;
     case 15:
       ee.overrideTime = iValue;
@@ -1572,9 +1612,6 @@ void HVAC::setSettings(int iName, int iValue)// remote settings
       break;
     case 18:
       ee.rhLevel[1] = iValue;
-      break;
-    case 19: // tu
-      ee.b.bCelcius = iValue;
       break;
   }
 #endif
