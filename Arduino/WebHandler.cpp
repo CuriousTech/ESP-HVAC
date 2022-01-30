@@ -16,10 +16,10 @@
 #include "WiFiManager.h"
 #include "WebHandler.h"
 #include "HVAC.h"
-#include <JsonParse.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonParse
+#include <JsonParse.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonParse
 
 #ifdef REMOTE
-#include <JsonClient.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/JsonClient
+#include <JsonClient.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonClient
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
 #endif
 
@@ -32,9 +32,9 @@
  #endif
 #endif
 #include "pages.h"
-#include <XMLReader.h>
 #include "jsonstring.h"
 #include "forecast.h"
+#include "Openweathermap.h"
 //-----------------
 int serverPort = 80;
 
@@ -47,6 +47,7 @@ const char *hostName = "HVAC";
 IPAddress ipFcServer(192,168,31,100);    // local forecast server and port
 int nFcPort = 80;
 Forecast localFC;
+OpenWeather openWeatherFC;
 #endif
 
 //-----------------
@@ -61,9 +62,6 @@ JsonParse remoteParse(remoteCallback);
 
 #ifdef REMOTE
 void startListener(void);
-#else
-int xmlState;
-void GetForecast(void);
 #endif
 
 int nWrongPass;
@@ -93,13 +91,12 @@ const char pageR_B[] = R"rawliteral(
 
 // values sent at an interval of 30 seconds unless they change sooner
 const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
-const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "fd", "ov", "rhm", "rh0", "rh1", "tu", NULL };
+const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "tu", "ov", "rhm", "rh0", "rh1", NULL };
 const char *cmdList[] = { "cmd",
   "key",
   "data",
   "sum",
   NULL};
-  
 #else
 const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
 extern const char *cmdList[];
@@ -187,7 +184,7 @@ void startServer()
 #endif
   });
 #ifndef REMOTE
-  server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+  server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // Hidden instead of / due to being externally accessible. Use your own here.
     parseParams(request);
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/index.html");
@@ -196,7 +193,7 @@ void startServer()
 #endif
   });
 #endif
-  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // for quick commands
     parseParams(request);
     request->send ( 200, "text/html", "OK" );
   });
@@ -229,12 +226,14 @@ void startServer()
 #endif
   });
 #endif // !REMOTE
-  server.on ( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
+  server.on( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
     parseParams(request);
     jsonString js;
     js.Var("time", (long)(now() - ((ee.tz + hvac.m_DST) * 3600)) );
     js.Var("ppkw", ee.ppkwh );
+    js.Var("temp", hvac.m_outTemp ); // for other WiFi weather devices
+    js.Var("rh", hvac.m_rh );
     request->send(200, "text/plain", js.Close());
   });
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -401,38 +400,28 @@ void secondsServer() // called once per second
       display.m_bUpdateFcst = false;
       display.m_bUpdateFcstIdle = false;
       nUpdateDelay = 60; // delay retries by 1 minute
-      if(ee.b.bNotLocalFcst)
-        GetForecast();
-      else
-        localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+      switch(ee.b.nFcstSource)
+      {
+        case 0:
+          localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+          break;
+        case 1:
+          openWeatherFC.start(&display.m_fc, ee.b.bCelcius, ee.cityID);    // get data from OpenWeatherMap 5 day
+          break;
+      }
     }
   }
   if(localFC.checkStatus())
   {
-    hvac.enable();
     display.m_fc.loadDate = now();
     display.m_bUpdateFcstIdle = true;
     display.m_bFcstUpdated = true;
   }
-
-  if(xmlState)
+  if(openWeatherFC.checkStatus())
   {
-      switch(xmlState)
-      {
-        case XML_COMPLETED:
-        case XML_DONE:
-          hvac.enable();
-          display.m_bUpdateFcstIdle = true;
-          display.m_bFcstUpdated = true;
-          display.m_fc.loadDate = now();
-          break;
-        case XML_TIMEOUT:
-          hvac.disable();
-          hvac.m_notif = Note_Forecast;
-          display.m_bUpdateFcstIdle = true;
-          break;
-      }
-      xmlState = 0;
+    display.m_fc.loadDate = now();
+    display.m_bUpdateFcstIdle = true;
+    display.m_bFcstUpdated = true;
   }
 #endif // !REMOTE
 }
@@ -545,13 +534,10 @@ void parseParams(AsyncWebServerRequest *request)
       ESP.reset();
 #endif
     }
-    else if(p->name() == "fc")
-    {
-      ee.b.bNotLocalFcst = s.toInt() ? true:false;
-      display.m_bUpdateFcst = true;
-    }
     else
     {
+      if(p->name() == "fc")
+        display.m_bUpdateFcst = true;
       hvac.setVar(p->name(), s.toInt(), (char *)s.c_str(), ip );
     }
   }
@@ -862,120 +848,4 @@ void startListener()
   IPAddress ip(ee.hostIp);
   wsc.begin(ip, ee.hostPort, "/ws");
 }
-#endif
-
-//---
-
-#ifndef REMOTE
-int shiftFc(uint32_t newTm)
-{
-  if(display.m_fc.Date == 0) // not filled in yet
-    return 0;
-
-  uint32_t tm2 = display.m_fc.Date;
-  int fcIdx;
-  for(fcIdx = 0; fcIdx < FC_CNT-4 && display.m_fc.Data[fcIdx] != -127; fcIdx++)
-  {
-    if(tm2 >= newTm)
-      break;
-    tm2 += display.m_fc.Freq;
-  }
-  if(fcIdx > (FC_CNT - 56)) // not enough room left
-  {
-    int n = fcIdx - (FC_CNT - 56);
-    uint8_t *p = (uint8_t*)display.m_fc.Data;
-    memcpy(p, p + n, FC_CNT - n); // make room
-    display.m_fc.Date += display.m_fc.Freq * n;
-    fcIdx -= n;
-  }
-  return fcIdx;
-}
-
-const XML_tag_t Xtags[] =
-{
-  {"creation-date", NULL, NULL, 1},
-  {"time-layout", "time-coordinate", "local", FC_CNT * 2 * 3}, // only 3rd value, start/end for each
-  {"temperature", "type", "hourly", FC_CNT * 3},
-  // "temperature", "type", "dewpoint"
-  // "temperature", "type", "wind chill"
-  // wind-speed type="sustained"
-  // cloud-amount type="total"
-  // probability-of-precipitation type="floating"
-  // humidity type="relative"
-  // direction type="wind"
-  // hourly-qpf type="floating"
-  // weather layout=
-  {NULL}
-};
-
-void xml_callback(int item, int idx, char *p, char *pTag)
-{
-  static tmElements_t tm;
-  static int startIdx;
-  static int cnt;
-  static uint32_t lastTm;
-  switch(item)
-  {
-    case -1: // done
-      xmlState = idx;
-      break;
-    case 0: // the current local time
-      break;
-    case 1:            // valid time
-      if(idx == 0)     // first item isn't really data
-        break;
-
-      if((idx % 6) != 1) // just skip all but <start-time> every 3 hours
-        break;
-
-      tm.Year = CalendarYrToTm( atoi(p)); // 2014-mm-ddThh:00:00-tz:00
-      tm.Month = atoi(p+5);
-      tm.Day  = atoi(p+8);
-      tm.Hour = atoi(p+11);
-      tm.Minute = atoi(p+14);
-      tm.Second = atoi(p+17);
-
-      if(idx == 1) // first entry
-      {
-        if(display.m_fc.Date == 0)
-          display.m_fc.Date = makeTime(tm);
-        startIdx = cnt = shiftFc( makeTime(tm) );
-      }
-      else if(idx == 2) // 2nd entry
-      {
-        display.m_fc.Freq = makeTime(tm) - lastTm;
-      }
-      lastTm = makeTime(tm);
-      cnt++;
-      display.m_fc.Data[cnt] = -127; // end of data
-      break;
-    case 2:                  // temperature
-      if(idx == 0)
-        cnt = startIdx;
-      if((idx % 3) != 0) // skip every 3 hours
-        break;
-
-      display.m_fc.Data[cnt++] = atoi(p);
-      break;
-  }
-}
-
-XMLReader xml(xml_callback, Xtags);
-
-void GetForecast()
-{
-  // Full 7 day hourly
-  //  Go here first:  http://www.weather.gov
-  // Enter City or Zip
-  // Click on "Hourly Weather Forecast"
-  // Scroll down, Click on "Tabular Forecast"
-  // Then click [XML] and copy that URL to the line below
-  // Then send "?key=<your key>&fc=1" to the thermostat to enable calls to this
-
-  String path = "/MapClick.php?lat=&lon=&FcstType=digitalDWML";
-
-  if(!xml.begin("forecast.weather.gov", 80, path))
-    WsSend("alert;Forecast URL invalid");
-}
-
 #endif
