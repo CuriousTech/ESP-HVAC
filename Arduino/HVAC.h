@@ -101,6 +101,15 @@ enum HumidifierMode
   HM_Auto2,
 };
 
+enum ScheduleMode
+{
+  SM_Forecast,
+  SM_Sine,
+  SM_Flat,
+  SM_Reserved
+};
+
+
 #define SNS_PRI   (1 << 0) // Single sensor overrides all others including internal
 #define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
 #define SNS_C     (1 << 2) // Data from remote sensor is C or F
@@ -155,7 +164,6 @@ public:
   void    setVar(String sCmd, int val, char *psValue, IPAddress ip); // remote settings
   void    updateVar(int iName, int iValue); // host values
   void    setSettings(int iName, int iValue);// remote settings
-  void    enable(void);
   String  settingsJson(void); // get all settings in json format
   String  settingsJsonMod(void);
   String  getPushData(void);  // get states/temps/data in json
@@ -178,7 +186,7 @@ public:
   uint8_t  m_DST;
   int8_t   m_modeShadow = Mode_Cool;  // shadow last valid mode
 #define SNS_CNT 8
-  Sensor m_Sensor[SNS_CNT]; // remote and sensors
+  Sensor   m_Sensor[SNS_CNT]; // remote and sensors
 
 private:
   void  fanSwitch(bool bOn);
@@ -223,7 +231,8 @@ private:
   int8_t   m_furnaceFan;    // fake fan timer
 };
 
+#ifndef min
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
-
+#endif
 #endif
