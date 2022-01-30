@@ -23,7 +23,7 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   60*8,         // awayTime (minutes)
   {192,168,31,100}, // hostIp 192.168.31.46
   80,           // host port
-  "41042",      // zipCode
+  "4291945",    // OWM city ID from http://bulk.openweathermap.org/sample/ city.list.json.gz
   "password",  // password for controlling thermostat
   23,           // forecast range for in mapping to out mix/max (in hours * 3)
   46,           // forecast range for display (5 or 7 day max)
@@ -41,11 +41,12 @@ eeSet ee = { sizeof(eeSet), 0xAAAA,
   250,          // fanWatts
   220,          // furnaceWatts (1.84A inducer)
   150,          // humidWatts
-  120,          // furnacePost (furnace internal fan timer)
+  114,          // furnacePost (furnace internal fan timer)
   300,          // set to 30 deg differential cooling limit    F/C issue
   {-180,0},     // forecast offset in minutes (cool, heat)
   60*4,         // fan idle max
   5,            // fan auto run
+  {0,0},        // sine offset
 };
 
 eeMem::eeMem()
