@@ -42,12 +42,10 @@ public:
     WiFiManager();
     void autoConnect(char const *apName, const char *pPass);
     void startAP(void);
-    bool connectNew(void);
-    void service(void);
+    int service(void);
     String page(void);
     void setSSID(int idx);
     void setPass(const char *p);
-    bool isCfg(void);
     int state(void);
 private:
     const char* _apName = "no-net";
