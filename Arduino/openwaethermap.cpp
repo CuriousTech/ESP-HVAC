@@ -13,26 +13,28 @@ void OpenWeather::start(forecastData *pfd, bool bCelcius, char *pCityID)
   if(m_ac.connected())
     return;
   m_pfd = pfd;
-  m_bDone = false;
   m_bCelcius = bCelcius;
   strcpy(m_cityID, pCityID);
+  m_status = FCS_Busy;
   if(!m_ac.connect("api.openweathermap.org", 80))
-    m_bDone = true;
+    m_status = FCS_ConnectError;
 }
 
-bool OpenWeather::checkStatus()
+int OpenWeather::checkStatus()
 {
-  if(m_bDone == false)
-    return false;
-  m_bDone = false;
-  return true;
+  if(m_status == FCS_Done)
+  {
+    m_status = FCS_Idle;
+    return FCS_Done;
+  }
+  return m_status;
 }
 
 void OpenWeather::_onConnect(AsyncClient* client)
 {
   String path = "GET /data/2.5/forecast?id=";
   path += m_cityID;
-  path += "&appid=YOURAPPID"; // Account ID
+  path += "&appid=YOURAPPID"; // Account
   path += "&uints=";
   if(m_bCelcius)
     path += "celcius";
@@ -46,15 +48,16 @@ void OpenWeather::_onConnect(AsyncClient* client)
     "Accept: */*\n\n";
 
   m_ac.add(path.c_str(), path.length());
-  m_pBuffer = new char[FCBUF_SIZE];
+  m_pBuffer = new char[OWBUF_SIZE];
   if(m_pBuffer) m_pBuffer[0] = 0;
+  else m_status = FCS_MemoryError;
   m_bufIdx = 0;
 }
 
 // build file in chunks
 void OpenWeather::_onData(AsyncClient* client, char* data, size_t len)
 {
-  if(m_pBuffer == NULL || m_bufIdx + len >= FCBUF_SIZE)
+  if(m_pBuffer == NULL || m_bufIdx + len >= OWBUF_SIZE)
   {
     return;
   }
@@ -86,13 +89,12 @@ int OpenWeather::makeroom(uint32_t newTm)
   return fcIdx;
 }
 
-// read data as comma delimited 'time,temp,rh' per line
 void OpenWeather::_onDisconnect(AsyncClient* client)
 {
   (void)client;
 
   char *p = m_pBuffer;
-  m_bDone = true;
+  m_status = FCS_Done;
   if(p == NULL)
     return;
   if(m_bufIdx == 0)
@@ -107,10 +109,10 @@ void OpenWeather::_onDisconnect(AsyncClient* client)
 
   const char *jsonListOw[] = { // root values
     "cod",     // 0 (200=good)
-    "message", // 
+    "message", // 1 (0)
     "cnt",     // 2 list count (40)
     "list",    // 3 the list
-    "city",
+    "city",    // 4 "id", "name", "coord", "country", "population", "timezone", "sunrise", "sunset"
     NULL
   };
 
@@ -129,6 +131,117 @@ void OpenWeather::_onDisconnect(AsyncClient* client)
   delete m_pBuffer;
 }
 
+void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *psValue)
+{
+  switch(iEvent)
+  {
+    case 0: // root
+      switch(iName)
+      {
+        case 0: // cod
+          if(iValue != 200)
+            m_status = FCS_Fail;
+          break;
+        case 1: // message
+          break;
+        case 2: // cnt
+          m_fcCnt = iValue;
+          break;
+        case 3: // list
+          {
+            const char *jsonList[] = {
+              "dt",      // 0
+              "main",    // 1
+              "weather", // 2
+//              "clouds",  // 3
+//              "wind",
+//              "visibility",
+//              "pop",
+//              "sys",
+//              "dt_txt",
+              NULL
+            };
+
+            processJson(psValue, 1, jsonList);
+          }
+          break;
+        case 4: // city
+          break;
+      }
+      break;
+    case 1: // list
+      switch(iName)
+      {
+        case 0: // dt
+          if(!m_bFirst)
+          {
+            m_bFirst = true;
+            m_fcIdx = makeroom(iValue);
+            if(m_pfd->Date == 0)
+              m_pfd->Date = iValue;
+          }
+          else
+          {
+            m_pfd->Freq = iValue - m_lastTm;
+          }
+          m_lastTm = iValue;
+          break;
+        case 1: // main
+          {
+            const char *jsonList[] = {
+              "temp",      // 0
+              "feels_like", // 1
+              "temp_min",   // 2
+              "temp_max",  // 3
+              "pressure",
+              "humidity", // 5
+              "temp_kf",
+              NULL
+            };
+            processJson(psValue, 2, jsonList);
+          }
+          break;
+        case 2: // weather
+        {
+            const char *jsonList[] = {
+              "id", // 802
+              "main", // Cluods
+              "description", // scattered clouds
+              "icon", // 03d
+              NULL
+            };
+            processJson(psValue, 3, jsonList);
+        }
+        break;
+      }
+      break;
+    case 2: // main
+      switch(iName)
+      {
+        case 0: // temp
+          m_pfd->Data[m_fcIdx] = iValue;
+          m_fcIdx++;
+          break;
+        case 5: // humidity
+          break;
+      }
+      break;
+    case 3: // weather
+      switch(iName)
+      {
+        case 0: // id
+          break;
+        case 1: // main
+          break;
+        case 2: // description
+          break;
+        case 3: // icon
+          break;
+      }
+      break;
+  }
+}
+
 void OpenWeather::processJson(char *p, int8_t event, const char **jsonList)
 {
   char *pPair[2]; // param:data pair
@@ -136,8 +249,6 @@ void OpenWeather::processJson(char *p, int8_t event, const char **jsonList)
   int8_t bracket = 0;
   int8_t inBracket = 0;
   int8_t inBrace = 0;
-
-  String s;
 
   while(*p)
   {
@@ -210,6 +321,7 @@ void OpenWeather::processJson(char *p, int8_t event, const char **jsonList)
         }
       }
     }
+
   }
 }
 
@@ -218,89 +330,4 @@ char * OpenWeather::skipwhite(char *p)
   while(*p == ' ' || *p == '\t' || *p =='\r' || *p == '\n')
     p++;
   return p;
-}
-
-void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *psValue)
-{
-  switch(iEvent)
-  {
-    case 0: // base
-      switch(iName)
-      {
-        case 0: // cod
-          break;
-        case 1: // message
-          break;
-        case 2: // cnt
-          m_fcCnt = iValue;
-          break;
-        case 3: // list
-          {
-            const char *jsonList[] = {
-              "dt",      // 0
-              "main",    // 1
-              "weather", // 2
-              "clouds",  // 3
-              "wind",
-              "visibility",
-              "pop",
-              "sys",
-              "dt_txt",
-              NULL
-            };
-
-            processJson(psValue, 1, jsonList);
-          }
-          break;
-        case 4: // city
-          break;
-      }
-      break;
-    case 1: // list
-      switch(iName)
-      {
-        case 0: // dt
-          if(!m_bFirst)
-          {
-            m_bFirst = true;
-            m_fcIdx = makeroom(iValue);
-            if(m_pfd->Date == 0)
-              m_pfd->Date = iValue;
-          }
-          else
-          {
-            m_pfd->Freq = iValue - m_lastTm;
-          }
-          m_lastTm = iValue;
-          break;
-        case 1: // main
-          {
-            const char *jsonList[] = {
-              "temp",      // 0
-              "feels_like", // 1
-              "temp_min",   // 2
-              "temp_max",  // 3
-              "pressure",
-              "humidity", // 5
-              "temp_kf",
-              NULL
-            };
-
-            processJson(psValue, 2, jsonList);
-          }
-          break;
-      }
-      break;
-    case 2: // main
-      switch(iName)
-      {
-        case 0: // temp
-          m_pfd->Data[m_fcIdx] = iValue;
-          m_fcIdx++;
-          break;
-        case 5: // humidity
-          break;
-      }
-      break;
-  }
 }
