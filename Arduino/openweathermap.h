@@ -15,7 +15,7 @@ class OpenWeather
 public:
   OpenWeather(void);
   void start(forecastData *pfd, bool bCelcius, char *pCityID);
-  bool checkStatus();
+  int checkStatus();
 private:
   void _onConnect(AsyncClient* client);
   void _onDisconnect(AsyncClient* client);
@@ -29,7 +29,6 @@ private:
   forecastData *m_pfd;
   char m_cityID[8];
 
-#define FCBUF_SIZE 17500
   char *m_pBuffer = NULL;
   int m_bufIdx;
   int m_fcIdx;
@@ -38,6 +37,9 @@ private:
   bool m_bFirst;
   bool m_bDone = false;
   bool m_bCelcius;
+  int m_status;
 };
+
+#define OWBUF_SIZE 17500
 
 #endif // OPENWEATHER_H
