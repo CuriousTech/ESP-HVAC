@@ -29,6 +29,7 @@ void WiFiManager::autoConnect(char const *apName, const char *pPass) {
   //  DEBUG_PRINT("");
   //    DEBUG_PRINT("AutoConnect");
 
+  WiFi.hostname(apName);
   if ( ee.szSSID[0] ) {
     DEBUG_PRINT("Waiting for Wifi to connect");
 
@@ -69,36 +70,19 @@ int WiFiManager::state()
   return _state;
 }
 
-// returns true if in config/AP mode
-bool WiFiManager::isCfg(void)
-{
-  return (_state == ws_config);
-}
-
-// returns true once after a connection is made (for time)
-bool WiFiManager::connectNew()
-{
-  if(_state == ws_connectSuccess)
-  {
-    _state = ws_connected;
-    return true;
-  }
-  return false; 
-}
-
 void WiFiManager::setSSID(int idx){
   WiFi.SSID(idx).toCharArray(ee.szSSID, sizeof(ee.szSSID) );
 }
 
 void WiFiManager::setPass(const char *p){
   strncpy(ee.szSSIDPassword, p, sizeof(ee.szSSIDPassword) );
-  eemem.update();
+  ee.update();
   DEBUG_PRINT("Updated EEPROM.  Restaring.");
   autoConnect(_apName, _pPass);
 }
 
 // Called at any frequency
-void WiFiManager::service()
+int WiFiManager::service()
 {
   static int s = 1; // do first list soon
   static uint32_t m;
@@ -115,7 +99,8 @@ void WiFiManager::service()
         if (WiFi.status() == WL_CONNECTED)
         {
           DEBUG_PRINT("Connected");
-          _state = ws_connectSuccess;
+          _state = ws_connected;
+          return ws_connectSuccess;
         }
         else if(--_timer == 0)
         {
@@ -124,22 +109,22 @@ void WiFiManager::service()
           startAP();
         }
       }
-      return;
+      return _state;
     }
   }
 
   if(ticks < 5)
-    return;
+    return _state;
   ticks = 0;
 
   if(_state != ws_config)
-    return;
+    return _state;
   if(--s)
-    return;
+    return _state;
   s = 60;
   int n = WiFi.scanNetworks(); // scan for stored SSID each minute
   if(n == 0 )
-    return;
+    return _state;
 
   nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
 
@@ -155,6 +140,7 @@ void WiFiManager::service()
       s = 5; // set to 5 seconds in case it fails again
     }
   }
+  return _state;
 }
 
 String WiFiManager::page()
