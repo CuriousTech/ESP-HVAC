@@ -5,37 +5,35 @@
 <link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
 div{
-border-radius: 5px;
-margin-bottom: 5px;
+border-radius: 1px;
+margin-bottom: 1px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -ms-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -o-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
-background-image: linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -moz-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -ms-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -o-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -webkit-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: linear-gradient(top,#b0b0b0,#a0a0a0);
 background-clip: padding-box;
 }
-
-.dropdown {
-    position: relative;
-    display: inline-block;
+.dropdown{
+ position: relative;
+ display: inline-block;
 }
-.btn {
-    background-color: #50a0ff;
-    padding: 1px;
-    font-size: 12px;
-    min-width: 50px;
-    border: none;
+.btn{
+ background-color: #a0a0a0;
+ padding: 1px;
+ font-size: 12px;
+ min-width: 50px;
+ border: none;
 }
-.dropdown-content {
-    display: none;
-    position: absolute;
-    background-color: #919191;
-    min-width: 40px;
-    min-height: 1px;
-    z-index: 1;
+.dropdown-content{
+ display: none;
+ position: absolute;
+ min-width: 40px;
+ min-height: 1px;
+ z-index: 1;
 }
-.dropdown:hover .dropdown-content {display: block;}
+.dropdown:hover .dropdown-content{display: block;}
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
@@ -203,14 +201,14 @@ function draw(){
   for(var i=getMinY();i<getMaxY();i+=(yRange/8))
 	c.fillText((i/10).toFixed(1),graph.width()-6,getYPixel(i))
 
-  c.fillText('Temp', graph.width()-6,6)
+  c.fillText('TEMP', graph.width(),6)
   c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"slategray")
   c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
  // cycle
   c.fillText(cyc,graph.width()-xPadding-7,h-8)
 
   c.fillStyle="green"
-  c.fillText('Rh', xPadding-6, 6)
+  c.fillText('RH', xPadding-6, 6)
 
   // rh scale
   for(i=0;i<10;i++){
@@ -256,28 +254,28 @@ function draw(){
   if(arr[0].length>6)
   {
 	if(drawMode&4) doLines('rgba(0,0,255,0.5)',6)
-	if(drawMode&8) doLines('rgba(200,180,0,0.7)',7)
-	if(drawMode&16) doLines('rgba(100,100,50,0.6)',8)
+	if(drawMode&8) doLines('rgba(255,255,255,0.7)',7)
+	if(drawMode&16) doLines('rgba(0,0,50,0.6)',8)
   }
   c.textAlign="left"
   y=graph.height()
   c.fillStyle='#000'
-  c.fillText('Temp',2,y-=10)
+  c.fillText('TEMP',2,y-=10)
   c.fillStyle='#0f0'
-  c.fillText('Rh',2,y-=10)
+  c.fillText('RH',2,y-=10)
   c.fillStyle='rgba(0,0,255)'
   c.fillText(snd[0][4],2,y-=10)
-  c.fillStyle='rgba(200,180,0)'
+  c.fillStyle='rgba(255,255,255)'
   y-=10
   if(snd[1]) c.fillText(snd[1][4],2,y)
-  c.fillStyle='rgba(100,100,50)'
+  c.fillStyle='rgba(0,0,50)'
   y-=10
   if(snd[2]) c.fillText(snd[2][4],2,y)
   c.fillStyle='#fa0'
-  c.fillText('Out',2,y-=10)
+  c.fillText('OUT',2,y-=10)
 
   // out temp
-  if(drawMode&32) doLines('#fa0',5,'Out')
+  if(drawMode&32) doLines('#fa0',5,'OUT')
   if(drawMode&2){
   c.strokeStyle = '#0f0'
   c.beginPath()
@@ -427,30 +425,13 @@ function setVar(varName,value)
  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
-function secsToTime(elap)
+function secsToTime(sec)
 {
-	dy=0
-	m=0
-	h=Math.floor(elap/3600)
-	if(h>23)
-	{
-		dy=Math.floor(h/24)
-		h-=(dy*24)
-		elap-=dy*3600*24
-	}
-	
-	m=Math.floor((elap-(h*3600))/60)
-	s=elap-(h*3600)-(m*60)
-	if(s<10) s='0'+s
-	if(h==0&&dy==0)
-	{
-		if(m<10) m='  '+m
-		return '    '+m +':'+s
-	}
-	if(m<10) m='0'+m
-	if(h<10) h='  '+h
-	if(dy) return dy+'d '+h+':'+m+'m'
-	return h+':'+m+':'+s
+ dt=new Date(1970,0,1)
+ dt.setSeconds(sec)
+ d=dt.getDate()-1
+ d=d?d+'d ':''
+ return d+dt.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function draw_bars()
@@ -579,7 +560,7 @@ function draw_scale(ar,w,h,o,p,ct)
 			y: (o+h-20)-mbh,
 			y2: (o+h),
 			x2: x+ctx.lineWidth*1.5,
-			tip: 'AC'+secsToTime(ar[i][0]),
+			tip: 'AC\t\t'+secsToTime(ar[i][0]),
 			tip2: 'NG\t\t'+secsToTime(ar[i][1]),
 			tip3: 'FAN\t\t'+secsToTime(ar[i][2]),
 			tip4: 'Elec   $'+costE.toFixed(2),
@@ -639,7 +620,7 @@ function drawFC(){
   // right legend
   for(i=min;i<max;i+=(yRange/8))
     c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
-  c.fillText('Out',graph2.width()-6,6)
+  c.fillText('OUT',graph2.width()-6,6)
 
   c.textAlign="left"
   if(iMax==iMin) iMax+=1
@@ -836,18 +817,18 @@ function setShift(n)
 <div id="wrapper2">
 <canvas id="chart" width="700" height="200"></canvas>
 </div>
-<table><tr>
-<td>Shift:<input type=text size=1 id="fco" onchange="setShift(+this.value)"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
- Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
- High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
- Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
+<table width=700><tr>
+<td>SHIFT:<input type=text size=1 id="fco" onchange="setShift(+this.value)">&nbsp; RANGE:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+&nbsp; LOW:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
+&nbsp; HIGH:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
+&nbsp; THRESH:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
 </td><td>&nbsp;
 <div class="dropdown">
-  <button class="dropbtn">Mode:</button>
+  <button class="dropbtn">MODE:</button>
   <div class="dropdown-content">
-  <button class="btn" id="s0" onclick="setSched(0)">Forecast</button>
-  <button class="btn" id="s1" onclick="setSched(1)">Sine</button>
-  <button class="btn" id="s2" onclick="setSched(2)">Flat</button>
+  <button class="btn" id="s0" onclick="setSched(0)">FORECAST</button>
+  <button class="btn" id="s1" onclick="setSched(1)">SINE</button>
+  <button class="btn" id="s2" onclick="setSched(2)">FLAT</button>
   </div>
 </div>
 </td>
