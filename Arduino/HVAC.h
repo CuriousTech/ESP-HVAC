@@ -200,6 +200,7 @@ private:
   int   getSensorID(uint32_t val);
   void  swapSensors(int n1, int n2);
   void  shiftSensors(void);
+  void  deactivateSensor(int idx);
 
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
   bool    m_bFanRunning;    // when fan is running
@@ -231,8 +232,4 @@ private:
   int8_t   m_furnaceFan;    // fake fan timer
 };
 
-#ifndef min
-#define min(a,b) ((a) < (b) ? (a) : (b))
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#endif
 #endif
