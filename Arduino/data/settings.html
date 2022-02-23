@@ -12,7 +12,6 @@ body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 
 var Json,ovrActive,rmtMode
 var a=document.all
-var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 snd=new Array()
 var ws
 function startEvents()
@@ -100,31 +99,13 @@ function setSnd(n,v)
 	setSenders()
 }
 
-function secsToTime( elap )
+function secsToTime(sec)
 {
-	d=0
-	m=0
-	h=Math.floor(elap/3600)
-	if(h >23)
-	{
-		d=Math.floor(h/24)
-		h-=(d*24)
-	}
-	else
-	{
-		m=Math.floor((elap-(h*3600))/60)
-		s=elap-(h*3600)-(m*60)
-		if(s<10) s='0'+s
-		if(h==0)
-		{
-			if( m < 10) m='  '+m
-			return '    '+m +':'+s
-		}
-	}
-	if(m<10) m='0'+m
-	if(h<10) h='  '+h
-	if(d) return d+'d '+h+'h'
-	return h+':'+m+':'+s
+ date=new Date(1970,0,1)
+ date.setSeconds(sec)
+ d=date.getDate()-1
+ d=d?d+'d ':''
+ return d+date.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function s2t(elap)
@@ -157,7 +138,7 @@ function t2s(v)
 <td style="width: 90px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
 <td style="width: 20px"></td><td><input type="submit" value=" Home " onClick="window.location='/iot';"></td></tr>
 <tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td><input type="submit" value=" Chart " onClick="window.location='/chart.html';"></td></tr>
-<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
+<tr><td>AC &#x2202; Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
@@ -174,7 +155,6 @@ function t2s(v)
 <tr id="snd5" style="visibility:collapse"><td id="s5"><input type="submit" ID="shr5" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,0)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,1)}"></td><td id="rt5" colspan=2></td><td></td></tr>
 <tr id="snd6" style="visibility:collapse"><td id="s6"><input type="submit" ID="shr6" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri6" onClick="{setSnd(6,0)}"><input type="button" value="En" id="snda6" onClick="{setSnd(6,1)}"></td><td id="rt6" colspan=2></td><td></td></tr>
 </table>
-<p>
 <table style="width: 290px">
 <tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="password" style="width: 98px"
  onChange="{
@@ -183,7 +163,7 @@ function t2s(v)
 }">
 </td>
 </tr>
-</table></p>
-<small>&copy 2016 CuriousTech.net</small>
+</table>
+<small>&copy; 2016 CuriousTech.net</small>
 </body>
 </html>
