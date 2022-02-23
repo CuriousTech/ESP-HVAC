@@ -235,21 +235,16 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
   static bool bSending;
   static int entryIdx;
 
+  if(ws.availableForWrite(WsClientID) == false)
+    return;
+
   int aidx;
   if(bStart)
   {
     m_nSending = 1;
-
     entryIdx = 0;
-    if( get(aidx, 0) == false)
-    {
-      bSending = false;
-      ws.text(WsClientID, "data;{\"d\":[]}");
-      return;
-    }
 
     jsonString js("ref");
-
     js.Var("tb"  , m_lastDate); // date of first entry
     char *labels[] = {"Temp", "Rh", "CO2", "CH2O", "VOC", NULL};
     js.Array("label", labels);
@@ -258,10 +253,14 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
     js.Array("base", m_lastVal, sizeof(m_lastVal)/sizeof(uint16_t));
     js.Array("alert", ee.wAlertLevel, sizeof(ee.wAlertLevel)/sizeof(uint16_t));
     ws.text(WsClientID, js.Close());
-  }
 
-  if(ws.availableForWrite(WsClientID) == false)
-    return;
+    if( get(aidx, 0) == false)
+    {
+      bSending = false;
+      ws.text(WsClientID, "data;{\"d\":[]}");
+      return;
+    }
+  }
 
   switch(m_nSending)
   {
