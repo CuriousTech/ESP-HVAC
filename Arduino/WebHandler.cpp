@@ -153,7 +153,6 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 void startServer()
 {
-  WiFi.hostname(hostName);
   wifi.autoConnect(hostName, ee.password); // Tries configured AP, then starts softAP mode for config
   hvac.m_notif = Note_Connecting;
 
@@ -193,6 +192,7 @@ void startServer()
 #endif
   });
 #endif
+
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // for quick commands
     parseParams(request);
     request->send ( 200, "text/html", "OK" );
@@ -218,6 +218,7 @@ void startServer()
     request->send_P(200, "text/html", page_chart);
 #endif
   });
+
   server.on("/styles.css", HTTP_GET, [](AsyncWebServerRequest *request){
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/styles.css");
@@ -226,6 +227,7 @@ void startServer()
 #endif
   });
 #endif // !REMOTE
+
   server.on( "/wifi", HTTP_GET|HTTP_POST, [](AsyncWebServerRequest *request)
   {
     parseParams(request);
@@ -245,6 +247,7 @@ void startServer()
     request->send(response);
 //#endif
   });
+  /*
   server.onNotFound([](AsyncWebServerRequest *request){
 //    request->send(404);
   });
@@ -252,7 +255,7 @@ void startServer()
   });
   server.onRequestBody([](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
   });
-
+*/
   // respond to GET requests on URL /heap
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", String(ESP.getFreeHeap()));
@@ -274,8 +277,8 @@ void startServer()
     hvac.disable();
     hvac.dayTotals(day() - 1); // save for reload
     ee.filterMinutes = hvac.m_filterMinutes;
-    if(eemem.check())
-      eemem.update();
+    if(ee.check())
+      ee.update();
     SPIFFS.end();
   });
 #endif
@@ -311,8 +314,7 @@ bool handleServer()
   MDNS.update();
 #endif
 
-  wifi.service();
-  if(wifi.connectNew())
+  if(wifi.service() == ws_connectSuccess)
   {
 //    Serial.println("WiFi connected");
 //    Serial.println("IP address: ");
@@ -356,6 +358,11 @@ void WscSend(String s) // remote WebSocket
 
 void secondsServer() // called once per second
 {
+  if(wifi.state() != ws_connected)
+    return;
+
+  ws.cleanupClients();
+
 #ifdef REMOTE
   if(hvac.tempChange())
   {
@@ -373,10 +380,6 @@ void secondsServer() // called once per second
      WscSend("cmd;{\"bin\":1}"); // forcast data
   }
 #else
-  if(wifi.state() != ws_connected)
-    return;
-
-  ws.cleanupClients();
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
     ws.textAll(s); // update anything changed
@@ -411,17 +414,29 @@ void secondsServer() // called once per second
       }
     }
   }
-  if(localFC.checkStatus())
+  int stat;
+  stat = localFC.checkStatus();
+  if(stat == FCS_Done)
   {
     display.m_fc.loadDate = now();
     display.m_bUpdateFcstIdle = true;
     display.m_bFcstUpdated = true;
   }
-  if(openWeatherFC.checkStatus())
+  else if(stat == FCS_Fail)
+   WsSend("alert;Forecast failed");
+  stat = openWeatherFC.checkStatus();
+  if(stat == FCS_Done)
   {
     display.m_fc.loadDate = now();
     display.m_bUpdateFcstIdle = true;
     display.m_bFcstUpdated = true;
+  }
+  else if(stat == FCS_Fail)
+   WsSend("alert;OpenWeatherMasp failed");
+
+  if(display.m_bFcstUpdated && WsRemoteID)
+  {
+     ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
   }
 #endif // !REMOTE
 }
@@ -434,7 +449,8 @@ void parseParams(AsyncWebServerRequest *request)
 #ifdef REMOTE
   int val;
 
-  for ( uint8_t i = 0; i < request->params(); i++ ) {
+  for ( uint8_t i = 0; i < request->params(); i++ )
+  {
     AsyncWebParameter* p = request->getParam(i);
     String s = request->urlDecode(p->value());
     int val = s.toInt();
