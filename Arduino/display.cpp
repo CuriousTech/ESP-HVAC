@@ -454,8 +454,9 @@ bool Display::drawForecast(bool bRef)
 
   int h = 0;
 
-  for(int i = fcOff; i < fcOff+rng; i++) // should be 41 data points (close to 300ms)
+  for(int i = fcOff; i < fcOff+rng && m_fc.Data[i] != -127; i++) // should be 41 data points (close to 300ms)
   {
+ 
     int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i] - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
