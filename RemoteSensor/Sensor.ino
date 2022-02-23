@@ -87,10 +87,11 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse jsonParse(jsonCallback);
 void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient jsonPush(jsonPushCallback);
+JsonClient jsonPush2(jsonPushCallback);
 
 UdpTime utime;
 
-eeMem eemem;
+eeMem ee;
 
 bool bPIRTrigger;
 uint16_t displayTimer;
@@ -251,12 +252,12 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           if(!strlen(psValue))
             break;
           strncpy(ee.szName, psValue, sizeof(ee.szName));
-          eemem.update();
+          ee.update();
           delay(1000);
           ESP.reset();
           break;
         case 4: // reset
-          eemem.update();
+          ee.update();
           delay(1000);
           ESP.reset();
           break;
@@ -483,7 +484,10 @@ void CallHost(reportReason r, String sStr)
   }
 
   IPAddress ip(ee.hostIP);
-  callQueue(ip, sUri, ee.hostPort);
+  if( jsonPush2.begin(ip, sUri.c_str(), ee.hostPort, false, false, NULL, NULL, 300) )
+  {
+    jsonPush2.addList(jsonListPush);
+  }
 }
 
 void sendTemp()
@@ -618,7 +622,7 @@ void alert(String txt)
 
 void setup()
 {
-  eemem.init();
+  ee.init();
   sensor.init(ee.e.bCF);
 
   // initialize dispaly
@@ -687,7 +691,7 @@ void setup()
   ArduinoOTA.setHostname(ee.szName);
   ArduinoOTA.begin();
   ArduinoOTA.onStart([]() {
-    eemem.update();
+    ee.update();
     sensor.setLED(0, false); // set it all to off
     temps.saveData();
     SPIFFS.end();
@@ -718,8 +722,7 @@ void loop()
     if(utime.check(ee.tz))
       temps.m_bValidDate = true;
   }
-  wifi.service();
-  if(wifi.connectNew())
+  if(wifi.service() == ws_connectSuccess)
   {
     MDNS.begin( ee.szName );
     MDNS.addService("iot", "tcp", serverPort);
@@ -771,7 +774,7 @@ void loop()
         CallHost(Reason_Setup, "");
       if(hour_save == 2 && ee.e.bUseTime)
         utime.start(); // update time daily at DST change
-      eemem.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
+      ee.update(); // update EEPROM if needed while we're at it (give user time to make many adjustments)
     }
 
     if(nWrongPass)
@@ -811,7 +814,7 @@ void loop()
         CallHost(Reason_Status, "");
     }
 
-    static uint8_t sendTimer = 10;
+    static uint8_t sendTimer = 20;
     if(--sendTimer == 0)
     {
       sendTimer = ee.sendRate;
