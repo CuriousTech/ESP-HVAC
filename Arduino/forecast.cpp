@@ -14,19 +14,21 @@ void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool 
     if(m_ac.connected())
       return;
     m_pfd = pfd;
-    m_bDone = false;
+    m_status = FCS_Busy;
     m_bCelcius = bCelcius;
     m_serverIP = serverIP;
     if(!m_ac.connect(serverIP, port))
-      m_bDone = true;
+      m_status = FCS_ConnectError;
 }
 
-bool Forecast::checkStatus()
+int Forecast::checkStatus()
 {
-  if(m_bDone == false)
-    return false;
-  m_bDone = false;
-  return true;
+  if(m_status == FCS_Done)
+  {
+    m_status = FCS_Idle;
+    return FCS_Done;
+  }
+  return m_status;
 }
 
 void Forecast::_onConnect(AsyncClient* client)
@@ -43,6 +45,7 @@ void Forecast::_onConnect(AsyncClient* client)
   m_ac.add(s.c_str(), s.length());
   m_pBuffer = new char[FCBUF_SIZE];
   if(m_pBuffer) m_pBuffer[0] = 0;
+  else m_status = FCS_MemoryError;
   m_bufIdx = 0;
 }
 
@@ -85,7 +88,7 @@ void Forecast::_onDisconnect(AsyncClient* client)
   (void)client;
 
   const char *p = m_pBuffer;
-  m_bDone = true;
+  m_status = FCS_Done;
   if(p == NULL)
     return;
   if(m_bufIdx == 0)
