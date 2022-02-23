@@ -18,12 +18,22 @@ struct forecastData
   int8_t Data[FC_CNT];
 };
 
+enum FCS_Status
+{
+  FCS_Idle,
+  FCS_Busy,
+  FCS_Done,
+  FCS_ConnectError,
+  FCS_Fail,
+  FCS_MemoryError,
+};
+
 class Forecast
 {
 public:
   Forecast(void);
   void start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool bCelcius);
-  bool checkStatus();
+  int checkStatus();
 private:
   void _onConnect(AsyncClient* client);
   void _onDisconnect(AsyncClient* client);
@@ -38,5 +48,6 @@ private:
   int m_bufIdx;
   bool m_bDone = false;
   bool m_bCelcius;
+  int m_status;
 };
 #endif // FORECAST_H
