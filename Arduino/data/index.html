@@ -5,23 +5,24 @@
 <title>ESP-HVAC</title>
 <link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
+body{width:360px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
 <script type="text/javascript"><!--
 var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
-var states = new Array('Idle','Cooling','HP Heat','NG Heat')
+var states = new Array('IDLE','COOLING','HP HEAT','NG HEAT')
 var ws
 var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.125/ws")
+//ws = new WebSocket("ws://192.168.31.46/ws")
 ws.onopen = function(evt){}
 ws.onclose = function(evt){alert("Connection closed.");}
 
 ws.onmessage = function(evt){
+ console.log(evt.data)
  lines = evt.data.split(';')
  event=lines[0]
  data=lines[1]
@@ -62,10 +63,10 @@ ws.onmessage = function(evt){
 	a.cyctimer.innerHTML=secsToTime(+Json.ct)
 	a.runtotal.value=secsToTime(+Json.rt)
 	a.filter.value=s2t(+Json.fm)
-	a.fan.innerHTML=fan?"Fan On":"Fan Off"
+	a.fan.innerHTML=fan?"FAN ON":"FAN OFF"
 	a.run.innerHTML=states[+Json.s]
 	hon=+Json.h
-	a.hm.innerHTML=hon?"Humidifier On":"Humidifier Off"
+	a.hm.innerHTML=hon?"HUMIDIFIER ON":"HUMIDIFIER OFF"
 	a.hmCell.setAttribute('class',hon?'style5':'style1')
 	setAtt()
  }
@@ -129,7 +130,7 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fan.innerHTML = "Fan "+((fanMode==1)?"On":(fan?"On":"Off"))
+a.fan.innerHTML = "FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
 
@@ -190,31 +191,13 @@ function setVars()
  ws.send(s)
 }
 
-function secsToTime( elap )
+function secsToTime(sec)
 {
-	d=0
-	m=0
-	h=Math.floor(elap/3600)
-	if(h >23)
-	{
-		d=Math.floor(h/24)
-		h-=(d*24)
-	}
-	else
-	{
-		m=Math.floor((elap-(h*3600))/60)
-		s=elap-(h*3600)-(m*60)
-		if(s<10) s='0'+s
-		if(h==0)
-		{
-			if( m < 10) m='  '+m
-			return '    '+m +':'+s
-		}
-	}
-	if(m<10) m='0'+m
-	if(h<10) h='  '+h
-	if(d) return d+'d '+h+'h'
-	return h+':'+m+':'+s
+ date=new Date(1970,0,1)
+ date.setSeconds(sec)
+ d=date.getDate()-1
+ d=d?d+'d ':''
+ return d+date.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function s2t(elap)
@@ -241,90 +224,90 @@ function t2s(v)
 }">
 <strong><em>CuriousTech HVAC Remote</em></strong><br>
 <font size=4>
-<p><table style="width: 350px; height: 22px;" cellspacing="0">
+<table style="width: 418px; height: 22px;" cellspacing="0">
 <tr>
-<td>In</td><td><div id="intemp" class="style2">in</div></td><td>&deg</td><td> &gt;</td>
-<td><div id="target" class="style2">trg</div></td><td>&deg &nbsp &nbsp &nbsp &nbsp &nbsp &nbsp </td>
-<td>Out</td><td><div id="outtemp" class="style2">out</div></td><td>&deg &nbsp &nbsp </td>
-<td> &nbsp &nbsp &nbsp </td><td></td>
+<td>IN</td><td><div id="intemp" class="style2">in</div></td><td>&deg;</td><td> &gt;</td>
+<td><div id="target" class="style2">trg</div></td><td>&deg; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
+<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td>&deg; &nbsp; &nbsp; </td>
+<td> &nbsp; &nbsp; &nbsp; </td>
 </tr>
 </table>
-</font></p>
-<table style="width: 350px" cellspacing="0" cellpadding="0">
+</font>
+<table style="width: 418px" cellspacing="0" cellpadding="0">
 <tr>
-<td id="fanCell"><div id="fan">Fan Off</div></td>
-<td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
-<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"></td>
-<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}">&nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
+<td id="fanCell"><div id="fan">FAN OFF</div></td>
+<td align="right"><input type="button" value="AUTO" name="fAuto" onClick="{setfan(0)}"></td>
+<td width="40"><input type="button" value=" ON " name="fOn" onClick="{setfan(1)}"></td>
+<td width=300><input type="button" value="CYCLE" name="fCyc" onClick="{setMode(4)}"> &nbsp; <input type="submit" value="SETTINGS" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
-<td align="right"><input type="button" value=" Off " name="mOff" onClick="{setMode(0)}"></td>
-<td><input type="button" value="Cool" name="mCool" onClick="{setMode(1)}"><input type="button" value="Heat " name="mHeat" onClick="{setMode(2)}"></td>
-<td><input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}"> &nbsp &nbsp &nbsp<input type="submit" value="  Chart  " align="right" onClick="window.location='/chart.html';">
+<td align="right"><input type="button" value=" OFF " name="mOff" onClick="{setMode(0)}"></td>
+<td><input type="button" value="COOL" name="mCool" onClick="{setMode(1)}"><input type="button" value="HEAT " name="mHeat" onClick="{setMode(2)}"></td>
+<td><input type="button" value=" AUTO " name="mAuto" onClick="{setMode(3)}"> &nbsp; &nbsp;<input type="submit" value="  CHART  " align="right" onClick="window.location='/chart.html';">
 </td>
 </tr>
 <tr>
-<td>&nbsp</td><td></td><td></td><td></td>
+<td>&nbsp;</td><td></td><td></td><td></td>
 </tr>
 <tr>
-<td>Cool Hi</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
+<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
 </tr>
 <tr>
-<td style="width: 81px">Cool Lo</td>
+<td style="width: 81px">COOL LO</td>
 <td style="width: 44px"><input type=text size=3 id="cooll" onChange="{setVars()}"></td>
 <td style="width: 200px"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
-<td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="Gas " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="Auto" name="hAuto" onClick="{setHeatMode(2)}"></td>
+<td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="GAS " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="AUTO" name="hAuto" onClick="{setHeatMode(2)}"></td>
 </tr>
 <tr>
-<td>Heat Hi</td>
+<td>HEAT HI</td>
 <td><input type=text size=3 id="heath" onChange="{setVars()}"></td>
 <td><input type="button" value="+1" onClick="{incHeat(1)}"></td>
 <td></td>
 </tr>
 <tr>
-<td>Heat Lo</td>
+<td>HEAT LO</td>
 <td><input type=text size=3 id="heatl" onChange="{setVars()}"></td>
 <td><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
-<td id="hmCell"><div id="hm">Humidifier Off</div></td>
+<td id="hmCell"><div id="hm"></div></td>
 </tr>
 <tr>
-<td></td>
+<td> &nbsp;</td>
 <td></td>
 <td></td>
 <td>
-<input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}">
+<input type="button" value="OFF " name="hmOff" onClick="{setHumidMode(0)}">
 </td>
 </tr>
 <tr>
-<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="  Go  " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
+<td>OVR TIME</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="  GO  " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
 <td>
-<input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"> Hi <input type=text size=2 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td>
+<input type="button" value="FAN " name="hmFan" onClick="{setHumidMode(1)}"> &nbsp; HI <input type=text size=2 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td>
 </tr>
 <tr>
-<td id="ovrCell">Ovrrd &Delta;</td>
+<td id="ovrCell">OVRRD &Delta;</td>
 <td><input type=text size=3 id="ovrtemp" onChange="{setVars()}"></td>
-<td><input type="button" value=" Stop " onClick="{cancelOvr()}">
+<td><input type="button" value="STOP" onClick="{cancelOvr()}">
 </td>
-<td><input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}">&nbsp; &nbsp; &nbsp;<input id="rh" size="2" disabled></td>
+<td><input type="button" value="RUN" name="hmRun" onClick="{setHumidMode(2)}">&nbsp; &nbsp; &nbsp; &nbsp; <input id="rh" size="2" disabled></td>
 </tr>
 <tr>
-<td>Freshen</td>
+<td>FRESHEN</td>
 <td><input type=text size=3 id="fantime" onChange="{setVars()}"></td>
-<td><input type="button" style="margin-left:200" value="  Go  " onClick="{setfan(3)}"></td>
-<td><input type="button" value=" A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> Lo <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
+<td><input type="button" style="margin-left:200" value="  GO  " onClick="{setfan(3)}"></td>
+<td><input type="button" value="  A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> &nbsp; LO <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
 </td>
 </tr>
 <tr>
-<td>Away &Delta;</td><td><input type=text size=3 id="awaytemp" onChange="{setVars()}"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
-<td><input type="button" value=" A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
+<td>AWAY &Delta;</td><td><input type=text size=3 id="awaytemp" onChange="{setVars()}"></td><td><input type="button" value="AWAY" name="away" onClick="{setAway()}"></td>
+<td><input type="button" value="  A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
 </tr>
-</table><br/>
-<table style="width: 350px">
+</table>
+<table style="width: 418px">
 <tr>
-<td>Cycle</td><td><div id="cyctimer" style="width: 70px">0</div></td>
-<td>Total</td><td><input type="button" id ="runtotal" value="0" onClick="{rstTot()}"></td>
-<td>Filter</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
+<td>CYCLE</td><td><div id="cyctimer" style="width: 70px">0</div></td>
+<td>TOTAL</td><td><input type="button" id ="runtotal" value="0" onClick="{rstTot()}"></td>
+<td>&nbsp; FILTER</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
 <small>&copy 2016 CuriousTech.net</small>
