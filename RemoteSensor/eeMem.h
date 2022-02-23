@@ -14,33 +14,7 @@ struct eflags
   uint8_t res:1;
 };
 
-
-struct eeSet // EEPROM backed data
-{
-  uint16_t  size;          // if size changes, use defauls
-  uint16_t  sum;           // if sum is diiferent from memory struct, write
-  char      szSSID[32];
-  char      szSSIDPassword[64];
-  int8_t    tz;            // Timezone offset
-  eflags    e;
-  char      szName[32];
-  uint32_t  sensorID;
-  int8_t    tempCal;
-  uint16_t  sendRate;
-  uint16_t  logRate;
-  char      szControlPassword[32];
-  uint8_t   hostIP[4];
-  uint16_t  hostPort;
-  uint8_t   hvacIP[4];
-  uint32_t  time_off;
-  uint32_t  sleep;
-  uint32_t  priSecs;
-  uint8_t   pirPin;
-  uint16_t  wAlertLevel[16]; // L/H
-  uint8_t   res[32];
-};
-
-extern eeSet ee;
+#define EESIZE (offsetof(eeMem, end) - offsetof(eeMem, size) )
 
 class eeMem
 {
@@ -50,8 +24,32 @@ public:
   void update(void);
 private:
   uint16_t Fletcher16( uint8_t* data, int count);
+public:
+  uint16_t  size = EESIZE;          // if size changes, use defauls
+  uint16_t  sum = 0xAAAA;           // if sum is diiferent from memory struct, write
+  char      szSSID[32] = "";
+  char      szSSIDPassword[64] = "";
+  int8_t    tz = -5;               // Timezone offset
+  eflags    e = {0,1,1,1,0,0,0}; // PirEn, bPIR, bCall, bCF, bUseTime, bEnableOLED, res
+  char      szName[32] = "Sensor1";
+  uint32_t  sensorID = '1SNS';
+  int8_t    tempCal = 0;
+  uint16_t  sendRate = 15;
+  uint16_t  logRate = 60;
+  char      szControlPassword[32] = "password";
+  uint8_t   hostIP[4] = {192,168,31,100};
+  uint16_t  hostPort = 80;
+  uint8_t   hvacIP[4] = {192,168,31,46};
+  uint32_t  time_off = 0;
+  uint32_t  sleep = 30;
+  uint32_t  priSecs = 60*5;
+  uint8_t   pirPin = 12;
+  uint16_t  wAlertLevel[16] =  {320, 1000, 0, 900, 0, 1000, 0, 10, 0, 20, 0, 1000, 0, 1000, 0, 1000}; // alert levels L/H
+  int8_t    rhCal = 0;
+  uint8_t   res[31];
+  uint8_t   end;
 };
 
-extern eeMem eemem;
+extern eeMem ee;
 
 #endif // EEMEM_H
