@@ -16,7 +16,7 @@ struct Line{
   int16_t y2;
 };
 
-typedef union gflags
+union gflags
 {
   uint32_t u;
   struct
@@ -29,7 +29,7 @@ typedef union gflags
   };
 };
 
-typedef union temps
+union temps
 {
   uint32_t u;
   struct
@@ -40,7 +40,7 @@ typedef union temps
   };
 };
 
-typedef union temps2
+union temps2
 {
   uint32_t u;
   struct
