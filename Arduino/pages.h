@@ -6,19 +6,19 @@ const char page_index[] PROGMEM = R"rawliteral(
 <title>ESP-HVAC</title>
 <link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
-body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
+body{width:360px;display:block;font-family: Arial, Helvetica, sans-serif;}
 </style>
 
 <script type="text/javascript"><!--
 var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
-var states = new Array('Idle','Cooling','HP Heat','NG Heat')
+var states = new Array('IDLE','COOLING','HP HEAT','NG HEAT')
 var ws
 var myToken = localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.125/ws")
+//ws = new WebSocket("ws://192.168.31.46/ws")
 ws.onopen = function(evt){}
 ws.onclose = function(evt){alert("Connection closed.");}
 
@@ -64,10 +64,10 @@ ws.onmessage = function(evt){
   a.cyctimer.innerHTML=secsToTime(+Json.ct)
   a.runtotal.value=secsToTime(+Json.rt)
   a.filter.value=s2t(+Json.fm)
-  a.fan.innerHTML=fan?"Fan On":"Fan Off"
+  a.fan.innerHTML=fan?"FAN ON":"FAN OFF"
   a.run.innerHTML=states[+Json.s]
   hon=+Json.h
-  a.hm.innerHTML=hon?"Humidifier On":"Humidifier Off"
+  a.hm.innerHTML=hon?"HUMIDIFIER ON":"HUMIDIFIER OFF"
   a.hmCell.setAttribute('class',hon?'style5':'style1')
   setAtt()
  }
@@ -131,7 +131,7 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fan.innerHTML = "Fan "+((fanMode==1)?"On":(fan?"On":"Off"))
+a.fan.innerHTML = "FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
 
@@ -192,31 +192,13 @@ function setVars()
  ws.send(s)
 }
 
-function secsToTime( elap )
+function secsToTime(sec)
 {
-  d=0
-  m=0
-  h=Math.floor(elap/3600)
-  if(h >23)
-  {
-    d=Math.floor(h/24)
-    h-=(d*24)
-  }
-  else
-  {
-    m=Math.floor((elap-(h*3600))/60)
-    s=elap-(h*3600)-(m*60)
-    if(s<10) s='0'+s
-    if(h==0)
-    {
-      if( m < 10) m='  '+m
-      return '    '+m +':'+s
-    }
-  }
-  if(m<10) m='0'+m
-  if(h<10) h='  '+h
-  if(d) return d+'d '+h+'h'
-  return h+':'+m+':'+s
+ date=new Date(1970,0,1)
+ date.setSeconds(sec)
+ d=date.getDate()-1
+ d=d?d+'d ':''
+ return d+date.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function s2t(elap)
@@ -243,90 +225,90 @@ function t2s(v)
 }">
 <strong><em>CuriousTech HVAC Remote</em></strong><br>
 <font size=4>
-<p><table style="width: 350px; height: 22px;" cellspacing="0">
+<table style="width: 418px; height: 22px;" cellspacing="0">
 <tr>
-<td>In</td><td><div id="intemp" class="style2">in</div></td><td>&deg</td><td> &gt;</td>
-<td><div id="target" class="style2">trg</div></td><td>&deg &nbsp &nbsp &nbsp &nbsp &nbsp &nbsp </td>
-<td>Out</td><td><div id="outtemp" class="style2">out</div></td><td>&deg &nbsp &nbsp </td>
-<td> &nbsp &nbsp &nbsp </td><td></td>
+<td>IN</td><td><div id="intemp" class="style2">in</div></td><td>&deg;</td><td> &gt;</td>
+<td><div id="target" class="style2">trg</div></td><td>&deg; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
+<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td>&deg; &nbsp; &nbsp; </td>
+<td> &nbsp; &nbsp; &nbsp; </td>
 </tr>
 </table>
-</font></p>
-<table style="width: 350px" cellspacing="0" cellpadding="0">
+</font>
+<table style="width: 418px" cellspacing="0" cellpadding="0">
 <tr>
-<td id="fanCell"><div id="fan">Fan Off</div></td>
-<td align="right"><input type="button" value="Auto" name="fAuto" onClick="{setfan(0)}"></td>
-<td width="40"><input type="button" value=" On " name="fOn" onClick="{setfan(1)}"></td>
-<td width=300 align="right"><input type="button" value="Cycle" name="fCyc" onClick="{setMode(4)}">&nbsp &nbsp <input type="submit" value="Settings" onClick="window.location='/settings';"></td>
+<td id="fanCell"><div id="fan">FAN OFF</div></td>
+<td align="right"><input type="button" value="AUTO" name="fAuto" onClick="{setfan(0)}"></td>
+<td width="40"><input type="button" value=" ON " name="fOn" onClick="{setfan(1)}"></td>
+<td width=300><input type="button" value="CYCLE" name="fCyc" onClick="{setMode(4)}"> &nbsp; <input type="submit" value="SETTINGS" onClick="window.location='/settings';"></td>
 </tr>
 <tr>
 <td id="runCell"><div id="run">Cooling</div></td>
-<td align="right"><input type="button" value=" Off " name="mOff" onClick="{setMode(0)}"></td>
-<td><input type="button" value="Cool" name="mCool" onClick="{setMode(1)}"><input type="button" value="Heat " name="mHeat" onClick="{setMode(2)}"></td>
-<td><input type="button" value="Auto" name="mAuto" onClick="{setMode(3)}"> &nbsp &nbsp &nbsp<input type="submit" value="  Chart  " align="right" onClick="window.location='/chart.html';">
+<td align="right"><input type="button" value=" OFF " name="mOff" onClick="{setMode(0)}"></td>
+<td><input type="button" value="COOL" name="mCool" onClick="{setMode(1)}"><input type="button" value="HEAT " name="mHeat" onClick="{setMode(2)}"></td>
+<td><input type="button" value=" AUTO " name="mAuto" onClick="{setMode(3)}"> &nbsp; &nbsp;<input type="submit" value="  CHART  " align="right" onClick="window.location='/chart.html';">
 </td>
 </tr>
 <tr>
-<td>&nbsp</td><td></td><td></td><td></td>
+<td>&nbsp;</td><td></td><td></td><td></td>
 </tr>
 <tr>
-<td>Cool Hi</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
+<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
 </tr>
 <tr>
-<td style="width: 81px">Cool Lo</td>
+<td style="width: 81px">COOL LO</td>
 <td style="width: 44px"><input type=text size=3 id="cooll" onChange="{setVars()}"></td>
 <td style="width: 200px"><input type="button" value=" -1" onClick="{incCool(-1)}"></td>
-<td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="Gas " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="Auto" name="hAuto" onClick="{setHeatMode(2)}"></td>
+<td><input type="button" value=" HP " name="hHP" onClick="{setHeatMode(0)}"><input type="button" value="GAS " name="hGas" onClick="{setHeatMode(1)}"><input type="button" value="AUTO" name="hAuto" onClick="{setHeatMode(2)}"></td>
 </tr>
 <tr>
-<td>Heat Hi</td>
+<td>HEAT HI</td>
 <td><input type=text size=3 id="heath" onChange="{setVars()}"></td>
 <td><input type="button" value="+1" onClick="{incHeat(1)}"></td>
 <td></td>
 </tr>
 <tr>
-<td>Heat Lo</td>
+<td>HEAT LO</td>
 <td><input type=text size=3 id="heatl" onChange="{setVars()}"></td>
 <td><input type="button" value=" -1" onClick="{incHeat(-1)}"></td>
-<td id="hmCell"><div id="hm">Humidifier Off</div></td>
+<td id="hmCell"><div id="hm"></div></td>
 </tr>
 <tr>
-<td></td>
+<td> &nbsp;</td>
 <td></td>
 <td></td>
 <td>
-<input type="button" value=" Off " name="hmOff" onClick="{setHumidMode(0)}">
+<input type="button" value="OFF " name="hmOff" onClick="{setHumidMode(0)}">
 </td>
 </tr>
 <tr>
-<td>ovr Time</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="  Go  " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
+<td>OVR TIME</td><td><input type=text size=3 id="ovrtime"></td><td><input type="button" value="  GO  " onClick="{localStorage.setItem('myStoredText3', a.ovrtemp.value);setOvrTemp()}"></td>
 <td>
-<input type="button" value="Fan" name="hmFan" onClick="{setHumidMode(1)}"> Hi <input type=text size=2 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td>
+<input type="button" value="FAN " name="hmFan" onClick="{setHumidMode(1)}"> &nbsp; HI <input type=text size=2 id="humidh" onchange="{setVar('humidh',(+this.value*10).toFixed())}"></td>
 </tr>
 <tr>
-<td id="ovrCell">Ovrrd &Delta;</td>
+<td id="ovrCell">OVRRD &Delta;</td>
 <td><input type=text size=3 id="ovrtemp" onChange="{setVars()}"></td>
-<td><input type="button" value=" Stop " onClick="{cancelOvr()}">
+<td><input type="button" value="STOP" onClick="{cancelOvr()}">
 </td>
-<td><input type="button" value="Run" name="hmRun" onClick="{setHumidMode(2)}">&nbsp; &nbsp; &nbsp;<input id="rh" size="2" disabled></td>
+<td><input type="button" value="RUN" name="hmRun" onClick="{setHumidMode(2)}">&nbsp; &nbsp; &nbsp; &nbsp; <input id="rh" size="2" disabled></td>
 </tr>
 <tr>
-<td>Freshen</td>
+<td>FRESHEN</td>
 <td><input type=text size=3 id="fantime" onChange="{setVars()}"></td>
-<td><input type="button" style="margin-left:200" value="  Go  " onClick="{setfan(3)}"></td>
-<td><input type="button" value=" A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> Lo <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
+<td><input type="button" style="margin-left:200" value="  GO  " onClick="{setfan(3)}"></td>
+<td><input type="button" value="  A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> &nbsp; LO <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
 </td>
 </tr>
 <tr>
-<td>Away &Delta;</td><td><input type=text size=3 id="awaytemp" onChange="{setVars()}"></td><td><input type="button" value="Away" name="away" onClick="{setAway()}"></td>
-<td><input type="button" value=" A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
+<td>AWAY &Delta;</td><td><input type=text size=3 id="awaytemp" onChange="{setVars()}"></td><td><input type="button" value="AWAY" name="away" onClick="{setAway()}"></td>
+<td><input type="button" value="  A2 " name="hmAuto2" onClick="{setHumidMode(4)}"></td>
 </tr>
-</table><br/>
-<table style="width: 350px">
+</table>
+<table style="width: 418px">
 <tr>
-<td>Cycle</td><td><div id="cyctimer" style="width: 70px">0</div></td>
-<td>Total</td><td><input type="button" id ="runtotal" value="0" onClick="{rstTot()}"></td>
-<td>Filter</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
+<td>CYCLE</td><td><div id="cyctimer" style="width: 70px">0</div></td>
+<td>TOTAL</td><td><input type="button" id ="runtotal" value="0" onClick="{rstTot()}"></td>
+<td>&nbsp; FILTER</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
 <small>&copy 2016 CuriousTech.net</small>
@@ -350,7 +332,6 @@ body{width:340px;display:block;font-family: Arial, Helvetica, sans-serif;}
 
 var Json,ovrActive,rmtMode
 var a=document.all
-var states = new Array('Idle','Cooling','HP Heat','NG Heat')
 snd=new Array()
 var ws
 function startEvents()
@@ -438,31 +419,13 @@ function setSnd(n,v)
   setSenders()
 }
 
-function secsToTime( elap )
+function secsToTime(sec)
 {
-  d=0
-  m=0
-  h=Math.floor(elap/3600)
-  if(h >23)
-  {
-    d=Math.floor(h/24)
-    h-=(d*24)
-  }
-  else
-  {
-    m=Math.floor((elap-(h*3600))/60)
-    s=elap-(h*3600)-(m*60)
-    if(s<10) s='0'+s
-    if(h==0)
-    {
-      if( m < 10) m='  '+m
-      return '    '+m +':'+s
-    }
-  }
-  if(m<10) m='0'+m
-  if(h<10) h='  '+h
-  if(d) return d+'d '+h+'h'
-  return h+':'+m+':'+s
+ date=new Date(1970,0,1)
+ date.setSeconds(sec)
+ d=date.getDate()-1
+ d=d?d+'d ':''
+ return d+date.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function s2t(elap)
@@ -495,7 +458,7 @@ function t2s(v)
 <td style="width: 90px"><input type=text size=4 id="thresh" onchange="{setVar('cyclethresh',(+this.value*10).toFixed())}"></td>
 <td style="width: 20px"></td><td><input type="submit" value=" Home " onClick="window.location='/iot';"></td></tr>
 <tr><td>Heat Thresh</td><td><input type=text size=4 id="heatthr" onchange="{setVar('eheatthresh',+this.value)}"></td><td></td><td><input type="submit" value=" Chart " onClick="window.location='/chart.html';"></td></tr>
-<tr><td>AC &#x2202 Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
+<tr><td>AC &#x2202; Limit</td><td><input type=text size=4 id="acth" onchange="{setVar('dl',(+this.value*10).toFixed())}"></td><td></td><td></td></tr>
 <tr><td>Fan Pre</td><td><input type=text size=4 id="fanpre" onchange="{setVar('fanpretime',t2s(this.value))}"></td><td>Post</td><td><input type=text size=3 id="fandelay" onchange="{setVar('fanpostdelay',t2s(this.value))}"></td></tr>
 <tr><td>cycle Min</td><td><input type=text size=4 id="cycmin" onchange="{setVar('cyclemin',t2s(this.value))}"></td><td>Max</td><td><input type=text size=3 id="cycmax" onchange="{setVar('cyclemax',t2s(this.value))}"></td></tr>
 <tr><td>Idle Min</td><td><input type=text size=4 id="idlemin" onchange="{setVar('idlemin',t2s(this.value))}"></td><td>PKW</td><td><input type=text size=3 id="ppkwh" onchange="{setVar('ppk',(+this.value*1000).toFixed())}"></td></tr>
@@ -512,7 +475,6 @@ function t2s(v)
 <tr id="snd5" style="visibility:collapse"><td id="s5"><input type="submit" ID="shr5" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri5" onClick="{setSnd(5,0)}"><input type="button" value="En" id="snda5" onClick="{setSnd(5,1)}"></td><td id="rt5" colspan=2></td><td></td></tr>
 <tr id="snd6" style="visibility:collapse"><td id="s6"><input type="submit" ID="shr6" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri6" onClick="{setSnd(6,0)}"><input type="button" value="En" id="snda6" onClick="{setSnd(6,1)}"></td><td id="rt6" colspan=2></td><td></td></tr>
 </table>
-<p>
 <table style="width: 290px">
 <tr><td>Password</td><td><input id="myToken" name="access_token" type=text size=40 placeholder="password" style="width: 98px"
  onChange="{
@@ -521,8 +483,8 @@ function t2s(v)
 }">
 </td>
 </tr>
-</table></p>
-<small>&copy 2016 CuriousTech.net</small>
+</table>
+<small>&copy; 2016 CuriousTech.net</small>
 </body>
 </html>
 )rawliteral";
@@ -536,37 +498,35 @@ const char page_chart[] PROGMEM = R"rawliteral(
 <link rel="stylesheet" type="text/css" href="styles.css">
 <style type="text/css">
 div{
-border-radius: 5px;
-margin-bottom: 5px;
+border-radius: 1px;
+margin-bottom: 1px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -ms-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -o-linear-gradient(top,#ffffff,#a0a0a0);
-background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
-background-image: linear-gradient(top,#ffffff,#a0a0a0);
+background-image: -moz-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -ms-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -o-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: -webkit-linear-gradient(top,#b0b0b0,#a0a0a0);
+background-image: linear-gradient(top,#b0b0b0,#a0a0a0);
 background-clip: padding-box;
 }
-
-.dropdown {
-    position: relative;
-    display: inline-block;
+.dropdown{
+ position: relative;
+ display: inline-block;
 }
-.btn {
-    background-color: #50a0ff;
-    padding: 1px;
-    font-size: 12px;
-    min-width: 50px;
-    border: none;
+.btn{
+ background-color: #a0a0a0;
+ padding: 1px;
+ font-size: 12px;
+ min-width: 50px;
+ border: none;
 }
-.dropdown-content {
-    display: none;
-    position: absolute;
-    background-color: #919191;
-    min-width: 40px;
-    min-height: 1px;
-    z-index: 1;
+.dropdown-content{
+ display: none;
+ position: absolute;
+ min-width: 40px;
+ min-height: 1px;
+ z-index: 1;
 }
-.dropdown:hover .dropdown-content {display: block;}
+.dropdown:hover .dropdown-content{display: block;}
 body{background:silver;width:700px;display:block;text-align:center;font-family: Arial, Helvetica, sans-serif;}}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
@@ -734,14 +694,14 @@ function draw(){
   for(var i=getMinY();i<getMaxY();i+=(yRange/8))
   c.fillText((i/10).toFixed(1),graph.width()-6,getYPixel(i))
 
-  c.fillText('Temp', graph.width()-6,6)
+  c.fillText('TEMP', graph.width(),6)
   c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"slategray")
   c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
  // cycle
   c.fillText(cyc,graph.width()-xPadding-7,h-8)
 
   c.fillStyle="green"
-  c.fillText('Rh', xPadding-6, 6)
+  c.fillText('RH', xPadding-6, 6)
 
   // rh scale
   for(i=0;i<10;i++){
@@ -787,28 +747,28 @@ function draw(){
   if(arr[0].length>6)
   {
   if(drawMode&4) doLines('rgba(0,0,255,0.5)',6)
-  if(drawMode&8) doLines('rgba(200,180,0,0.7)',7)
-  if(drawMode&16) doLines('rgba(100,100,50,0.6)',8)
+  if(drawMode&8) doLines('rgba(255,255,255,0.7)',7)
+  if(drawMode&16) doLines('rgba(0,0,50,0.6)',8)
   }
   c.textAlign="left"
   y=graph.height()
   c.fillStyle='#000'
-  c.fillText('Temp',2,y-=10)
+  c.fillText('TEMP',2,y-=10)
   c.fillStyle='#0f0'
-  c.fillText('Rh',2,y-=10)
+  c.fillText('RH',2,y-=10)
   c.fillStyle='rgba(0,0,255)'
   c.fillText(snd[0][4],2,y-=10)
-  c.fillStyle='rgba(200,180,0)'
+  c.fillStyle='rgba(255,255,255)'
   y-=10
   if(snd[1]) c.fillText(snd[1][4],2,y)
-  c.fillStyle='rgba(100,100,50)'
+  c.fillStyle='rgba(0,0,50)'
   y-=10
   if(snd[2]) c.fillText(snd[2][4],2,y)
   c.fillStyle='#fa0'
-  c.fillText('Out',2,y-=10)
+  c.fillText('OUT',2,y-=10)
 
   // out temp
-  if(drawMode&32) doLines('#fa0',5,'Out')
+  if(drawMode&32) doLines('#fa0',5,'OUT')
   if(drawMode&2){
   c.strokeStyle = '#0f0'
   c.beginPath()
@@ -958,30 +918,13 @@ function setVar(varName,value)
  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
-function secsToTime(elap)
+function secsToTime(sec)
 {
-  dy=0
-  m=0
-  h=Math.floor(elap/3600)
-  if(h>23)
-  {
-    dy=Math.floor(h/24)
-    h-=(dy*24)
-    elap-=dy*3600*24
-  }
-  
-  m=Math.floor((elap-(h*3600))/60)
-  s=elap-(h*3600)-(m*60)
-  if(s<10) s='0'+s
-  if(h==0&&dy==0)
-  {
-    if(m<10) m='  '+m
-    return '    '+m +':'+s
-  }
-  if(m<10) m='0'+m
-  if(h<10) h='  '+h
-  if(dy) return dy+'d '+h+':'+m+'m'
-  return h+':'+m+':'+s
+ dt=new Date(1970,0,1)
+ dt.setSeconds(sec)
+ d=dt.getDate()-1
+ d=d?d+'d ':''
+ return d+dt.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function draw_bars()
@@ -1110,7 +1053,7 @@ function draw_scale(ar,w,h,o,p,ct)
       y: (o+h-20)-mbh,
       y2: (o+h),
       x2: x+ctx.lineWidth*1.5,
-      tip: 'AC'+secsToTime(ar[i][0]),
+      tip: 'AC\t\t'+secsToTime(ar[i][0]),
       tip2: 'NG\t\t'+secsToTime(ar[i][1]),
       tip3: 'FAN\t\t'+secsToTime(ar[i][2]),
       tip4: 'Elec   $'+costE.toFixed(2),
@@ -1170,7 +1113,7 @@ function drawFC(){
   // right legend
   for(i=min;i<max;i+=(yRange/8))
     c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
-  c.fillText('Out',graph2.width()-6,6)
+  c.fillText('OUT',graph2.width()-6,6)
 
   c.textAlign="left"
   if(iMax==iMin) iMax+=1
@@ -1367,18 +1310,18 @@ function setShift(n)
 <div id="wrapper2">
 <canvas id="chart" width="700" height="200"></canvas>
 </div>
-<table><tr>
-<td>Shift:<input type=text size=1 id="fco" onchange="setShift(+this.value)"> Range:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
- Low:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
- High:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
- Thresh:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
+<table width=700><tr>
+<td>SHIFT:<input type=text size=1 id="fco" onchange="setShift(+this.value)">&nbsp; RANGE:<input type=text size=1 id="fcr" onchange="{fcr=+this.value;drawFC()}">
+&nbsp; LOW:<input type=text size=1 id="lo" onchange="{iMin=(+this.value)*10;drawFC()}">
+&nbsp; HIGH:<input type=text size=1 id="hi" onchange="{iMax=(+this.value)*10;drawFC()}">
+&nbsp; THRESH:<input type=text size=1 id="ct" onchange="{ct=(+this.value)*10;drawFC()}">
 </td><td>&nbsp;
 <div class="dropdown">
-  <button class="dropbtn">Mode:</button>
+  <button class="dropbtn">MODE:</button>
   <div class="dropdown-content">
-  <button class="btn" id="s0" onclick="setSched(0)">Forecast</button>
-  <button class="btn" id="s1" onclick="setSched(1)">Sine</button>
-  <button class="btn" id="s2" onclick="setSched(2)">Flat</button>
+  <button class="btn" id="s0" onclick="setSched(0)">FORECAST</button>
+  <button class="btn" id="s1" onclick="setSched(1)">SINE</button>
+  <button class="btn" id="s2" onclick="setSched(2)">FLAT</button>
   </div>
 </div>
 </td>
@@ -1390,6 +1333,64 @@ function setShift(n)
 </body>
 </html>
 )rawliteral";
+
+//////////////////////
+const char page_styles[] PROGMEM = R"rawliteral(
+table{
+border-radius: 2px;
+margin-bottom: 2px;
+box-shadow: 4px 4px 10px #000000;
+background-image: -moz-linear-gradient(top,#a0a0a0,#5e5e5e);
+background-image: -ms-linear-gradient(top,#a0a0a0,#5e5e5e);
+background-image: -o-linear-gradient(top,#a0a0a0,#5e5e5e);
+background-image: -webkit-linear-gradient(top,#a0a0a0,#5e5e5e);
+background-image: linear-gradient(top,#a0a0a0,#5e5e5e);
+background-clip: padding-box;
+}
+input{
+border-radius: 2px;
+margin-bottom: 2px;
+box-shadow: 4px 4px 10px #000000;
+background-image: -moz-linear-gradient(top,#efffff,#a0a0a0);
+background-image: -ms-linear-gradient(top,#efffff,#a0a0a0);
+background-image: -o-linear-gradient(top,#efffff,#a0a0a0);
+background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
+background-image: linear-gradient(top,#efffff,#a0a0a0);
+background-clip: padding-box;
+}
+.style1{border-width: 0;}
+.style2{text-align: left;}
+.style3{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 10px #000000;
+background-image: -moz-linear-gradient(top,#4f4f4f,#50a0a0);
+background-image: -ms-linear-gradient(top,#4f4f4f,#50a0a0);
+background-image: -o-linear-gradient(top,#4f4f4f,#50a0a0);
+background-image: -webkit-linear-gradient(top,#4f4f4f,#50a0a0);
+background-image: linear-gradient(top,#4f4f4f,#50a0a0);
+background-clip: padding-box;
+}
+.style4{
+border-radius: 5px;
+margin-bottom: 5px;
+box-shadow: 2px 2px 10px #000000;
+background-image: -moz-linear-gradient(top,#4f4f4f,#50a0ff);
+background-image: -ms-linear-gradient(top,#4f4f4f,#50a0ff);
+background-image: -o-linear-gradient(top,#4f4f4f,#50a0ff);
+background-image: -webkit-linear-gradient(top,#4f4f4f,#50a0ff);
+background-image: linear-gradient(top,#4f4f4f,#50a0ff);
+background-clip: padding-box;
+}
+.style5 {
+border-radius: 1px;
+box-shadow: 2px 2px 10px #000000;
+background-image: -moz-linear-gradient(top,#00e0e0,#00a0e0);
+background-image: -ms-linear-gradient(top,#00e0e0,#00a0e0);
+background-image: -o-linear-gradient(top,#00e0e0,#00a0e0);
+background-image: -webkit-linear-gradient(top,#00f0f0,#00a0a0);
+background-image: linear-gradient(top,#00e0e0,#00a0e0);
+})rawliteral";
 
 const uint8_t favicon[] PROGMEM = {
   0x1F, 0x8B, 0x08, 0x08, 0x70, 0xC9, 0xE2, 0x59, 0x04, 0x00, 0x66, 0x61, 0x76, 0x69, 0x63, 0x6F, 
