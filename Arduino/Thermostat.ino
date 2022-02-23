@@ -21,8 +21,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.19 and esp8266 SDK 3.0.1  1MB (FS:64Kb)
-// ESP32: (1.0.6) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT), QIO, Default 4MB with spiffs
+// Build with Arduino IDE 1.8.19
+//  ESP8266 (3.0.1)  1MB (FS:64Kb)
+//  ESP32: (1.0.6 or 2.0.2) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT) or any speed, QIO, Default 4MB with spiffs
 // For remote unit, uncomment #define REMOTE in HVAC.h
 
 #include "WiFiManager.h"
@@ -61,7 +62,7 @@ SOFTWARE.
 //------------------------
 
 Display display;
-eeMem eemem;
+eeMem ee;
 
 HVAC hvac;
 
@@ -87,9 +88,11 @@ DallasTemperature ds18(&oneWire);
 AM2320 am;
 #endif
 
-UdpTime utime;
+UdpTime uTime;
 
 Encoder rot(ENC_B, ENC_A);
+
+extern void WsSend(String s);
 
 bool EncoderCheck()
 {
@@ -127,7 +130,7 @@ void setup()
   Serial.swap(); //swap to gpio 15/13
 #endif
 
-  eemem.init();
+  ee.init();
   startServer();
   hvac.init();
   display.init();
@@ -159,14 +162,14 @@ void loop()
 
   while( EncoderCheck() );
   display.checkNextion();  // check for touch, etc.
-  if(utime.check(ee.tz))
+  if(uTime.check(ee.tz))
   {
-    hvac.m_DST = utime.getDST();
+    hvac.m_DST = uTime.getDST();
     if(lastDay == -1)
       lastDay = day() - 1;
   }
   if(handleServer()) // handles mDNS, web (returns true when connection made)
-    utime.start();
+    uTime.start();
 #ifdef SHT21_H
   if(sht.service())
   {
@@ -247,7 +250,7 @@ void loop()
       {
         hour_save = hour();
         if(hour_save == 2)
-          utime.start(); // update time daily at DST change
+          uTime.start(); // update time daily at DST change
         if(hour_save == 0 && year() > 2020)
         {
           if(lastDay != -1)
@@ -265,12 +268,12 @@ void loop()
             hvac.monthTotal(m, -1);
           }
         }
-        if(eemem.check())
+        if(ee.check())
         {
           if((hour_save & 1) == 0) // every other hour
           {
             ee.filterMinutes = hvac.m_filterMinutes;
-            eemem.update();
+            ee.update();
           }
         }
       }
