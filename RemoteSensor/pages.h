@@ -71,7 +71,7 @@ console.log(evt.data)
     a.CH.value=nms[d.ch]
     a.CH.setAttribute('style',d.ch?'color:red':'')
     bSi=+d.si
-  a.SIL.setAttribute('style',bSi?'color:red':'')
+    a.SIL.setAttribute('style',bSi?'color:red':'')
     break
   case 'state':
     dt=new Date(d.t*1000)
@@ -569,7 +569,7 @@ function draw4(){ // 52 weeks
   cd=new Date()
   oneJan=new Date(cd.getFullYear(),0,1)
   days=Math.floor((cd-oneJan)/(24*60*60*1000))
-  wks=Math.ceil((cd.getDay()+1+days)/7)-1
+  wks=Math.ceil((cd.getDay()+1+days)/7)
   draw_scale(arrW,graph.width()-40,graph.height()-yPad,1,wks)
 }
 
