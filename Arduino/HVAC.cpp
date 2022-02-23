@@ -55,7 +55,7 @@ void HVAC::init()
 
 #ifndef REMOTE
   m_Sensor[0].IP= 192 | 168<<8 | 1<<24; // Setup sensor 0 as internal sensor
-  m_Sensor[0].ID = 'NTNI';
+  m_Sensor[0].ID = 0x4e544e49; // 'NTNI';
   m_Sensor[0].flags = SNS_EN;
 #endif
 }
@@ -889,7 +889,7 @@ void HVAC::calcTargetTemp(int mode)
 // Current control settings modified since last call
 String HVAC::settingsJsonMod()
 {
-  static eeSet eeOld;
+  static uint16_t sum;
   bool bSend = false;
   static int8_t AutoMode, FanMode, RemoteFlags, ovrTemp;
 
@@ -899,19 +899,19 @@ String HVAC::settingsJsonMod()
     bSend = true;
   }
 
-  if( memcmp(&eeOld, &ee, sizeof(eeSet)) )
+  if( sum != ee.getSum() )
   {
-    memcpy(&eeOld, &ee, sizeof(eeSet));
+    sum = ee.getSum();
     bSend = true;
   }
   return bSend ? settingsJson() : "";
 }
 #endif
 
-#ifdef REMOTE
-#define min(a,b) ((a) < (b) ? (a) : (b)) // Why???
+//#ifdef REMOTE  // Uncomment for ESP32 1.0.6
+#define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b))
-#endif
+//#endif
 
 // User:Set new control temp
 void HVAC::setTemp(int mode, int16_t Temp, int hl)
@@ -997,7 +997,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     oldTemp = m_localTemp;
     oldRh = m_localRh;
     secs = now();
-    sendCmd("rmtname", '1TMR'); // RMT1
+    sendCmd("rmtname", 0x31544d52); // RMT1
     sendCmd("rmttemp", m_localTemp);
     sendCmd("rmtrh", m_localRh);
   }
@@ -1229,6 +1229,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
   if(ee.b.bLock && c!= 51)
     return;
   int i;
+  uint8_t oldFlags;
 
   switch( c )
   {
@@ -1366,7 +1367,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       ee.fcDisplay = constrain(val, 1, 46);
       break;
     case 34: // force save
-      eemem.update();
+      ee.update();
       break;
     case 35: // TZ
       ee.tz = constrain(val, -12, 12);
@@ -1399,19 +1400,28 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       m_bRecheck = true;
       break;
     case 44: // rmtid (used by web page)
+      for(i = 0; i < SNS_CNT; i++) // find ID
       {
-        int i;
-
-        for(i = 0; i < SNS_CNT; i++) // find ID
-        {
-          if((m_Sensor[i].IP >> 24) == val)
-            break;
-        }
-        if(i < SNS_CNT)  snsIdx = i;
+        if((m_Sensor[i].IP >> 24) == val)
+          break;
       }
+      if(i < SNS_CNT)  snsIdx = i;
       break;
     case 45: // rmttemp
       snsIdx = getSensorID(ip);
+      for(i = 0; i < 3; i++)
+        if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find in active list
+          m_Sensor[snsIdx].flags |= SNS_EN;
+
+      if(m_Sensor[snsIdx].flags & (SNS_F|SNS_C) == 0)
+      {
+        String s = "print;";
+        s += (char *)&m_Sensor[snsIdx].ID;
+        s += " no temp unit set";
+        WsSend(s);
+        deactivateSensor(snsIdx);
+        break;
+      }
       if((m_Sensor[snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
         val = val * 90 / 50 + 320;
       else if((m_Sensor[snsIdx].flags & SNS_F) && ee.b.bCelcius)
@@ -1423,7 +1433,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         s += " sensor range error ";
         s += String(val / 10);
         WsSend(s);
-        m_Sensor[i].flags &= ~(SNS_EN | SNS_PRI); // deactivate sensor
+        deactivateSensor(snsIdx);
       }
       else
         m_Sensor[snsIdx].temp = val;
@@ -1434,6 +1444,8 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       m_Sensor[snsIdx].rh = val;
       break;
     case 47: // rmtflg (uses last referenced rmtid)
+      oldFlags = m_Sensor[snsIdx].flags;
+
       if(val & SNS_NEG)
         m_Sensor[snsIdx].flags &= ~(val & 0x7F);
       else
@@ -1445,11 +1457,34 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
           if(i != snsIdx)
             m_Sensor[i].flags &= ~SNS_PRI;
       }
+      if((oldFlags & SNS_EN) != (m_Sensor[snsIdx].flags & SNS_EN)) // enabled state change
+      {
+        if((m_Sensor[snsIdx].flags & SNS_EN) == 0)
+          deactivateSensor(snsIdx);
+        else
+        {
+          int8_t found = -1;
+          for(i = 0; i < 3; i++)
+          {
+            if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find if previously active. Shouldn't be
+              found = i;
+          }
+          if(found < 0)
+          {
+            for(i = 0; i < 3; i++)
+              if(ee.sensorActive[i] == 0) // open spot
+              {
+                ee.sensorActive[i] = m_Sensor[snsIdx].ID;
+                break;
+              }
+          }
+        }
+      }
       break;
     case 48: // rmtname
       snsIdx = getSensorID(ip);
       m_Sensor[snsIdx].ID = val;
-      if(val == '1TMR' && snsIdx != 1) //swap sensors so RMT1 is top
+      if(val == 0x31544d52 && snsIdx != 1) //swap sensors so RMT1 is top
       {
         swapSensors(1, snsIdx);
         snsIdx = 0;
@@ -1506,6 +1541,16 @@ int HVAC::getSensorID(uint32_t id)
     return i;
   }
   return 1; // Don't return internal (0)
+}
+
+void HVAC::deactivateSensor(int idx)
+{
+  m_Sensor[idx].flags &= ~(SNS_EN | SNS_PRI);
+  for(int j = 0; j < 3; j++)
+  {
+    if(ee.sensorActive[j] == m_Sensor[idx].ID) // remove
+      ee.sensorActive[j] = 0;
+  }
 }
 #endif
 
