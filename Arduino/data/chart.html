@@ -8,11 +8,8 @@ div{
 border-radius: 1px;
 margin-bottom: 1px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -ms-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -o-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -webkit-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: linear-gradient(top,#b0b0b0,#a0a0a0);
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(160,160,160,1) 0%, rgba(176,176,176,1) 100%);
 background-clip: padding-box;
 }
 .dropdown{
@@ -52,7 +49,7 @@ $(document).ready(function()
 {
  myStorage1 = localStorage.getItem('myStoredText1')
  if(myStorage1  != null) myToken=myStorage1
- ws=new WebSocket("ws://"+window.location.host+"/ws")
+  ws=new WebSocket("ws://"+window.location.host+"/ws")
 // ws=new WebSocket("ws://192.168.31.46/ws")
  ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
