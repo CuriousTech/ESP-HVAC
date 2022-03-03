@@ -9,8 +9,6 @@
 */
 #include "JsonClient.h"
 
-#define TIMEOUT 30000 // Allow maximum 30s between data packets.
-
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
 JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize )
 {
@@ -52,7 +50,7 @@ bool JsonClient::begin(const char *pHost, const char *pPath, uint16_t port, bool
 // begin with host, /path?param=x&param=x, port, streaming
 bool JsonClient::begin(IPAddress ip, const char *pPath, uint16_t port, bool bKeepAlive, bool bPost, const char **pHeaders, char *pData, uint16_t to)
 {
-  m_pszHost = "";
+  m_pszHost = (char *)"";
   m_ip = ip;
   return begin(pPath, port, bKeepAlive, bPost, pHeaders, pData, to);
 }
@@ -62,11 +60,16 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
   if(m_pBuffer == NULL)
     m_pBuffer = new char[m_nBufSize];
 
-  if(m_ac.freeable())
-    m_ac.free();
-  else
+  if(m_ac.state())
     return false;
-
+  if(m_Status != JC_IDLE)
+    return false;
+  if(m_timer && millis() > m_timer + m_to * 1000)
+  {
+    m_ac.close(true);
+    m_timer = 0;
+    return false;
+  }
   m_jsonCnt = 0;
   m_event = 0;
   m_bufcnt = 0;
@@ -83,6 +86,7 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
   m_retryCnt = 0;
   m_to = to;
   m_ac.setRxTimeout(to);
+  m_ac.setAckTimeout(to*1000);
   return connect();
 }
 
@@ -114,27 +118,27 @@ int JsonClient::status()
 {
   if(m_Status != JC_IDLE && m_bKeepAlive == false)
   {
-    if(millis() - m_timer > m_to)
+    if(millis() - m_timer > m_to * 1000)
       end();
   }
   return m_Status;
 }
 
-void JsonClient::sendHeader(const char *pHeaderName, const char *pHeaderValue) // string
+void JsonClient::sendHeader(const char *pHeaderName, const char *pHeaderValue, AsyncClient* client) // string
 {
-  m_ac.add(pHeaderName, strlen(pHeaderName));
-  m_ac.add(": ", 2);
-  m_ac.add(pHeaderValue, strlen(pHeaderValue) );
-  m_ac.add("\n", 1);
+  client->add(pHeaderName, strlen(pHeaderName));
+  client->add(": ", 2);
+  client->add(pHeaderValue, strlen(pHeaderValue) );
+  client->add("\n", 1);
 }
 
-void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue) // integer
+void JsonClient::sendHeader(const char *pHeaderName, int nHeaderValue, AsyncClient* client) // integer
 {
-  m_ac.add(pHeaderName, strlen(pHeaderName) );
-  m_ac.add(": ", 2);
+  client->add(pHeaderName, strlen(pHeaderName) );
+  client->add(": ", 2);
   String s = String(nHeaderValue);
-  m_ac.add(s.c_str(), s.length());
-  m_ac.add("\n", 1);
+  client->add(s.c_str(), s.length());
+  client->add("\n", 1);
 }
 
 bool JsonClient::connect()
@@ -149,12 +153,11 @@ bool JsonClient::connect()
     m_Status = JC_RETRY_FAIL;
     m_callback(-1, m_Status, m_nPort, m_pszHost);
     m_Status = JC_IDLE;
-    m_ac.stop();
     return false;
   }
 
-  if(m_Status == JC_CONNECTING || m_Status == JC_CONNECTED)
-	  return false;
+//  if(m_Status == JC_CONNECTING || m_Status == JC_CONNECTED)
+//	  return false;
 
   m_Status = JC_CONNECTING;
   if(m_pszHost && m_pszHost[0])
@@ -170,7 +173,6 @@ bool JsonClient::connect()
 
   m_Status = JC_NO_CONNECT;
   m_callback(-1, m_Status, m_nPort, m_pszHost);
-  m_ac.stop();
   m_Status = JC_IDLE;
   m_retryCnt++;
   return false;
@@ -180,7 +182,6 @@ void JsonClient::_onDisconnect(AsyncClient* client)
 {
   (void)client;
 
-  m_ac.stop();
   if(m_bKeepAlive == false)
   {
     m_Status = JC_DONE;
@@ -201,7 +202,6 @@ void JsonClient::_onTimeout(AsyncClient* client, uint32_t time)
   (void)client;
 
   m_Status = JC_TIMEOUT;
-  m_ac.stop();
   m_callback(-1, m_Status, m_nPort, m_pszHost);
   m_Status = JC_IDLE;
 }
@@ -211,36 +211,36 @@ void JsonClient::_onConnect(AsyncClient* client)
   (void)client;
 
   if(m_bPost)
-    m_ac.add("POST ", 5);
+    client->add("POST ", 5);
   else
-    m_ac.add("GET ", 4);
+    client->add("GET ", 4);
 
-  m_ac.add(m_szPath, strlen(m_szPath));
-  m_ac.add(" HTTP/1.1\n", 10);
+  client->add(m_szPath, strlen(m_szPath));
+  client->add(" HTTP/1.1\n", 10);
 
   if(m_pszHost && m_pszHost[0])
-    sendHeader("Host", m_pszHost);
+    sendHeader("Host", m_pszHost, client);
   else
-    sendHeader("Host", m_ip.toString().c_str());
+    sendHeader("Host", m_ip.toString().c_str(), client);
 
-  sendHeader("User-Agent", "Arduino");
-  sendHeader("Connection", m_bKeepAlive ? "keep-alive" : "close");
-  sendHeader("Accept", "*/*"); // use application/json for strict
+  sendHeader("User-Agent", "Arduino", client);
+  sendHeader("Connection", m_bKeepAlive ? "keep-alive" : "close", client);
+  sendHeader("Accept", "*/*", client); // use application/json for strict
   if(m_pHeaders)
   {
     for(int i = 0; m_pHeaders[i] && m_pHeaders[i+1]; i += 2)
     {
-      sendHeader(m_pHeaders[i], m_pHeaders[i+1]);
+      sendHeader(m_pHeaders[i], m_pHeaders[i+1], client);
     }
   }
   if(m_szData[0])
-    sendHeader("Content-Length", strlen(m_szData));
+    sendHeader("Content-Length", strlen(m_szData), client);
 
-  m_ac.add("\n", 1);
+  client->add("\n", 1);
   if(m_szData[0])
   {
-    m_ac.add(m_szData, strlen(m_szData));
-    m_ac.add("\n", 1);
+    client->add(m_szData, strlen(m_szData));
+    client->add("\n", 1);
   }
 
   m_brace = 0;
