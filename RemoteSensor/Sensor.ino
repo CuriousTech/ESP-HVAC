@@ -87,7 +87,6 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse jsonParse(jsonCallback);
 void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient jsonPush(jsonPushCallback);
-JsonClient jsonPush2(jsonPushCallback);
 
 UdpTime utime;
 
@@ -410,28 +409,17 @@ uint8_t qI;
 
 void checkQueue()
 {
-  static uint32_t cqTime;
   static uint8_t qIdx;
 
   if(wifi.state() != ws_connected)
     return;
-  if(jsonPush.status() != JC_IDLE) // These should be fast, so kill if not
-  {
-    if( (millis() - cqTime) > 500)
-    {
-      jsonPush.end();
-      cqTime = millis();
-    }
-    return;
-  }
 
   if(qIdx == qI || queue[qIdx].port == 0) // Nothing to do
     return;
 
-  if( jsonPush.begin(queue[qIdx].ip, queue[qIdx].sUri.c_str(), queue[qIdx].port, false, false, NULL, NULL, 300) )
+  if( jsonPush.begin(queue[qIdx].ip, queue[qIdx].sUri.c_str(), queue[qIdx].port, false, false, NULL, NULL, 1) )
   {
     jsonPush.addList(jsonListPush);
-    cqTime = millis();
     queue[qIdx].port = 0;
     if(++qIdx >= CQ_CNT)
       qIdx = 0;
@@ -484,10 +472,7 @@ void CallHost(reportReason r, String sStr)
   }
 
   IPAddress ip(ee.hostIP);
-  if( jsonPush2.begin(ip, sUri.c_str(), ee.hostPort, false, false, NULL, NULL, 300) )
-  {
-    jsonPush2.addList(jsonListPush);
-  }
+  callQueue(ip, sUri.c_str(), ee.hostPort);
 }
 
 void sendTemp()
