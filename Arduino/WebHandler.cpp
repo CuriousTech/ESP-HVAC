@@ -19,7 +19,6 @@
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonParse
 
 #ifdef REMOTE
-#include <JsonClient.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonClient
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
 #endif
 
@@ -377,7 +376,7 @@ void secondsServer() // called once per second
   if(display.m_bUpdateFcst && bWscConnected)
   {
      display.m_bUpdateFcst = false;
-     WscSend("cmd;{\"bin\":1}"); // forcast data
+     WscSend("cmd;{\"bin\":1}"); // request forcast data
   }
 #else
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
@@ -414,6 +413,7 @@ void secondsServer() // called once per second
       }
     }
   }
+
   int stat;
   stat = localFC.checkStatus();
   if(stat == FCS_Done)
@@ -435,9 +435,7 @@ void secondsServer() // called once per second
    WsSend("alert;OpenWeatherMasp failed");
 
   if(display.m_bFcstUpdated && WsRemoteID)
-  {
      ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
-  }
 #endif // !REMOTE
 }
 
