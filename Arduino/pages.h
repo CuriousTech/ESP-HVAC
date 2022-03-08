@@ -12,22 +12,22 @@ body{width:360px;display:block;font-family: Arial, Helvetica, sans-serif;}
 <script type="text/javascript"><!--
 var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
-var states = new Array('IDLE','COOLING','HP HEAT','NG HEAT')
+var states=new Array('IDLE','COOLING','HP HEAT','NG HEAT')
 var ws
-var myToken = localStorage.getItem('myStoredText1')
+var myToken=localStorage.getItem('myStoredText1')
 function startEvents()
 {
-ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.46/ws")
-ws.onopen = function(evt){}
-ws.onclose = function(evt){alert("Connection closed.");}
+ws=new WebSocket("ws://"+window.location.host+"/ws")
+//ws=new WebSocket("ws://192.168.31.46/ws")
+ws.onopen=function(evt){}
+ws.onclose=function(evt){alert("Connection closed.");}
 
-ws.onmessage = function(evt){
+ws.onmessage=function(evt){
  console.log(evt.data)
- lines = evt.data.split(';')
+ lines=evt.data.split(';')
  event=lines[0]
  data=lines[1]
- if(event == 'settings')
+ if(event=='settings')
  {
   Json=JSON.parse(data)
     mode=+Json.m
@@ -52,12 +52,12 @@ ws.onmessage = function(evt){
  else if(event == 'state')
  {
   Json=JSON.parse(data)
-  running= +Json.r
-  fan= +Json.fr
-  rh= +Json.rh
+  running=+Json.r
+  fan=+Json.fr
+  rh=+Json.rh
   away=+Json.aw
   a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
-  a.intemp.innerHTML= (+Json.it/10).toFixed(1)
+  a.intemp.innerHTML=(+Json.it/10).toFixed(1)
   a.rh.value=(+Json.rh/10).toFixed(1)+'%'
   a.target.innerHTML=(+Json.tt/10).toFixed(1)
   a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
@@ -131,7 +131,7 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fan.innerHTML = "FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
+a.fan.innerHTML="FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
 
@@ -311,7 +311,7 @@ function t2s(v)
 <td>&nbsp; FILTER</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
-<small>&copy 2016 CuriousTech.net</small>
+<small>&copy; 2016 CuriousTech.net</small>
 </body>
 </html>
 )rawliteral";
@@ -501,11 +501,8 @@ div{
 border-radius: 1px;
 margin-bottom: 1px;
 box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -ms-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -o-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: -webkit-linear-gradient(top,#b0b0b0,#a0a0a0);
-background-image: linear-gradient(top,#b0b0b0,#a0a0a0);
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(160,160,160,1) 0%, rgba(176,176,176,1) 100%);
 background-clip: padding-box;
 }
 .dropdown{
@@ -606,10 +603,10 @@ $(document).ready(function()
       switch(Json.type)
       {
         case 'day':
-          dys[Json.e][0]=+Json.d0
-          dys[Json.e][1]=+Json.d1
-          dys[Json.e][2]=+Json.d2
-          break
+        dys[Json.e][0]=+Json.d0
+        dys[Json.e][1]=+Json.d1
+        dys[Json.e][2]=+Json.d2
+        break
       }
       draw_bars()
       break
@@ -649,7 +646,7 @@ $(document).ready(function()
  setInterval(function(){
   s=0
   if(arr.length) s=(arr[0][0]/1000).toFixed()
-  ws.send('cmd;{data:'+s+'}'); }, 60000)
+  ws.send('cmd;{data:'+s+'}'); },60000)
 });
 
 function draw(){
@@ -676,8 +673,8 @@ function draw(){
   // dates
   if(typeof(arr)=="undefined") return
   step=Math.floor(arr.length/15)
-  if(step == 0) step = 1
-  for(var i=0;i<arr.length-1;i+=step){
+  if(step==0) step=1
+  for(i=0;i<arr.length-1;i+=step){
   c.save()
   c.translate(getXPixel(i),h+5)
   c.rotate(0.9)
@@ -696,17 +693,17 @@ function draw(){
 
   c.fillText('TEMP', graph.width(),6)
   c.fillStyle = +sJson.r?(md==2?"red":"blue"):(+sJson.fr?"green":"slategray")
-  c.fillText((+sJson.it/10).toFixed(1), graph.width()-6, getYPixel(+sJson.it) )
+  c.fillText((+sJson.it/10).toFixed(1),graph.width()-6,getYPixel(+sJson.it) )
  // cycle
   c.fillText(cyc,graph.width()-xPadding-7,h-8)
 
   c.fillStyle="green"
-  c.fillText('RH', xPadding-6, 6)
+  c.fillText('RH',xPadding-6,6)
 
   // rh scale
   for(i=0;i<10;i++){
-    pos=h-8-((h/10)*i)
-    c.fillText(i*10,xPadding-4,pos)
+  pos=h-8-((h/10)*i)
+  c.fillText(i*10,xPadding-4,pos)
   }
 
   //threshold
@@ -714,9 +711,9 @@ function draw(){
   c.beginPath()
   c.moveTo(getXPixel(0),getYPixel(arr[0][3]+th))
   for(i=1;i<arr.length-1;i++)
-    c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))
+  c.lineTo(getXPixel(i),getYPixel(arr[i][3]+th))
   for(i=arr.length-2;i>=0;i--)
-    c.lineTo(getXPixel(i),getYPixel(arr[i][3]))
+  c.lineTo(getXPixel(i),getYPixel(arr[i][3]))
   c.closePath()
   c.fill()
 
@@ -726,21 +723,21 @@ function draw(){
    date=new Date(arr[0][0])
    dt=date.getDate()
    for(i=1;i<arr.length;i++){
-   c.strokeStyle=stateColor(arr[i][4])
-   c.beginPath()
-   c.moveTo(getXPixel(i),getYPixel(arr[i][1]))
-   c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][1]))
-   c.stroke()
-   date=new Date(arr[i][0])
-   if(dt!=date.getDate())
-   {
+  c.strokeStyle=stateColor(arr[i][4])
+  c.beginPath()
+  c.moveTo(getXPixel(i),getYPixel(arr[i][1]))
+  c.lineTo(getXPixel(i-1),getYPixel(arr[i-1][1]))
+  c.stroke()
+  date=new Date(arr[i][0])
+  if(dt!=date.getDate())
+  {
     dt = date.getDate()
     c.strokeStyle = '#000'
     c.beginPath() // borders
     c.moveTo(getXPixel(i),0)
     c.lineTo(getXPixel(i),h)
     c.stroke()
-   }
+  }
    }
   }
 
@@ -777,7 +774,7 @@ function draw(){
   c.lineTo(getXPixel(i),getRHPixel(arr[i][2]))
   c.stroke()
   }
-  var dots=[]
+  dots=[]
   for(i=0;i<arr.length;i++){
     dots.push({
       x: getXPixel(i),
@@ -838,13 +835,6 @@ function draw(){
     },false)
     added=true
   }
-  function getMousePos(cDom, mEv){
-    rect = cDom.getBoundingClientRect();
-    return{
-     x: mEv.clientX-rect.left,
-     y: mEv.clientY-rect.top
-    }
-  }
   function doLines(ss,os)
   {
     c.strokeStyle=ss
@@ -857,8 +847,7 @@ function draw(){
 }
 
 function getMaxY(){
-  var max = 0
-  
+  max=0
   for(i=0; i<arr.length-1; i++)
   {
     if(arr[i][1] > max)
@@ -875,8 +864,7 @@ function getMaxY(){
 }
 
 function getMinY(){
-  var min = 1500
-
+  min=1500
   for(i=0; i<arr.length; i++)
   {
     if(arr[i][1]<min)
@@ -891,7 +879,7 @@ function getMinY(){
   }
   return Math.floor(min)
 }
- 
+
 function getXPixel(val){
   x=(graph.width()-xPadding)-((graph.width()-26-xPadding)/arr.length)*val
   return x.toFixed()
@@ -915,37 +903,37 @@ function stateColor(s)
 
 function setVar(varName,value)
 {
- ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function secsToTime(sec)
 {
- dt=new Date(1970,0,1)
- dt.setSeconds(sec)
- d=dt.getDate()-1
- d=d?d+'d ':''
- return d+dt.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
+  dt=new Date(1970,0,1)
+  dt.setSeconds(sec)
+  d=dt.getDate()-1
+  d=d?d+'d ':''
+  return d+dt.toTimeString().replace(/.*(\d:\d{2}:\d{2}).*/, "$1")
 }
 
 function draw_bars()
 {
-    graph = $('#chart')
+  graph = $('#chart')
   var c=document.getElementById('chart')
   rect=c.getBoundingClientRect()
   canvasX=rect.x
   canvasY=rect.y
 
-    tipCanvas=document.getElementById("tip")
-    tipCtx=tipCanvas.getContext("2d")
-    tipDiv=document.getElementById("popup")
+  tipCanvas=document.getElementById("tip")
+  tipCtx=tipCanvas.getContext("2d")
+  tipDiv=document.getElementById("popup")
 
   ctx=c.getContext("2d")
   ht=c.height/2
   ctx.fillStyle="#FFF"
   ctx.font="10px sans-serif"
 
-    dots2=[]
-    date=new Date()
+  dots2=[]
+  date=new Date()
   ctx.lineWidth=6
   draw_scale(dys,c.width-4,ht,2,1,date.getDate()-1)
   ctx.lineWidth=14
@@ -982,14 +970,6 @@ function draw_bars()
       }
     }
     if(!hit){popup.style.left="-200px"}
-  }
-
-  function getMousePos(cDom, mEv){
-    rect = cDom.getBoundingClientRect();
-    return{
-     x: mEv.clientX-rect.left,
-     y: mEv.clientY-rect.top
-    }
   }
 }
 
@@ -1109,7 +1089,7 @@ function drawFC(){
   c.textAlign="right"
   c.textBaseline="middle"
   c.fillStyle='black'
-
+  
   // right legend
   for(i=min;i<max;i+=(yRange/8))
     c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
@@ -1129,49 +1109,58 @@ function drawFC(){
   c.fillStyle="red"
   fcl=fc.length
   if(fcl==0){
-  fcl=58
-  fcDate=(new Date()).valueOf()/1000-(60*60*24)
+    fcl=58
+    fcDate=(new Date()).valueOf()/1000-(60*60*24)
     fcFreq=10800
-  fcr=23
+    fcr=23
   }
   cPos=0
   fl=(fcDate+fcFreq*(fcl-1))/60
   date=new Date(fcDate*1000)
   dt=date.getDate()
-  for(i=1;i<fcl;i++){
-  if(fc.length){
-    c.strokeStyle=(fc[i]<32)?"blue":"red"
-    c.beginPath()
-    c.moveTo(getXPixel2(i),getYPixel2(fc[i]))
-    c.lineTo(getXPixel2(i-1),getYPixel2(fc[i-1]))
-    c.stroke()
-  }
-  date = new Date((fcDate+fcFreq*i)*1000)
-  if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
+  grd=c.createLinearGradient(0,0,0,graph2.height()-18)
+  if(max<=32) grd.addColorStop(0,"blue")
+  else if(min<32)
   {
-    dif=(date.valueOf()-(new Date().valueOf()))/60000
-    xOff=w/fl*dif
-    cPos=i;
-    c.strokeStyle='#fff'
-    c.beginPath()
-    c.moveTo(getXPixel2(cPos)-xOff,graph2.height()-18)
-    c.lineTo(getXPixel2(cPos)-xOff,1)
-    c.stroke()
-    c.fillStyle='#000'
-    c.textAlign="center"
-    c.fillText("Now",getXPixel2(cPos)-xOff,getYPixel3(iMax)-8)
+    fr=1-((32-min)/yRange)
+    grd.addColorStop(fr,"red")
+    grd.addColorStop(fr,"blue")
   }
-  if(dt!=date.getDate()){
-    dt=date.getDate()
-    c.strokeStyle='#555'
-    c.beginPath()
-    c.moveTo(getXPixel2(i),0)
-    c.lineTo(getXPixel2(i),graph2.height()-18)
-    c.stroke()
-    c.fillStyle='#000'
-    c.textAlign="left"
-    c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
-  }
+  else{grd.addColorStop(0,"red");grd.addColorStop(1,"blue")}
+  for(i=1;i<fcl;i++){
+    if(fc.length){
+      c.strokeStyle=grd
+      c.beginPath()
+      c.moveTo(getXPixel2(i),getYPixel2(fc[i]))
+      c.lineTo(getXPixel2(i-1),getYPixel2(fc[i-1]))
+      c.stroke()
+    }
+    date = new Date((fcDate+fcFreq*i)*1000)
+    if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
+    {
+      dif=(date.valueOf()-(new Date().valueOf()))/60000
+      xOff=w/fl*dif
+      cPos=i;
+      c.strokeStyle='#fff'
+      c.beginPath()
+      c.moveTo(getXPixel2(cPos)-xOff,graph2.height()-18)
+      c.lineTo(getXPixel2(cPos)-xOff,1)
+      c.stroke()
+      c.fillStyle='#000'
+      c.textAlign="center"
+      c.fillText("Now",getXPixel2(cPos)-xOff,getYPixel3(iMax)-8)
+    }
+    if(dt!=date.getDate()){
+      dt=date.getDate()
+      c.strokeStyle='#555'
+      c.beginPath()
+      c.moveTo(getXPixel2(i),0)
+      c.lineTo(getXPixel2(i),graph2.height()-18)
+      c.stroke()
+      c.fillStyle='#000'
+      c.textAlign="left"
+      c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
+    }
   }
   xOff=w/fl*fco
   c.fillStyle = "#9050F090"
@@ -1210,8 +1199,8 @@ function getYPixel3(val){
 }
 function getTT(i,th)
 {
-  if(schedMode==0)
-  {
+ if(schedMode==0)
+ {
   min2=150
   max2=-30
   strt1=i-fcr
@@ -1224,18 +1213,18 @@ function getTT(i,th)
     }
   }
   tt=(fc[i]-min2)*iRng/(max2-min2)+iMin+th
-  }else if(schedMode==1){
-    m=((date.getHours()+14)*60+date.getMinutes()+so)/4
-  r=(iRng/2)*Math.sin(Math.PI * (180-m) / 180)
+ }else if(schedMode==1){
+  m=((date.getHours()+14)*60+date.getMinutes()+so)/4
+  r=(iRng/2)*Math.sin(Math.PI*(180-m)/180)
   tt=r+iMin+th
-  if(md==2) tt+=(iRng/2)
-  else tt-=(iRng/2)
+  if(md==2) tt+=iRng/2
+  else tt-=iRng/2
   }else if(schedMode==2){
   tt=iMin+th
-  }
-  h=graph2.height()-18
-  o=70+ct*2
-  return h-(o/2)-((h-o)/iRng*(tt-iMin))
+ }
+ h=graph2.height()-18
+ o=70+ct*2
+ return h-o/2-(h-o)/iRng*(tt-iMin)
 }
 function setSched(n)
 {
@@ -1254,19 +1243,19 @@ function setShift(n)
 }
 </script>
 <style type="text/css">
-#wrapper {
+#wrapper{
   width: 100%;
   height: 400px;
   position: relative;
 }
-#graph {
+#graph{
   width: 100%;
   height: 100%;
   position: absolute;
   top: 0;
   left: 0;
 }
-#popup {
+#popup{
   position: absolute;
   top: 150px;
   left: -150px;
@@ -1284,19 +1273,19 @@ function setShift(n)
   top: 0;
   left: 0;
 }
-#wrapper3 {
+#wrapper3{
   width: 100%;
   height: 170px;
   position: relative;
 }
-#graph2 {
+#graph2{
   width: 100%;
   height: 100%;
   position: absolute;
   top: 0;
   left: 0;
 }
-.style1 {
+.style1{
   border-style: solid;
   border-width: 1px;
 }
@@ -1340,22 +1329,16 @@ table{
 border-radius: 2px;
 margin-bottom: 2px;
 box-shadow: 4px 4px 10px #000000;
-background-image: -moz-linear-gradient(top,#a0a0a0,#5e5e5e);
-background-image: -ms-linear-gradient(top,#a0a0a0,#5e5e5e);
-background-image: -o-linear-gradient(top,#a0a0a0,#5e5e5e);
-background-image: -webkit-linear-gradient(top,#a0a0a0,#5e5e5e);
-background-image: linear-gradient(top,#a0a0a0,#5e5e5e);
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(94,94,94,1) 0%, rgba(160,160,160,1) 90%);
 background-clip: padding-box;
 }
 input{
 border-radius: 2px;
 margin-bottom: 2px;
 box-shadow: 4px 4px 10px #000000;
-background-image: -moz-linear-gradient(top,#efffff,#a0a0a0);
-background-image: -ms-linear-gradient(top,#efffff,#a0a0a0);
-background-image: -o-linear-gradient(top,#efffff,#a0a0a0);
-background-image: -webkit-linear-gradient(top,#efffff,#a0a0a0);
-background-image: linear-gradient(top,#efffff,#a0a0a0);
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(160,160,160,1) 0%, rgba(239,255,255,1) 100%);
 background-clip: padding-box;
 }
 .style1{border-width: 0;}
@@ -1364,33 +1347,24 @@ background-clip: padding-box;
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 10px #000000;
-background-image: -moz-linear-gradient(top,#4f4f4f,#50a0a0);
-background-image: -ms-linear-gradient(top,#4f4f4f,#50a0a0);
-background-image: -o-linear-gradient(top,#4f4f4f,#50a0a0);
-background-image: -webkit-linear-gradient(top,#4f4f4f,#50a0a0);
-background-image: linear-gradient(top,#4f4f4f,#50a0a0);
+background: rgb(95,194,230);
+background: linear-gradient(0deg, rgba(95,194,230,1) 0%, rgba(79,79,79,1) 100%);
 background-clip: padding-box;
 }
 .style4{
 border-radius: 5px;
 margin-bottom: 5px;
 box-shadow: 2px 2px 10px #000000;
-background-image: -moz-linear-gradient(top,#4f4f4f,#50a0ff);
-background-image: -ms-linear-gradient(top,#4f4f4f,#50a0ff);
-background-image: -o-linear-gradient(top,#4f4f4f,#50a0ff);
-background-image: -webkit-linear-gradient(top,#4f4f4f,#50a0ff);
-background-image: linear-gradient(top,#4f4f4f,#50a0ff);
+background: rgb(80,160,255);
+background: linear-gradient(0deg, rgba(80,160,255,1) 0%, rgba(79,79,79,1) 100%);
 background-clip: padding-box;
 }
 .style5 {
 border-radius: 1px;
 box-shadow: 2px 2px 10px #000000;
-background-image: -moz-linear-gradient(top,#00e0e0,#00a0e0);
-background-image: -ms-linear-gradient(top,#00e0e0,#00a0e0);
-background-image: -o-linear-gradient(top,#00e0e0,#00a0e0);
-background-image: -webkit-linear-gradient(top,#00f0f0,#00a0a0);
-background-image: linear-gradient(top,#00e0e0,#00a0e0);
-})rawliteral";
+background: rgb(0,160,224);
+background: linear-gradient(0deg, rgba(0,160,224,1) 0%, rgba(0,224,224,1) 100%);
+}})rawliteral";
 
 const uint8_t favicon[] PROGMEM = {
   0x1F, 0x8B, 0x08, 0x08, 0x70, 0xC9, 0xE2, 0x59, 0x04, 0x00, 0x66, 0x61, 0x76, 0x69, 0x63, 0x6F, 
