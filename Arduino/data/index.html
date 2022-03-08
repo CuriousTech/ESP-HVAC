@@ -11,22 +11,22 @@ body{width:360px;display:block;font-family: Arial, Helvetica, sans-serif;}
 <script type="text/javascript"><!--
 var Json,mode,autoMode,heatMode,fanMode,running,fan,rhm,ovrActive,away,rh
 var a=document.all
-var states = new Array('IDLE','COOLING','HP HEAT','NG HEAT')
+var states=new Array('IDLE','COOLING','HP HEAT','NG HEAT')
 var ws
-var myToken = localStorage.getItem('myStoredText1')
+var myToken=localStorage.getItem('myStoredText1')
 function startEvents()
 {
-ws = new WebSocket("ws://"+window.location.host+"/ws")
-//ws = new WebSocket("ws://192.168.31.46/ws")
-ws.onopen = function(evt){}
-ws.onclose = function(evt){alert("Connection closed.");}
+ws=new WebSocket("ws://"+window.location.host+"/ws")
+//ws=new WebSocket("ws://192.168.31.46/ws")
+ws.onopen=function(evt){}
+ws.onclose=function(evt){alert("Connection closed.");}
 
-ws.onmessage = function(evt){
+ws.onmessage=function(evt){
  console.log(evt.data)
- lines = evt.data.split(';')
+ lines=evt.data.split(';')
  event=lines[0]
  data=lines[1]
- if(event == 'settings')
+ if(event=='settings')
  {
 	Json=JSON.parse(data)
    	mode=+Json.m
@@ -51,12 +51,12 @@ ws.onmessage = function(evt){
  else if(event == 'state')
  {
 	Json=JSON.parse(data)
-	running= +Json.r
-	fan= +Json.fr
-	rh= +Json.rh
+	running=+Json.r
+	fan=+Json.fr
+	rh=+Json.rh
 	away=+Json.aw
 	a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
-	a.intemp.innerHTML= (+Json.it/10).toFixed(1)
+	a.intemp.innerHTML=(+Json.it/10).toFixed(1)
 	a.rh.value=(+Json.rh/10).toFixed(1)+'%'
 	a.target.innerHTML=(+Json.tt/10).toFixed(1)
 	a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
@@ -130,7 +130,7 @@ function setAtt()
 a.runCell.setAttribute('class',running?'style5':'style1')
 a.fAuto.setAttribute('class',fanMode==0?'style5':'')
 a.fOn.setAttribute('class',fanMode==1?'style5':'')
-a.fan.innerHTML = "FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
+a.fan.innerHTML="FAN "+((fanMode==1)?"ON":(fan?"ON":"OFF"))
 a.fanCell.setAttribute('class',fan?'style5' : 'style1')
 a.ovrCell.setAttribute('class',away?'style1':(ovrActive?'style5':'style1'))
 
@@ -310,6 +310,6 @@ function t2s(v)
 <td>&nbsp; FILTER</td><td><input type="button" id ="filter" value="0" onClick="{rstFlt()}"></td>
 </tr>
 </table>
-<small>&copy 2016 CuriousTech.net</small>
+<small>&copy; 2016 CuriousTech.net</small>
 </body>
 </html>
