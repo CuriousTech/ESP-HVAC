@@ -58,10 +58,10 @@ Heat Threshold: Heatpump will switch off and use gas when outside temp goes belo
 PKW (price per killawatt hour), CFM (gas cubic feet per minute), CCF (cost per 100 cubic foot): Set the PPKW and CCF based on billing. CFM is dependant on the furnace.  
 FC Shift (in minutes): Shifts the forecast for the temperature adjust. Use the setting on the chart page (they don't affect the actual settings) to determine what's best. There are 2 values for heat and cool here as well.   
 
-![remotepage](http://www.curioustech.net/images/hvacweb.png)  
+![remotepage](http://www.curioustech.net/images/hvacweb2.png)  
 
 The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, NG is red, HP is yellow, rh is green, the target/threshold is the wave.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit, and now multiple sensors.  
-![chartpage](http://www.curioustech.net/images/hvacchart.png)  
+![chartpage](http://www.curioustech.net/images/hvacchart2.png)  
 
 ![dualstats](http://www.curioustech.net/images/hvac.jpg)  
 
