@@ -11,7 +11,7 @@ Forecast::Forecast()
 
 void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool bCelcius)
 {
-    if(m_ac.connected())
+    if(m_ac.connected() || m_ac.connecting())
       return;
     m_pfd = pfd;
     m_status = FCS_Busy;
