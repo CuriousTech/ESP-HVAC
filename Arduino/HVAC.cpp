@@ -503,12 +503,10 @@ void HVAC::tempCheck()
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
          m_Sensor[i].flags &= ~SNS_WARN;
-         for(int j = 0; i < 3; j++) // Priority biases x3
-         {
-           sensTemp += m_Sensor[i].temp;
-           sensRh += m_Sensor[i].rh;
-           sensCnt++;
-         }
+         const int sens_pri_mult = 3;  // Priority biases x3
+         sensTemp += m_Sensor[i].temp * sens_pri_mult;
+         sensRh += m_Sensor[i].rh * sens_pri_mult;
+         sensCnt += sens_pri_mult;
       }
       else if(m_Sensor[i].flags & SNS_EN)
       {
