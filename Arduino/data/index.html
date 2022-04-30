@@ -56,10 +56,10 @@ ws.onmessage=function(evt){
 	rh=+Json.rh
 	away=+Json.aw
 	a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
-	a.intemp.innerHTML=(+Json.it/10).toFixed(1)
+	a.intemp.innerHTML=(+Json.it/10).toFixed(1)+'&deg;'
 	a.rh.value=(+Json.rh/10).toFixed(1)+'%'
-	a.target.innerHTML=(+Json.tt/10).toFixed(1)
-	a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
+	a.target.innerHTML=(+Json.tt/10).toFixed(1)+'&deg;'
+	a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)+'&deg;'
 	a.cyctimer.innerHTML=secsToTime(+Json.ct)
 	a.runtotal.value=secsToTime(+Json.rt)
 	a.filter.value=s2t(+Json.fm)
@@ -226,10 +226,10 @@ function t2s(v)
 <font size=4>
 <table style="width: 418px; height: 22px;" cellspacing="0">
 <tr>
-<td>IN</td><td><div id="intemp" class="style2">in</div></td><td>&deg;</td><td> &gt;</td>
-<td><div id="target" class="style2">trg</div></td><td>&deg; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
-<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td>&deg; &nbsp; &nbsp; </td>
-<td> &nbsp; &nbsp; &nbsp; </td>
+<td>IN</td><td><div id="intemp" class="style2">in</div></td><td> &gt;</td>
+<td><div id="target" class="style2">trg</div></td><td>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
+<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td> &nbsp; &nbsp; &nbsp; </td>
+<td><div id="time"></div></td>
 </tr>
 </table>
 </font>
@@ -251,7 +251,7 @@ function t2s(v)
 <td>&nbsp;</td><td></td><td></td><td></td>
 </tr>
 <tr>
-<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
+<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td></td>
 </tr>
 <tr>
 <td style="width: 81px">COOL LO</td>
