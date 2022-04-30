@@ -409,35 +409,44 @@ uint8_t qI;
 
 void checkQueue()
 {
-  static uint8_t qIdx;
-
   if(wifi.state() != ws_connected)
     return;
 
-  if(qIdx == qI || queue[qIdx].port == 0) // Nothing to do
+  int idx;
+  for(idx = 0; idx < CQ_CNT; idx++)
+  {
+    if(queue[idx].port)
+      break;
+  }
+  if(idx == CQ_CNT || queue[idx].port == 0) // nothing to do
     return;
 
-  if( jsonPush.begin(queue[qIdx].ip, queue[qIdx].sUri.c_str(), queue[qIdx].port, false, false, NULL, NULL, 1) )
+  if( jsonPush.begin(queue[idx].ip, queue[idx].sUri.c_str(), queue[idx].port, false, false, NULL, NULL, 1) )
   {
     jsonPush.addList(jsonListPush);
-    queue[qIdx].port = 0;
-    if(++qIdx >= CQ_CNT)
-      qIdx = 0;
+    queue[idx].port = 0;
   }
 }
 
 bool callQueue(IPAddress ip, String sUri, uint16_t port)
 {
-  if(queue[qI].port == 0)
+  int idx;
+  for(idx = 0; idx < CQ_CNT; idx++)
   {
-    queue[qI].ip = ip;
-    queue[qI].sUri = sUri;
-    queue[qI].port = port;
-    if(++qI >= CQ_CNT)
-      qI = 0;
-    return true;
+    if(queue[idx].port == 0)
+      break;
   }
-  return false; // full
+  if(idx == CQ_CNT) // nothing to do
+  {
+    WsSend("print; Q full");
+    return false;
+  }
+
+  queue[idx].ip = ip;
+  queue[idx].sUri = sUri;
+  queue[idx].port = port;
+
+  return true;
 }
 
 void CallHost(reportReason r, String sStr)
@@ -483,14 +492,16 @@ void sendTemp()
   String sUri = String("/s?key=");
   sUri += ee.szControlPassword;
   sUri += "&rmtname="; sUri += ee.sensorID;
-  sUri += "&rmttemp="; sUri += sensor.m_values[DE_TEMP];
+  sUri += "&rmttemp=";
+  sUri += sensor.m_values[DE_TEMP];
+  sUri += (ee.e.bCF) ? "F" : "C";
   sUri += "&rmtrh="; sUri += sensor.m_values[DE_RH];
 
-  uint8_t flg = ee.e.PriEn | (ee.e.bCF ? SNS_F : SNS_C); // PriEn: 1=priority, 2=enable(avg)
+  uint8_t flg = ee.e.PriEn; // PriEn: 1=priority, 2=enable(avg)
 
   if(bResetPri)
   {
-    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN | SNS_F | SNS_C); // clear all flags that may have changed
+    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN); // clear all flags that may have changed
     sUri += "&rmtflg="; sUri += flg;
     bResetPri = false;
   }
