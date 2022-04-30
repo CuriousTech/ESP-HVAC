@@ -18,15 +18,15 @@
 #define P_HUMID 27 // H
 #define USE_AUDIO
 #define SPEAKER 17
-#define FAN_ON  LOW
-#define FAN_OFF HIGH
-#define COOL_ON LOW
-#define COOL_OFF HIGH
-#define HEAT_ON LOW
-#define HEAT_OFF HIGH
-#define REV_ON LOW
-#define REV_OFF HIGH
-#define HUMID_ON LOW
+#define FAN_ON    LOW
+#define FAN_OFF   HIGH
+#define COOL_ON   LOW
+#define COOL_OFF  HIGH
+#define HEAT_ON   LOW
+#define HEAT_OFF  HIGH
+#define REV_ON    LOW
+#define REV_OFF   HIGH
+#define HUMID_ON  LOW
 #define HUMID_OFF HIGH
 #else
 #define P_FAN   16 // G GPIO for SSRs
@@ -34,15 +34,15 @@
 #define P_REV   12 // O
 #define P_HEAT  15 // W
 #define P_HUMID  0 // H
-#define FAN_ON  HIGH
-#define FAN_OFF LOW
-#define COOL_ON HIGH
-#define COOL_OFF LOW
-#define HEAT_ON HIGH
-#define HEAT_OFF LOW
-#define REV_ON HIGH
-#define REV_OFF LOW
-#define HUMID_ON LOW
+#define FAN_ON    HIGH
+#define FAN_OFF   LOW
+#define COOL_ON   HIGH
+#define COOL_OFF  LOW
+#define HEAT_ON   HIGH
+#define HEAT_OFF  LOW
+#define REV_ON    HIGH
+#define REV_OFF   LOW
+#define HUMID_ON  LOW
 #define HUMID_OFF HIGH
 #endif
 //-----------------
@@ -109,14 +109,11 @@ enum ScheduleMode
   SM_Reserved
 };
 
-
-#define SNS_PRI   (1 << 0) // Single sensor overrides all others including internal
+#define SNS_PRI   (1 << 0) // Give extra weight to this sensor
 #define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
-#define SNS_C     (1 << 2) // Data from remote sensor is C or F
-#define SNS_F     (1 << 3) // ""
+#define SNS_PR_INC (1 << 2) // Future - increment priority weight
+#define SNS_PR_DEC (1 << 3) // Future - decrement priority weight
 #define SNS_TOPRI (1 << 4) // 1=timer is for priority, 0=for average
-#define SNS_LO    (1 << 5) // lo/hi unused as of now
-#define SNS_HI    (1 << 6)
 #define SNS_WARN  (1 << 7) // internal flag for data timeout
 #define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
 
@@ -126,6 +123,7 @@ struct Sensor
   uint32_t timer; // seconds, priority timer
   uint32_t IP; //
   uint8_t flags;
+  uint8_t weight; // weight of priority
   int16_t temp;
   uint16_t rh;
   uint32_t ID; // hex text?
@@ -205,6 +203,9 @@ private:
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
   bool    m_bFanRunning;    // when fan is running
   bool    m_bHumidRunning;
+  bool    m_bRevOn;         // shadow for reverse valve (ESP-32 digitalRead may not read latch bit)
+  bool    m_bHeatOn;        // shadow for furnace
+  bool    m_bCoolOn;        // shadow for compressor
   int8_t  m_AutoMode;       // cool, heat
   int8_t  m_setMode;        // preemted mode request
   int8_t  m_setHeat;        // preemt heat mode request
