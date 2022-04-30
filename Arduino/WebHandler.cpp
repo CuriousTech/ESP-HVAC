@@ -175,22 +175,17 @@ void startServer()
       s += "WsConnected "; s += bWscConnected; s += "<br>";
       IPAddress ip(ee.hostIp);
       s += "HVAC IP "; s += ip.toString(); s += "<br>";
+      s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
+      s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
+
+      s += "Now: "; s += now(); s += "<br>";
+      s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
 
       s += pageR_B;
       request->send( 200, "text/html", s );
     }
 #endif
   });
-#ifndef REMOTE
-  server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // Hidden instead of / due to being externally accessible. Use your own here.
-    parseParams(request);
-#ifdef USE_SPIFFS
-    request->send(SPIFFS, "/index.html");
-#else
-    request->send_P(200, "text/html", page_index);
-#endif
-  });
-#endif
 
   server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // for quick commands
     parseParams(request);
@@ -200,7 +195,16 @@ void startServer()
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     request->send ( 200, "text/json",  hvac.settingsJson());
   });
+
 #ifndef REMOTE
+  server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // Hidden instead of / due to being externally accessible. Use your own here.
+    parseParams(request);
+#ifdef USE_SPIFFS
+    request->send(SPIFFS, "/index.html");
+#else
+    request->send_P(200, "text/html", page_index);
+#endif
+  });
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
 #ifdef USE_SPIFFS
@@ -362,6 +366,15 @@ void secondsServer() // called once per second
 
   ws.cleanupClients();
 
+  static uint8_t nUpdateDelay = 5;
+  if(nUpdateDelay)
+    nUpdateDelay--;
+
+  if(now() > display.m_fc.loadDate + (3600*6)) // > 6 hours old
+  {
+    display.m_bUpdateFcst = true;
+  }
+
 #ifdef REMOTE
   if(hvac.tempChange())
   {
@@ -373,10 +386,12 @@ void secondsServer() // called once per second
     if(--start == 0)
         startListener();
 
-  if(display.m_bUpdateFcst && bWscConnected)
+  if(display.m_bUpdateFcst && bWscConnected && (nUpdateDelay == 0))
   {
-     display.m_bUpdateFcst = false;
-     WscSend("cmd;{\"bin\":1}"); // request forcast data
+    display.m_bUpdateFcst = false;
+    display.m_bUpdateFcstIdle = false;
+    nUpdateDelay = 60;
+    WscSend("cmd;{\"bin\":1}"); // request forcast data
   }
 #else
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
@@ -389,28 +404,19 @@ void secondsServer() // called once per second
   if(nWrongPass)
     nWrongPass--;
 
-  if(display.m_fc.loadDate + (3600*6) < now() && display.m_bUpdateFcstIdle) // > 6 hours old
-    display.m_bUpdateFcst = true;
-
-  static uint8_t nUpdateDelay = 5;
-  if(nUpdateDelay)
-    nUpdateDelay--;
-  if(display.m_bUpdateFcst && display.m_bUpdateFcstIdle)
+  if(display.m_bUpdateFcst && display.m_bUpdateFcstIdle && nUpdateDelay == 0)
   {
-    if(nUpdateDelay == 0)
+    display.m_bUpdateFcst = false;
+    display.m_bUpdateFcstIdle = false;
+    nUpdateDelay = 60; // delay retries by 1 minute
+    switch(ee.b.nFcstSource)
     {
-      display.m_bUpdateFcst = false;
-      display.m_bUpdateFcstIdle = false;
-      nUpdateDelay = 60; // delay retries by 1 minute
-      switch(ee.b.nFcstSource)
-      {
-        case 0:
-          localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
-          break;
-        case 1:
-          openWeatherFC.start(&display.m_fc, ee.b.bCelcius, ee.cityID);    // get data from OpenWeatherMap 5 day
-          break;
-      }
+      case 0:
+        localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
+        break;
+      case 1:
+        openWeatherFC.start(&display.m_fc, ee.b.bCelcius, ee.cityID);    // get data from OpenWeatherMap 5 day
+        break;
     }
   }
 
@@ -434,8 +440,6 @@ void secondsServer() // called once per second
   else if(stat == FCS_Fail)
    WsSend("alert;OpenWeatherMasp failed");
 
-  if(display.m_bFcstUpdated && WsRemoteID)
-     ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
 #endif // !REMOTE
 }
 
