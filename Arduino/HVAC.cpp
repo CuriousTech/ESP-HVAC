@@ -65,7 +65,9 @@ void HVAC::disable()
 {
 #ifndef REMOTE
   digitalWrite(P_HEAT, HEAT_OFF);
+  m_bHeatOn = false;
   digitalWrite(P_COOL, COOL_OFF);
+  m_bCoolOn = false;
   digitalWrite(P_HUMID, HUMID_OFF);
   fanSwitch(false);
   m_bHumidRunning = false;
@@ -371,33 +373,40 @@ void HVAC::service()
     {
       case Mode_Cool:
         fanSwitch(true);
-        if(digitalRead(P_REV) != REV_ON)
+        if(m_bRevOn == false)
         {
           digitalWrite(P_REV, REV_ON);  // set heatpump to cool (if heats, reverse this)
+          m_bRevOn = true;
           delay(2000);                //   if no heatpump, remove
         }
         digitalWrite(P_COOL, COOL_ON);
+        m_bCoolOn = true;
         m_bRunning = true;
         break;
     case Mode_Heat:
         if(hm == Heat_NG)  // gas
         {
-          if(digitalRead(P_COOL) == COOL_ON)
+          if(m_bCoolOn)
             WsSend("print;Error: NG heat start conflict");
           else
+          {
             digitalWrite(P_HEAT, HEAT_ON);
+            m_bHeatOn = true;
+          }
         }
         else
         {
           fanSwitch(true);
-          if( digitalRead(P_HEAT) == HEAT_OFF )
+          if( m_bHeatOn == false )
           {
-            if(digitalRead(P_REV) != REV_OFF)  // set heatpump to heat (if cools, reverse this)
+            if(m_bRevOn)  // set heatpump to heat (if cools, reverse this)
             {
               digitalWrite(P_REV, REV_OFF);
+              m_bRevOn = false;
               delay(1000);
             }
             digitalWrite(P_COOL, COOL_ON);
+            m_bCoolOn = true;
           }
         }
         m_bRunning = true;
@@ -411,7 +420,9 @@ void HVAC::service()
   {
     m_bStop = false;
     digitalWrite(P_COOL, COOL_OFF);
+    m_bCoolOn = false;
     digitalWrite(P_HEAT, HEAT_OFF);
+    m_bHeatOn = false;
 
     costAdd(m_cycleTimer, mode, hm);
     m_cycleTimer = 0;
@@ -421,8 +432,8 @@ void HVAC::service()
 
     if(m_bFanRunning && m_FanMode != FM_On ) // Note: furnace manages fan
     {
-      if(ee.fanPostDelay[digitalRead(P_REV)])         // leave fan running to circulate air longer
-        m_fanPostTimer = ee.fanPostDelay[digitalRead(P_REV)]; // P_REV == true if heating
+      if(ee.fanPostDelay[m_bRevOn])         // leave fan running to circulate air longer
+        m_fanPostTimer = ee.fanPostDelay[m_bRevOn]; // P_REV == true if heating
       else
         fanSwitch(false);
     }
@@ -473,7 +484,8 @@ void HVAC::tempCheck()
 
   int16_t tempL = 0;
   int16_t tempH = 0;
-  int8_t sensCnt = 0;
+  int8_t sensTempCnt = 0;
+  int8_t sensRhCnt = 0;
   int16_t sensTemp = 0;
   int16_t sensRh = 0;
   bool  remSens = false;
@@ -482,7 +494,7 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IP)
     {
-      if(now() - m_Sensor[i].tm > 100) // disregard expired sensor data
+      if(now() > 1650303682 && now() - m_Sensor[i].tm > 100) // disregard expired sensor data if now() is valid
       {
         if( (m_Sensor[i].flags & SNS_WARN) == 0)
         {
@@ -491,7 +503,8 @@ void HVAC::tempCheck()
           s += (char*)&m_Sensor[i].ID;
           s += " sensor data expired ";
           s += (now() - m_Sensor[i].tm);
-          s += "s";
+          s += "s ";
+          s += m_Sensor[i].tm;
           WsSend(s);
         }
         if(now() - m_Sensor[i].tm > 5*60) // Inactive 5 minutes. Remove the sensor
@@ -503,26 +516,34 @@ void HVAC::tempCheck()
       else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
       {
          m_Sensor[i].flags &= ~SNS_WARN;
-         const int sens_pri_mult = 3;  // Priority biases x3
-         sensTemp += m_Sensor[i].temp * sens_pri_mult;
-         sensRh += m_Sensor[i].rh * sens_pri_mult;
-         sensCnt += sens_pri_mult;
+         if(m_Sensor[i].weight == 0)
+           m_Sensor[i].weight = 1;
+         sensTemp += m_Sensor[i].temp * m_Sensor[i].weight;
+         sensTempCnt += m_Sensor[i].weight;
+         if(m_Sensor[i].rh)
+         {
+           sensRh += m_Sensor[i].rh * m_Sensor[i].weight;
+           sensRhCnt += m_Sensor[i].weight;
+         }
       }
       else if(m_Sensor[i].flags & SNS_EN)
       {
          m_Sensor[i].flags &= ~SNS_WARN;
          sensTemp += m_Sensor[i].temp;
-         sensRh += m_Sensor[i].rh;
-         sensCnt++;
+         sensTempCnt++;
+         if(m_Sensor[i].rh)
+         {
+           sensRh += m_Sensor[i].rh;
+           sensRhCnt++;
+         }
       }
     }
   }
-  if(sensCnt > 1)
-  {
-    sensTemp /= sensCnt; // average
-    sensRh /= sensCnt;
-  }
-  else if(sensCnt == 0) // make sure internal sensor and others aren't disabled by webpage
+  if(sensTempCnt > 1)
+    sensTemp /= sensTempCnt; // average
+  if(sensRhCnt > 1)
+    sensRh /= sensRhCnt;
+  if(sensTempCnt == 0) // make sure internal sensor and others aren't disabled by webpage
   {
     sensTemp = m_Sensor[0].temp;
     sensRh = m_Sensor[0].rh;
@@ -804,10 +825,16 @@ void HVAC::calcTargetTemp(int mode)
 {
   if(!m_bRunning)
   {
-    if(digitalRead(P_REV) == REV_OFF && (mode == Mode_Cool) )  // set heatpump to cool if cooling
+    if(m_bRevOn == false && (mode == Mode_Cool) )  // set heatpump to cool if cooling
+    {
       digitalWrite(P_REV, REV_ON);
-    else if(digitalRead(P_REV) == REV_ON && (mode == Mode_Heat) )  // set heatpump to heat if heating
+      m_bRevOn = true;
+    }
+    else if(m_bRevOn && (mode == Mode_Heat) )  // set heatpump to heat if heating
+    {
       digitalWrite(P_REV, REV_OFF);
+      m_bRevOn = false;
+    }
   }
   int16_t L = m_outMin * 10;
   int16_t H = m_outMax * 10;
@@ -996,7 +1023,13 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     oldRh = m_localRh;
     secs = now();
     sendCmd("rmtname", 0x31544d52); // RMT1
-    sendCmd("rmttemp", m_localTemp);
+    String s = String(m_localTemp);
+    s += (ee.b.bCelcius) ? 'C' : 'F'; // append C or F to the temp value
+    jsonString js("cmd");
+    js.Var("key", ee.password);
+    js.Var("rmttemp", s);
+    WscSend(js.Close());
+
     sendCmd("rmtrh", m_localRh);
   }
 #else
@@ -1079,7 +1112,7 @@ String HVAC::settingsJson()
   js.Var("cn", ee.cycleMin);
   js.Var("cx", ee.cycleMax);
   js.Var("ct", ee.cycleThresh[m_modeShadow == Mode_Heat]);
-  js.Var("fd", ee.fanPostDelay[digitalRead(P_REV)]);
+  js.Var("fd", ee.fanPostDelay[m_bRevOn]);
   js.Var("ov", ee.overrideTime);
   js.Var("rhm", ee.b.humidMode);
   js.Var("rh0", ee.rhLevel[0]);
@@ -1247,7 +1280,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       resetFilter();
       break;
     case 5:     // fanpostdelay
-      ee.fanPostDelay[digitalRead(P_REV)] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
+      ee.fanPostDelay[m_bRevOn] = constrain(val, 0, 60*5); // Limit 0 to 5 minutes
       break;
     case 6:     // cyclemin
       ee.cycleMin = constrain(val, 60, 60*20); // Limit 1 to 20 minutes
@@ -1410,20 +1443,27 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       for(i = 0; i < 3; i++)
         if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find in active list
           m_Sensor[snsIdx].flags |= SNS_EN;
-
-      if(m_Sensor[snsIdx].flags & (SNS_F|SNS_C) == 0)
       {
-        String s = "print;";
-        s += (char *)&m_Sensor[snsIdx].ID;
-        s += " no temp unit set";
-        WsSend(s);
-        deactivateSensor(snsIdx);
-        break;
+        char *p = psValue + strlen(psValue) - 1;
+        if(*p == 'C' && ee.b.bCelcius == false)
+        {
+          val = val * 90 / 50 + 320;
+        }
+        else if(*p == 'F' && ee.b.bCelcius)
+        {
+          val = (val - 320) * 50 / 90;
+        }
+        else if(*p != 'F' && *p != 'C')
+        {
+          String s = "print;";
+          s += (char *)&m_Sensor[snsIdx].ID;
+          s += " has no temp unit: ";
+          s += psValue;
+          WsSend(s);
+          deactivateSensor(snsIdx);
+          break;
+        }
       }
-      if((m_Sensor[snsIdx].flags & SNS_C) && ee.b.bCelcius == false) // convert remote units to local units
-        val = val * 90 / 50 + 320;
-      else if((m_Sensor[snsIdx].flags & SNS_F) && ee.b.bCelcius)
-        val = (val - 320) * 50 / 90;
       if(val < (ee.b.bCelcius ? 180:650) || val > (ee.b.bCelcius ? 370:990) )
       {
         String s = "print;";
@@ -1451,6 +1491,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
 
       if(m_Sensor[snsIdx].flags & SNS_PRI) // remove priority from other sensors
       {
+        m_Sensor[snsIdx].weight = 3; // also set default weight
         for(i = 0; i < SNS_CNT; i++)
           if(i != snsIdx)
             m_Sensor[i].flags &= ~SNS_PRI;
@@ -1546,8 +1587,11 @@ void HVAC::deactivateSensor(int idx)
   m_Sensor[idx].flags &= ~(SNS_EN | SNS_PRI);
   for(int j = 0; j < 3; j++)
   {
-    if(ee.sensorActive[j] == m_Sensor[idx].ID) // remove
+    if(ee.sensorActive[j] == m_Sensor[idx].ID) // remove from eeprom set
+    {
       ee.sensorActive[j] = 0;
+      m_Sensor[idx].weight = 0;
+    }
   }
 }
 #endif
