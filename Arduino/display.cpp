@@ -185,6 +185,10 @@ void Display::checkNextion() // all the Nextion recieved commands
             case 10: // notification clear
               if(ee.b.bLock) break;
               hvac.m_notif = Note_None;
+#ifdef USE_AUDIO
+              mus.add(6000, 20);
+              mus.add(7000, 20);
+#endif
               break;
             case 11: // forecast
               nex.setPage("graph");
