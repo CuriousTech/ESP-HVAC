@@ -162,7 +162,7 @@ public:
         s += ",";
         s += sns[i].rh;
         s += ",";
-        s += sns[i].flags;
+        s += sns[i].f.val;
         s += ",\"";
         s += (char*)&sns[i].ID;
         s += "\"]";
