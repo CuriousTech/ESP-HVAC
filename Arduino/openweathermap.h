@@ -10,6 +10,8 @@
 
 #include "forecast.h"
 
+#define APPID "your app ID here" // This is your account APP ID
+
 class OpenWeather
 {
 public:
