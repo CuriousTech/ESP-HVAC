@@ -56,7 +56,9 @@ void HVAC::init()
 #ifndef REMOTE
   m_Sensor[0].IP= 192 | 168<<8 | 1<<24; // Setup sensor 0 as internal sensor
   m_Sensor[0].ID = 0x4e544e49; // 'NTNI';
-  m_Sensor[0].flags = SNS_EN;
+  m_Sensor[0].f.f.Enabled = 1;
+  m_Sensor[0].f.f.Weight = 1;
+  m_Sensor[0].f.f.currWeight = 1;
 #endif
 }
 
@@ -323,10 +325,20 @@ void HVAC::service()
     {
       if(--m_Sensor[i].timer == 0)
       {
-        if(m_Sensor[i].flags & SNS_TOPRI)
-          m_Sensor[i].flags &= ~SNS_PRI;
-        else
-          m_Sensor[i].flags &= ~SNS_EN;
+        if(m_Sensor[i].f.f.currWeight > 1)
+        {
+          m_Sensor[i].f.f.currWeight--;
+          m_Sensor[i].timer = m_Sensor[i].timerStart;
+        }
+/*      else
+        {
+          if(m_Sensor[i].f.f.Priority) // timer + pri  (no need, weight will drop to 1)
+            m_Sensor[i].f.f.Priority = 0;
+          else
+            m_Sensor[i].f.f.Enabled = 0; // timer + no pri
+
+        }
+*/
       }
     }
   }
@@ -496,9 +508,9 @@ void HVAC::tempCheck()
     {
       if(now() > 1650303682 && now() - m_Sensor[i].tm > 100) // disregard expired sensor data if now() is valid
       {
-        if( (m_Sensor[i].flags & SNS_WARN) == 0)
+        if( m_Sensor[i].f.f.Warn == 0)
         {
-          m_Sensor[i].flags |= SNS_WARN;
+          m_Sensor[i].f.f.Warn = 1;
           String s = "print;";
           s += (char*)&m_Sensor[i].ID;
           s += " sensor data expired ";
@@ -510,31 +522,19 @@ void HVAC::tempCheck()
         if(now() - m_Sensor[i].tm > 5*60) // Inactive 5 minutes. Remove the sensor
         {
           if(i) m_Sensor[i].IP = 0; // kill it
+          m_Sensor[i].f.val = 0;
           remSens = true;
         }
       }
-      else if( (m_Sensor[i].flags & (SNS_PRI | SNS_EN)) == (SNS_PRI | SNS_EN) )
+      else if( m_Sensor[i].f.f.Priority || m_Sensor[i].f.f.Enabled)
       {
-         m_Sensor[i].flags &= ~SNS_WARN;
-         if(m_Sensor[i].weight == 0)
-           m_Sensor[i].weight = 1;
-         sensTemp += m_Sensor[i].temp * m_Sensor[i].weight;
-         sensTempCnt += m_Sensor[i].weight;
+         m_Sensor[i].f.f.Warn = 0;
+         sensTemp += m_Sensor[i].temp * m_Sensor[i].f.f.currWeight;
+         sensTempCnt += m_Sensor[i].f.f.currWeight;
          if(m_Sensor[i].rh)
          {
-           sensRh += m_Sensor[i].rh * m_Sensor[i].weight;
-           sensRhCnt += m_Sensor[i].weight;
-         }
-      }
-      else if(m_Sensor[i].flags & SNS_EN)
-      {
-         m_Sensor[i].flags &= ~SNS_WARN;
-         sensTemp += m_Sensor[i].temp;
-         sensTempCnt++;
-         if(m_Sensor[i].rh)
-         {
-           sensRh += m_Sensor[i].rh;
-           sensRhCnt++;
+           sensRh += m_Sensor[i].rh * m_Sensor[i].f.f.currWeight;
+           sensRhCnt += m_Sensor[i].f.f.currWeight;
          }
       }
     }
@@ -547,7 +547,9 @@ void HVAC::tempCheck()
   {
     sensTemp = m_Sensor[0].temp;
     sensRh = m_Sensor[0].rh;
-    m_Sensor[0].flags = SNS_EN;
+    m_Sensor[0].f.f.Enabled = 1;
+    m_Sensor[0].f.f.Weight = 1;
+    m_Sensor[0].f.f.currWeight = 1;
   }
 
   tempL = tempH = sensTemp;
@@ -1231,7 +1233,8 @@ const char *cmdList[] = { "cmd",
   "rmtflg",
   "rmtname",
   "rmtto",
-  "sm", // 50
+  "rmtwt", // 50
+  "sm",
   "fcs",
   NULL
 };
@@ -1442,7 +1445,14 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       snsIdx = getSensorID(ip);
       for(i = 0; i < 3; i++)
         if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find in active list
-          m_Sensor[snsIdx].flags |= SNS_EN;
+        {
+          m_Sensor[snsIdx].f.f.Enabled = 1;
+          if(m_Sensor[snsIdx].f.f.currWeight == 0)
+          {
+            m_Sensor[snsIdx].f.f.Weight = 1;
+            m_Sensor[snsIdx].f.f.currWeight = 1;
+          }
+        }
       {
         char *p = psValue + strlen(psValue) - 1;
         if(*p == 'C' && ee.b.bCelcius == false)
@@ -1482,40 +1492,40 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       m_Sensor[snsIdx].rh = val;
       break;
     case 47: // rmtflg (uses last referenced rmtid)
-      oldFlags = m_Sensor[snsIdx].flags;
-
-      if(val & SNS_NEG)
-        m_Sensor[snsIdx].flags &= ~(val & 0x7F);
-      else
-        m_Sensor[snsIdx].flags |= (val & 0x7F);
-
-      if(m_Sensor[snsIdx].flags & SNS_PRI) // remove priority from other sensors
       {
-        m_Sensor[snsIdx].weight = 3; // also set default weight
-        for(i = 0; i < SNS_CNT; i++)
-          if(i != snsIdx)
-            m_Sensor[i].flags &= ~SNS_PRI;
-      }
-      if((oldFlags & SNS_EN) != (m_Sensor[snsIdx].flags & SNS_EN)) // enabled state change
-      {
-        if((m_Sensor[snsIdx].flags & SNS_EN) == 0)
-          deactivateSensor(snsIdx);
+        usensorFlags sf;
+        sf.val = val;
+
+        if(val & SNS_NEG)
+        {
+          if(sf.f.Enabled)
+          {
+            m_Sensor[snsIdx].f.f.Enabled = 0;
+            deactivateSensor(snsIdx);
+          }
+          if(sf.f.Priority)
+          {
+            m_Sensor[snsIdx].f.f.Priority = 0;
+            m_Sensor[snsIdx].f.f.currWeight = 1;
+          }
+        }
         else
         {
-          int8_t found = -1;
-          for(i = 0; i < 3; i++)
+          if(sf.f.Enabled)
           {
-            if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find if previously active. Shouldn't be
-              found = i;
+            m_Sensor[snsIdx].f.f.Enabled = 1;
+            if(m_Sensor[snsIdx].f.f.currWeight == 0)
+            {
+              m_Sensor[snsIdx].f.f.Weight = 1;
+              m_Sensor[snsIdx].f.f.currWeight = 1;
+            }
+            activateSensor(snsIdx);
           }
-          if(found < 0)
+          if(sf.f.Priority)
           {
-            for(i = 0; i < 3; i++)
-              if(ee.sensorActive[i] == 0) // open spot
-              {
-                ee.sensorActive[i] = m_Sensor[snsIdx].ID;
-                break;
-              }
+            m_Sensor[snsIdx].f.f.Priority = 1;
+            m_Sensor[snsIdx].f.f.currWeight = m_Sensor[snsIdx].f.f.Weight;
+            m_Sensor[snsIdx].timer = m_Sensor[snsIdx].timerStart;
           }
         }
       }
@@ -1529,14 +1539,22 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         snsIdx = 0;
       }
       break;
-    case 49: // rmtto
+    case 49: // rmtto (usually PIR trigger)  0 sets perm weight
       snsIdx = getSensorID(ip);
-      m_Sensor[snsIdx].timer = val;
+      if(m_Sensor[snsIdx].timer == 0) // set if not set, otherwise it's already running
+      {
+        m_Sensor[snsIdx].timer = val;
+        m_Sensor[snsIdx].timerStart = val;
+      }
+      m_Sensor[snsIdx].f.f.currWeight = m_Sensor[snsIdx].f.f.Weight;
       break;
-    case 50: // sm
+    case 50: // rmtwt
+      m_Sensor[snsIdx].f.f.Weight = constrain(val, 1, 7);
+      break;
+    case 51: // sm
       ee.b.nSchedMode = constrain(val, 0, 2);
       break;
-    case 51: // fcs
+    case 52: // fcs
       ee.b.nFcstSource = constrain(val, 0, 3);
       break;
   }
@@ -1582,15 +1600,34 @@ int HVAC::getSensorID(uint32_t id)
   return 1; // Don't return internal (0)
 }
 
+void HVAC::activateSensor(int idx)
+{
+  int8_t found = -1;
+  int8_t i;
+  for(i = 0; i < 3; i++)
+  {
+    if(ee.sensorActive[i] == m_Sensor[idx].ID) // find if previously active. Shouldn't be
+      found = i;
+  }
+  if(found < 0)
+  {
+    for(i = 0; i < 3; i++)
+      if(ee.sensorActive[i] == 0) // open spot
+      {
+        ee.sensorActive[i] = m_Sensor[idx].ID;
+        break;
+      }
+  }
+}
+
 void HVAC::deactivateSensor(int idx)
 {
-  m_Sensor[idx].flags &= ~(SNS_EN | SNS_PRI);
+  m_Sensor[idx].f.val = 0;
   for(int j = 0; j < 3; j++)
   {
     if(ee.sensorActive[j] == m_Sensor[idx].ID) // remove from eeprom set
     {
       ee.sensorActive[j] = 0;
-      m_Sensor[idx].weight = 0;
     }
   }
 }
