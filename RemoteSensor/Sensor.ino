@@ -57,8 +57,8 @@ SOFTWARE.
 #include "TempArray.h"
 
 // Uncomment only one
-#include "tuya.h"  // Uncomment device in tuya.cpp
-//#include "BasicSensor.h"
+//#include "tuya.h"  // Uncomment device in tuya.cpp
+#include "BasicSensor.h"
 
 int serverPort = 80;
 
@@ -73,7 +73,6 @@ enum reportReason
 IPAddress lastIP;
 IPAddress verifiedIP;
 int nWrongPass;
-bool bResetPri = true; // send at start
 
 uint32_t sleepTimer = 60; // seconds delay after startup to enter sleep (Note: even if no AP found)
 int8_t nWsConnected;
@@ -117,18 +116,19 @@ String settingsJson()
   js.Var("srate", ee.sendRate);
   js.Var("lrate", ee.logRate);
   js.Var("sleep", ee.sleep);
+  js.Var("pri", ee.e.PriEn);
   js.Var("o", ee.e.bEnableOLED);
   js.Var("l1", sensor.m_bLED[0]);
   js.Var("l2", sensor.m_bLED[1]);
   js.Var("pir", ee.e.bPIR);
   js.Var("pirpin", ee.pirPin);
-  js.Var("pri", ee.e.PriEn);
   js.Var("prisec", ee.priSecs);
   js.Var("ch", ee.e.bCall);
   js.Var("ID", ee.sensorID);
   js.Var("cf", sensor.m_bCF);
   js.Var("df", sensor.m_dataFlags);
   js.Var("si", temps.m_bSilence);
+  js.Var("wt", ee.weight);
   return js.Close();
 }
 
@@ -194,6 +194,7 @@ const char *jsonList1[] = { "cmd",
   "alertlevel",
   "silence",
   "rhOffset",
+  "wt",
   NULL
 };
 
@@ -282,8 +283,7 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           ee.e.bPIR = iValue;
           break;
         case 12: // pri
-          ee.e.PriEn = iValue & 0x3; // EN or PRI
-          bResetPri = true;
+          ee.e.PriEn = iValue;
           break;
         case 13: // prisec
           ee.priSecs = iValue;
@@ -296,7 +296,6 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           break;
         case 16: // cf
           sensor.setCF(iValue ? true:false);
-          bResetPri = true;
           break;
         case 17: // ch
           ee.e.bCall = iValue;
@@ -324,7 +323,7 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           ee.pirPin = iValue;
           break;
         case 23:
-          alertIdx = constrain(iValue, 0, 16);
+          alertIdx = constrain(iValue, 0, 15);
           break;
         case 24: // set alertidx first
           ee.wAlertLevel[alertIdx] = iValue;
@@ -334,6 +333,9 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           break;
         case 26:
           ee.rhCal = iValue;
+          break;
+        case 27: // wt
+          ee.weight = constrain(iValue, 1, 7);
           break;
       }
       break;
@@ -496,23 +498,12 @@ void sendTemp()
   sUri += sensor.m_values[DE_TEMP];
   sUri += (ee.e.bCF) ? "F" : "C";
   sUri += "&rmtrh="; sUri += sensor.m_values[DE_RH];
+  sUri += "&rmtwt="; sUri += ee.weight;
 
-  uint8_t flg = ee.e.PriEn; // PriEn: 1=priority, 2=enable(avg)
-
-  if(bResetPri)
-  {
-    sUri += "&rmtflg="; sUri += (SNS_NEG | SNS_PRI | SNS_EN); // clear all flags that may have changed
-    sUri += "&rmtflg="; sUri += flg;
-    bResetPri = false;
-  }
   if(ee.e.bPIR && bPIRTrigger )
   {
-    sUri += "&rmtflg=";
-    sUri += flg;
     if(ee.priSecs)
-    {
       sUri += "&rmtto="; sUri += ee.priSecs;
-    }
     bPIRTrigger = false;
   }
 
@@ -701,6 +692,8 @@ void setup()
   if(ee.sendRate == 0) ee.sendRate = 60;
   sleepTimer = ee.sleep;
   temps.init(sensor.m_dataFlags);
+  if(ee.weight == 0)
+    ee.weight = 1;
 }
 
 void loop()
