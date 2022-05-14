@@ -370,7 +370,7 @@ void secondsServer() // called once per second
   if(nUpdateDelay)
     nUpdateDelay--;
 
-  if(now() > display.m_fc.loadDate + (3600*6)) // > 6 hours old
+  if(now() > display.m_fc.loadDate + (3600*6) && (nUpdateDelay == 0) ) // > 6 hours old
   {
     display.m_bUpdateFcst = true;
   }
@@ -439,6 +439,11 @@ void secondsServer() // called once per second
   }
   else if(stat == FCS_Fail)
    WsSend("alert;OpenWeatherMasp failed");
+
+  if(display.m_bFcstUpdated && WsRemoteID)
+  {
+    ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
+  }
 
 #endif // !REMOTE
 }
