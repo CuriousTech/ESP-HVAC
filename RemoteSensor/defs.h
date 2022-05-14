@@ -17,12 +17,8 @@ enum DataEnum{
 #define DF_VOC  (1<<DE_VOC)
 
 // From HVAC.h
-#define SNS_PRI   (1 << 0) // Single sensor overrides all others including internal
+#define SNS_PRI   (1 << 0) // Give extra weight to this sensor
 #define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
-#define SNS_PR_INC (1 << 2) // Future - increment priority weight
-#define SNS_PR_DEC (1 << 3) // Future - decrement priority weight
-#define SNS_TOPRI (1 << 4) // 1=timer is for priority, 0=for average
-#define SNS_WARN  (1 << 7) // internal flag for data timeout
 #define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
 
 #endif // DEFS_H
