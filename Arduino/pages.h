@@ -418,7 +418,6 @@ function setSnd(n,v)
   setVar('rmtflg',flg)
   setSenders()
 }
-
 function secsToTime(sec)
 {
  date=new Date(1970,0,1)
@@ -466,6 +465,7 @@ function t2s(v)
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
+<tr><td><br></td></tr>
 <tr id="int" style="visibility:collapse"><td></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
 <tr id="snd0" style="visibility:collapse"><td id="s0"><input type="submit" ID="shr0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
 <tr id="snd1" style="visibility:collapse"><td id="s1"><input type="submit" ID="shr1" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
