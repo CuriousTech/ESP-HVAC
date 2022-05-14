@@ -109,26 +109,38 @@ enum ScheduleMode
   SM_Reserved
 };
 
-#define SNS_PRI   (1 << 0) // Give extra weight to this sensor
-#define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
-#define SNS_PR_INC (1 << 2) // Future - increment priority weight
-#define SNS_PR_DEC (1 << 3) // Future - decrement priority weight
-#define SNS_TOPRI (1 << 4) // 1=timer is for priority, 0=for average
-#define SNS_WARN  (1 << 7) // internal flag for data timeout
-#define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
+struct sensorFlags
+{
+  uint32_t Priority:1;
+  uint32_t Enabled:1;
+  uint32_t Weight:6;
+  uint32_t currWeight:6;
+  uint32_t Reserved:17;
+  uint32_t Warn:1;
+};
+
+union usensorFlags
+{
+  uint32_t val;
+  sensorFlags f;
+};
 
 struct Sensor
 {
   uint32_t tm;
   uint32_t timer; // seconds, priority timer
+  uint32_t timerStart;
   uint32_t IP; //
-  uint8_t flags;
-  uint8_t weight; // weight of priority
+  usensorFlags f;
   int16_t temp;
   uint16_t rh;
   uint32_t ID; // hex text?
   uint8_t pad; // NULL for ID
 };
+
+#define SNS_PRI   (1 << 0) // Give extra weight to this sensor
+#define SNS_EN    (1 << 1) // Enabled = averaged between all enabled
+#define SNS_NEG   (1 << 8)  // From remote or page, set this bit to disable a flag above
 
 class HVAC
 {
@@ -198,6 +210,7 @@ private:
   int   getSensorID(uint32_t val);
   void  swapSensors(int n1, int n2);
   void  shiftSensors(void);
+  void  activateSensor(int idx);
   void  deactivateSensor(int idx);
 
   int8_t  m_FanMode;        // Auto=0, On=1, s=2
