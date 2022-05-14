@@ -5,20 +5,22 @@ const char page_index[] PROGMEM = R"rawliteral(
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>WiFi Environmental Monitor</title>
 <style>
-div,table{border-radius: 3px;box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #405050);
-background-image: -ms-linear-gradient(top, #ffffff, #405050);
-background-image: -o-linear-gradient(top, #ffffff, #405050);
-background-image: -webkit-linear-gradient(top, #ffffff, #405050);
-background-image: linear-gradient(top, #ffffff, #405050);
-background-clip: padding-box;}
-input{border-radius: 5px;box-shadow: 2px 2px 12px #000000;
-background-image: -moz-linear-gradient(top, #ffffff, #207080);
-background-image: -ms-linear-gradient(top, #ffffff, #207080);
-background-image: -o-linear-gradient(top, #ffffff, #207080);
-background-image: -webkit-linear-gradient(top, #a0c0ff, #207080);
-background-image: linear-gradient(top, #ffffff, #207080);
-background-clip: padding-box;}
+div,table{
+border-radius: 2px;
+margin-bottom: 2px;
+box-shadow: 4px 4px 10px #000000;
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(94,94,94,1) 0%, rgba(160,160,160,1) 90%);
+background-clip: padding-box;
+}
+input{
+border-radius: 2px;
+margin-bottom: 2px;
+box-shadow: 4px 4px 10px #000000;
+background: rgb(160,160,160);
+background: linear-gradient(0deg, rgba(160,160,160,1) 0%, rgba(239,255,255,1) 100%);
+background-clip: padding-box;
+}
 body{width:490px;display:block;text-align:right;font-family: Arial, Helvetica, sans-serif;}
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js" type="text/javascript" charset="utf-8"></script>
@@ -40,7 +42,7 @@ $(document).ready(function()
 
 function openSocket(){
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.194/ws")
+//ws=new WebSocket("ws://192.168.31.9/ws")
 ws.onopen=function(evt){setVar('hist',0)}
 ws.onclose=function(evt){alert("Connection closed");}
 ws.onmessage=function(evt){
@@ -62,6 +64,7 @@ console.log(evt.data)
     a.SRATE.value=s2t(d.srate)
     a.LRATE.value=s2t(d.lrate)
     a.TZ.value=d.tz
+    a.WT.value=d.wt
     a.LED1.value=nms[d.l1]
     a.LED1.setAttribute('style',d.l1?'color:blue':'')
     a.LED2.value=nms[d.l2]
@@ -71,7 +74,7 @@ console.log(evt.data)
     a.CH.value=nms[d.ch]
     a.CH.setAttribute('style',d.ch?'color:red':'')
     bSi=+d.si
-    a.SIL.setAttribute('style',bSi?'color:red':'')
+  a.SIL.setAttribute('style',bSi?'color:red':'')
     break
   case 'state':
     dt=new Date(d.t*1000)
@@ -655,7 +658,7 @@ function chartY(n,rng)
  Timer: <input id='prisec' type=text size=4 value='60' onchange="{setPriSec()}"></td></tr>
 <tr>
 <td>Log Rate<input id='LRATE' type=text size=4 value='10' onchange="{setLRate()}"></td>
-<td><div id="rssi">0db</div></td><td>
+<td>Weight:<input name="WT" type=text size=1 value='0' onchange="{setVar('wt', this.value)}"></td><td>
  <input value='Restart' type=button onclick="setVar('reset',0);"> &nbsp; 
  <input id="myKey" name="key" type=text size=50 placeholder="password" style="width: 128px" onChange="{localStorage.setItem('key', key = document.all.myKey.value)}">
 </td></tr>
@@ -664,7 +667,7 @@ function chartY(n,rng)
 <tr><td colspan=3><input name="SIL" value="Silence" type='button' onclick="{setSilence()}">&nbsp; &nbsp; High &nbsp; <input id='al1' type=text size=4 onchange="{setAL(1)}"><input id='al3' type=text size=4 onchange="{setAL(3)}"> <input id='al5' type=text size=4 onchange="{setAL(5)}"> <input id='al7' type=text size=4 onchange="{setAL(7)}"> <input id='al9' type=text size=4 onchange="{setAL(9)}"></td></tr>
 <tr><td colspan=3>Low &nbsp; <input id='al0' type=text size=4 onchange="{setAL(0)}"><input id='al2' type=text size=4 onchange="{setAL(2)}"> <input id='al4' type=text size=4 onchange="{setAL(4)}"> <input id='al6' type=text size=4 onchange="{setAL(6)}"> <input id='al8' type=text size=4 onchange="{setAL(8)}"></td></tr>
 
-<tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"></td><td><div id="co2"></div></td><td><div id="extra"></div></td>
+<tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"> &nbsp; &nbsp; </td><td> <div id="rssi">0db</div><div id="co2"></div></td><td><div id="extra"></div></td>
 </tr>
 </table>
 <table align="right" width=480>
