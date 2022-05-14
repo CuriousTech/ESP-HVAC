@@ -46,7 +46,8 @@ public:
   uint8_t   pirPin = 12;
   uint16_t  wAlertLevel[16] =  {320, 1000, 0, 900, 0, 1000, 0, 10, 0, 20, 0, 1000, 0, 1000, 0, 1000}; // alert levels L/H
   int8_t    rhCal = 0;
-  uint8_t   res[31];
+  uint8_t   weight = 1;
+  uint8_t   res[30];
   uint8_t   end;
 };
 
