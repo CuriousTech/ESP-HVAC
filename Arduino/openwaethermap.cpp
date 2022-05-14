@@ -34,7 +34,8 @@ void OpenWeather::_onConnect(AsyncClient* client)
 {
   String path = "GET /data/2.5/forecast?id=";
   path += m_cityID;
-  path += "&appid=YOURAPPID"; // Account
+  path += "&appid=";
+  path += APPID;   // Account
   path += "&uints=";
   if(m_bCelcius)
     path += "celcius";
