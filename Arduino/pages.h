@@ -389,6 +389,7 @@ function setSenders()
  }
  item=document.getElementById('int')
  item.setAttribute('style',snd.length?'':'visibility:collapse')
+ a.WT.value=(+snd[0][3])>>2&0x1F
 
  for(i=0;i<snd.length;i++)
  {
@@ -466,7 +467,7 @@ function t2s(v)
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
 <tr><td><br></td></tr>
-<tr id="int" style="visibility:collapse"><td></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
+<tr id="int" style="visibility:collapse"><td>Int Wt <input type=text size=1 id="WT" onchange="{setVar('wt',this.value)}"></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
 <tr id="snd0" style="visibility:collapse"><td id="s0"><input type="submit" ID="shr0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
 <tr id="snd1" style="visibility:collapse"><td id="s1"><input type="submit" ID="shr1" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
 <tr id="snd2" style="visibility:collapse"><td id="s2"><input type="submit" ID="shr2" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
@@ -1068,6 +1069,7 @@ function drawFC(){
   offsetX=canvasOffset.left
   offsetY=canvasOffset.top
   yPad=18
+  h18=graph2.height()-yPad
   if(fcr>fc.length) fcr=fc.length
   if(fcr==0) fcr=23
   c.lineWidth=2
@@ -1089,7 +1091,7 @@ function drawFC(){
   c.textAlign="right"
   c.textBaseline="middle"
   c.fillStyle='black'
-  
+
   // right legend
   for(i=min;i<max;i+=(yRange/8))
     c.fillText(i.toFixed(1),graph2.width()-6,getYPixel2(i))
@@ -1118,7 +1120,7 @@ function drawFC(){
   fl=(fcDate+fcFreq*(fcl-1))/60
   date=new Date(fcDate*1000)
   dt=date.getDate()
-  grd=c.createLinearGradient(0,0,0,graph2.height()-18)
+  grd=c.createLinearGradient(0,0,0,h18)
   if(max<=32) grd.addColorStop(0,"blue")
   else if(min<32)
   {
@@ -1136,6 +1138,7 @@ function drawFC(){
       c.stroke()
     }
     date = new Date((fcDate+fcFreq*i)*1000)
+    c.fillStyle='#000'
     if(cPos==0&&date.valueOf()>=(new Date()).valueOf())
     {
       dif=(date.valueOf()-(new Date().valueOf()))/60000
@@ -1143,10 +1146,9 @@ function drawFC(){
       cPos=i;
       c.strokeStyle='#fff'
       c.beginPath()
-      c.moveTo(getXPixel2(cPos)-xOff,graph2.height()-18)
+      c.moveTo(getXPixel2(cPos)-xOff,h18)
       c.lineTo(getXPixel2(cPos)-xOff,1)
       c.stroke()
-      c.fillStyle='#000'
       c.textAlign="center"
       c.fillText("Now",getXPixel2(cPos)-xOff,getYPixel3(iMax)-8)
     }
@@ -1155,9 +1157,8 @@ function drawFC(){
       c.strokeStyle='#555'
       c.beginPath()
       c.moveTo(getXPixel2(i),0)
-      c.lineTo(getXPixel2(i),graph2.height()-18)
+      c.lineTo(getXPixel2(i),h18)
       c.stroke()
-      c.fillStyle='#000'
       c.textAlign="left"
       c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
     }
@@ -1172,12 +1173,12 @@ function drawFC(){
   for(i=strt+1;i<=cPos+fcr;i++)
   {
     date=new Date((fcDate+(fcFreq*i))*1000)
-    c.lineTo(getXPixel2(i)-xOff,getTT(i,0))
+    c.lineTo(getXPixel2(i)-xOff,getTT(i,0) )
   }
   for(i=cPos+fcr;i>=strt;i--)
   {
     date=new Date((fcDate+(fcFreq*i))*1000)
-    c.lineTo(getXPixel2(i)-xOff,getTT(i,(md==2)?ct:-ct))
+    c.lineTo(getXPixel2(i)-xOff,getTT(i,ct))
   }
   c.closePath()
   c.fill()
@@ -1188,14 +1189,13 @@ function getXPixel2(val){
 }
 
 function getYPixel2(val){
-  h=graph2.height()-18
-  y=h-((h/yRange)*(val-min))
+  y=h18-((h18/yRange)*(val-min))
   return y.toFixed()
 }
 function getYPixel3(val){
   h=graph2.height()-18
   o=70+ct*2
-  return h-(o/2)-((h-o)/iRng*(val-iMin))
+  return h18-(o/2)-((h18-o)/iRng*(val-iMin))
 }
 function getTT(i,th)
 {
@@ -1216,15 +1216,12 @@ function getTT(i,th)
  }else if(schedMode==1){
   m=((date.getHours()+14)*60+date.getMinutes()+so)/4
   r=(iRng/2)*Math.sin(Math.PI*(180-m)/180)
-  tt=r+iMin+th
-  if(md==2) tt+=iRng/2
-  else tt-=iRng/2
-  }else if(schedMode==2){
+  tt=r+iMin+th+iRng/2
+ }else if(schedMode==2){
   tt=iMin+th
  }
- h=graph2.height()-18
  o=70+ct*2
- return h-o/2-(h-o)/iRng*(tt-iMin)
+ return h18-o/2-(h18-o)/iRng*(tt-iMin)
 }
 function setSched(n)
 {
