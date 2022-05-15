@@ -521,8 +521,11 @@ void HVAC::tempCheck()
         }
         if(now() - m_Sensor[i].tm > 5*60) // Inactive 5 minutes. Remove the sensor
         {
-          if(i) m_Sensor[i].IP = 0; // kill it
-          m_Sensor[i].f.val = 0;
+          if(i)
+          {
+            m_Sensor[i].IP = 0; // kill it
+            m_Sensor[i].f.val = 0;
+          }
           remSens = true;
         }
       }
@@ -1236,6 +1239,7 @@ const char *cmdList[] = { "cmd",
   "rmtwt", // 50
   "sm",
   "fcs",
+  "wt",
   NULL
 };
 
@@ -1556,6 +1560,9 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       break;
     case 52: // fcs
       ee.b.nFcstSource = constrain(val, 0, 3);
+      break;
+    case 53: // wt
+      m_Sensor[0].f.f.currWeight = m_Sensor[0].f.f.Weight = constrain(val, 1, 7);
       break;
   }
 #endif
