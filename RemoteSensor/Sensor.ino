@@ -491,6 +491,7 @@ void sendTemp()
   if(wifi.state() != ws_connected || ee.hvacIP[0] == 0) // not set
     return;
 
+  uint8_t sentWt;
   String sUri = String("/s?key=");
   sUri += ee.szControlPassword;
   sUri += "&rmtname="; sUri += ee.sensorID;
@@ -498,7 +499,11 @@ void sendTemp()
   sUri += sensor.m_values[DE_TEMP];
   sUri += (ee.e.bCF) ? "F" : "C";
   sUri += "&rmtrh="; sUri += sensor.m_values[DE_RH];
-  sUri += "&rmtwt="; sUri += ee.weight;
+  if(sentWt != ee.weight)
+  {
+    sentWt = ee.weight;
+    sUri += "&rmtwt="; sUri += ee.weight;
+  }
 
   if(ee.e.bPIR && bPIRTrigger )
   {
