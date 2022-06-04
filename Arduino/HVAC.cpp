@@ -1543,17 +1543,16 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         snsIdx = 0;
       }
       break;
-    case 49: // rmtto (usually PIR trigger)  0 sets perm weight
+    case 49: // rmtto (usually PIR trigger)
       snsIdx = getSensorID(ip);
-      if(m_Sensor[snsIdx].timer == 0) // set if not set, otherwise it's already running
-      {
-        m_Sensor[snsIdx].timer = val;
-        m_Sensor[snsIdx].timerStart = val;
-      }
+      m_Sensor[snsIdx].timer = val;
+      m_Sensor[snsIdx].timerStart = val;
       m_Sensor[snsIdx].f.f.currWeight = m_Sensor[snsIdx].f.f.Weight;
       break;
     case 50: // rmtwt
       m_Sensor[snsIdx].f.f.Weight = constrain(val, 1, 7);
+      if(m_Sensor[snsIdx].timer == 0) // normal weight
+        m_Sensor[snsIdx].f.f.currWeight = m_Sensor[snsIdx].f.f.Weight;
       break;
     case 51: // sm
       ee.b.nSchedMode = constrain(val, 0, 2);
