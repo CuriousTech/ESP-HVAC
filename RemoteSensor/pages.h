@@ -42,7 +42,7 @@ $(document).ready(function()
 
 function openSocket(){
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.9/ws")
+//ws=new WebSocket("ws://192.168.31.194/ws")
 ws.onopen=function(evt){setVar('hist',0)}
 ws.onclose=function(evt){alert("Connection closed");}
 ws.onmessage=function(evt){
@@ -69,7 +69,7 @@ console.log(evt.data)
     a.LED1.setAttribute('style',d.l1?'color:blue':'')
     a.LED2.value=nms[d.l2]
     a.LED2.setAttribute('style',d.l2?'color:blue':'')
-    cf=d.cf
+    cf=+d.cf
     a.CF.value=cf?'F':'C'
     a.CH.value=nms[d.ch]
     a.CH.setAttribute('style',d.ch?'color:red':'')
@@ -78,14 +78,14 @@ console.log(evt.data)
     break
   case 'state':
     dt=new Date(d.t*1000)
-    DF=d.df
-    a.time.innerHTML=dt.toLocaleTimeString()+' '+d.temp+'&deg'+ (cf?'F':'C') + ' '+d.rh+'%'
-    a.rssi.innerHTML=d.rssi+'dB  &nbsp; '
-    if(d.df & 4) a.co2.innerHTML = label[2]+': '+d.co2+'ppm'
-    s=''
-    if(d.df & 8) s += ' '+label[3]+': '+d.ch2o+'mg/m3'
-    if(d.df & 16) s += ' &nbsp;'+label[4]+': '+d.voc+'ppm '
-    a.extra.innerHTML=s+' &nbsp; '
+    DF=+d.df
+    a.time.innerHTML=dt.toLocaleTimeString()+' &nbsp; &nbsp; '+d.rssi+'dB  &nbsp; '
+
+    s='&nbsp;'+d.temp+'&deg'+ (cf?'F':'C') + ' &nbsp; '+d.rh+'% &nbsp; '
+    if(DF & 4) s+=d.co2+'ppm &nbsp; '
+    if(DF & 8) s +=d.ch2o+'mg/m3 &nbsp; '
+    if(DF & 16) s += d.voc+'ppm &nbsp; '
+    a.ctr.innerHTML=s
     break
   case 'alert':
     alert(d.text)
@@ -664,10 +664,12 @@ function chartY(n,rng)
 </td></tr>
 
 <tr><td colspan=3 id="labels"></tr>
-<tr><td colspan=3><input name="SIL" value="Silence" type='button' onclick="{setSilence()}">&nbsp; &nbsp; High &nbsp; <input id='al1' type=text size=4 onchange="{setAL(1)}"><input id='al3' type=text size=4 onchange="{setAL(3)}"> <input id='al5' type=text size=4 onchange="{setAL(5)}"> <input id='al7' type=text size=4 onchange="{setAL(7)}"> <input id='al9' type=text size=4 onchange="{setAL(9)}"></td></tr>
+<tr><td colspan=3><input name="SIL" value="Silence" type='button' onclick="{setSilence()}">&nbsp; &nbsp; High &nbsp; 
+<input id='al1' type=text size=4 onchange="{setAL(1)}"><input id='al3' type=text size=4 onchange="{setAL(3)}"> <input id='al5' type=text size=4 onchange="{setAL(5)}"> <input id='al7' type=text size=4 onchange="{setAL(7)}"> <input id='al9' type=text size=4 onchange="{setAL(9)}"></td></tr>
+<tr><td>Current</td><td colspan=3><div id='ctr' align="left"></div></td></tr>
 <tr><td colspan=3>Low &nbsp; <input id='al0' type=text size=4 onchange="{setAL(0)}"><input id='al2' type=text size=4 onchange="{setAL(2)}"> <input id='al4' type=text size=4 onchange="{setAL(4)}"> <input id='al6' type=text size=4 onchange="{setAL(6)}"> <input id='al8' type=text size=4 onchange="{setAL(8)}"></td></tr>
 
-<tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"> &nbsp; &nbsp; </td><td> <div id="rssi">0db</div><div id="co2"></div></td><td><div id="extra"></div></td>
+<tr><td>ID: <input id='ID' type=text size=6 value='0' maxlength=4 onchange="{setID()}"> &nbsp; &nbsp; </td><td> </td><td></td>
 </tr>
 </table>
 <table align="right" width=480>
