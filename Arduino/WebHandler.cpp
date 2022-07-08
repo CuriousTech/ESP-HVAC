@@ -38,7 +38,7 @@
 int serverPort = 80;
 
 #ifdef REMOTE
-const char *hostName = "HVACRemote";
+const char *hostName = RMTNAMEFULL;
 WebSocketsClient wsc;
 bool bWscConnected;
 #else
@@ -269,6 +269,10 @@ void startServer()
   remoteParse.addList(jsonList1);
 #ifdef REMOTE
   remoteParse.addList(jsonList2);
+//  ee.hostIp[0] = 192; // force IP of HVAC if needed
+//  ee.hostIp[1] = 168;
+//  ee.hostIp[2] = 31;
+//  ee.hostIp[3] = 46;
 #endif
   remoteParse.addList(cmdList);
   remoteParse.addList(jsonList3);
@@ -393,7 +397,7 @@ void secondsServer() // called once per second
     nUpdateDelay = 60;
     WscSend("cmd;{\"bin\":1}"); // request forcast data
   }
-#else
+#else  // !Remote
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
   if(s.length() > 2)
     ws.textAll(s); // update anything changed
@@ -464,7 +468,7 @@ void parseParams(AsyncWebServerRequest *request)
  
     switch( p->name().charAt(0) )
     {
-      case 'T': // temp offset
+      case 'c': // temp calibration
           ee.adj = val;
           break;
       case 'f': // get forecast
