@@ -506,7 +506,7 @@ void HVAC::tempCheck()
   {
     if(m_Sensor[i].IP)
     {
-      if(now() > 1650303682 && now() - m_Sensor[i].tm > 100) // disregard expired sensor data if now() is valid
+      if(now() > 1650303682 && now() - m_Sensor[i].tm >= 90) // disregard expired sensor data if now() is valid
       {
         if( m_Sensor[i].f.f.Warn == 0)
         {
@@ -519,14 +519,14 @@ void HVAC::tempCheck()
           s += m_Sensor[i].tm;
           WsSend(s);
         }
-        if(now() - m_Sensor[i].tm > 5*60) // Inactive 5 minutes. Remove the sensor
+        if(now() - m_Sensor[i].tm > 3*60) // Inactive 3 minutes. Remove the sensor
         {
           if(i)
           {
             m_Sensor[i].IP = 0; // kill it
             m_Sensor[i].f.val = 0;
+            remSens = true;
           }
-          remSens = true;
         }
       }
       else if( m_Sensor[i].f.f.Priority || m_Sensor[i].f.f.Enabled)
@@ -1027,7 +1027,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     oldTemp = m_localTemp;
     oldRh = m_localRh;
     secs = now();
-    sendCmd("rmtname", 0x31544d52); // RMT1
+    sendCmd("rmtname", RMTNAME); // RMT1
     String s = String(m_localTemp);
     s += (ee.b.bCelcius) ? 'C' : 'F'; // append C or F to the temp value
     jsonString js("cmd");
@@ -1142,6 +1142,7 @@ String HVAC::settingsJson()
   js.Var("lock", ee.b.bLock);
   js.Var("fcs", ee.b.nFcstSource);
 #endif
+  js.Var("cal", ee.adj);
   js.Var("ppk", ee.ppkwh);
   js.Var("ccf", ee.ccf);
   js.Var("cfm", ee.cfm);
@@ -1206,7 +1207,7 @@ const char *cmdList[] = { "cmd",
   "humidmode",
   "humidl",
   "humidh",
-  "adj",      // 20
+  "cal",      // 20
   "fanpretime",
   "fim",
   "fco",
@@ -1253,6 +1254,20 @@ int HVAC::CmdIdx(String s )
       break;
   }
   return iCmd - 5;
+}
+
+// Sort for sensor array when sensor added
+int snsComp(const void *a, const void*b)
+{
+  Sensor *a1 = (Sensor *)a;
+  Sensor *b1 = (Sensor *)b;
+  const char *c1 = (const char*)&a1->ID;
+  const char *c2 = (const char*)&b1->ID;
+  if(c1[0] != c2[0]) return c1[0] - c2[0]; // strcmp is having trouble
+  if(c1[1] != c2[1]) return c1[1] - c2[1];
+  if(c1[2] != c2[2]) return c1[2] - c2[2];
+  if(c1[3] != c2[3]) return c1[3] - c2[3];
+  return 0;
 }
 
 #endif
@@ -1345,7 +1360,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
     case 19: // humidh
       ee.rhLevel[1] = constrain(val, 300, 900);
       break;
-    case 20: // adj
+    case 20: // cal
       ee.adj = constrain(val, (ee.b.bCelcius ? -44:-80), (ee.b.bCelcius ? 5:10) ); // calibrate can only be -8.0 to +1.0
       break;
     case 21:     // fanPretime
@@ -1483,12 +1498,26 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         String s = "print;";
         s += (char *)&m_Sensor[snsIdx].ID;
         s += " sensor range error ";
-        s += String(val / 10);
+        s += String((float)val / 10, 1);
         WsSend(s);
         deactivateSensor(snsIdx);
       }
-      else
+      else if(m_Sensor[snsIdx].temp && (val < m_Sensor[snsIdx].temp - 20 || val > m_Sensor[snsIdx].temp + 20) )
+      {
+        String s = "print;";
+        s += (char *)&m_Sensor[snsIdx].ID;
+        s += " irratic sensor change ";
+        s += String((float)m_Sensor[snsIdx].temp / 10, 1);
+        s += " to ";
+        s += String((float)val / 10, 1);
+        WsSend(s);
+        deactivateSensor(snsIdx);
         m_Sensor[snsIdx].temp = val;
+      }
+      else
+      {
+        m_Sensor[snsIdx].temp = val;
+      }
       m_Sensor[snsIdx].tm = now();
       break;
     case 46: // rmtrh
@@ -1536,11 +1565,17 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       break;
     case 48: // rmtname
       snsIdx = getSensorID(ip);
-      m_Sensor[snsIdx].ID = val;
-      if(val == 0x31544d52 && snsIdx != 1) //swap sensors so RMT1 is top
+      if(m_Sensor[snsIdx].ID != val) // Added, sort the list
       {
-        swapSensors(1, snsIdx);
-        snsIdx = 0;
+        m_Sensor[snsIdx].ID = val;
+        m_Sensor[snsIdx].pad = 0;
+
+        int nCnt;
+        for(nCnt = 0; nCnt < SNS_CNT && m_Sensor[nCnt].IP; nCnt++);
+        if(nCnt > 2)
+        {
+          qsort(&m_Sensor[1], nCnt - 1, sizeof(Sensor), snsComp);
+        }
       }
       break;
     case 49: // rmtto (usually PIR trigger)
@@ -1568,6 +1603,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
 }
 
 #ifndef REMOTE
+
 void HVAC::swapSensors(int n1, int n2)
 {
   Sensor tmp;
@@ -1578,9 +1614,10 @@ void HVAC::swapSensors(int n1, int n2)
 
 void HVAC::shiftSensors()
 {
-  for(int i = 1; i < SNS_CNT - 1; i++)
-    if(m_Sensor[i].IP ==  0 && m_Sensor[i+1].IP )
-      swapSensors(i, i+1);
+  int nCnt;
+  for(nCnt = 1; nCnt < SNS_CNT - 1; nCnt++)
+    if(m_Sensor[nCnt].IP ==  0 && m_Sensor[nCnt + 1].IP )
+      swapSensors(nCnt, nCnt + 1);
 }
 
 int HVAC::getSensorID(uint32_t id)
