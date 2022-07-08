@@ -366,6 +366,7 @@ ws.onmessage = function(evt){
   a.acth.value=+Json.dl/10
   a.fim.value=s2t(+Json.fim)
   a.far.value=s2t(+Json.far)
+  a.cal.value=+Json.cal/10
  }
  else if(event == 'state')
  {
@@ -382,7 +383,7 @@ ws.onmessage = function(evt){
 
 function setSenders()
 {
- for(i=0;i<5;i++)
+ for(i=0;i<7;i++)
  {
   item=document.getElementById('snd'+i)
   item.setAttribute('style',i<snd.length?'':'visibility:collapse')
@@ -466,8 +467,9 @@ function t2s(v)
 <tr><td>FC Shift</td><td><input type=text size=4 id="fco" onchange="{setVar('fco',this.value)}"></td><td>CCF</td><td><input type=text size=3 id="ccf" onchange="{setVar('ccf',(+this.value*1000).toFixed())}"></td></tr>
 <tr><td>Lookahead</td><td><input type=text size=4 id="fcr" onchange="{setVar('fcrange',this.value)}"></td><td>Disp</td><td><input type=text size=3 id="fcd" onchange="{setVar('fcdisp',this.value)}"></td></tr>
 <tr><td>Fan Auto Run</td><td><input type=text size=4 id="fim" onchange="{setVar('fim',t2s(this.value))}"></td><td>Run</td><td><input type=text size=3 id="far" onchange="{setVar('far',t2s(this.value))}"></td></tr>
+<tr><td>Temp Weight</td><td><input type=text size=4 id="WT" onchange="{setVar('wt',this.value)}"></td><td>Cal</td><td><input type=text size=3 id="cal" onchange="{setVar('cal',(+this.value*10).toFixed())}"></td></tr>
 <tr><td><br></td></tr>
-<tr id="int" style="visibility:collapse"><td>Int Wt <input type=text size=1 id="WT" onchange="{setVar('wt',this.value)}"></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
+<tr id="int"><td></td><td>Effective</td><td id="loc" colspan=2></td><td></td></tr>
 <tr id="snd0" style="visibility:collapse"><td id="s0"><input type="submit" ID="shr0"></td><td><input type="button" value="Pri" id="sndpri0" onClick="{setSnd(0,0)}"><input type="button" value="En" id="snda0" onClick="{setSnd(0,1)}"></td><td id="rt0" colspan=2></td><td></td></tr>
 <tr id="snd1" style="visibility:collapse"><td id="s1"><input type="submit" ID="shr1" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri1" onClick="{setSnd(1,0)}"><input type="button" value="En" id="snda1" onClick="{setSnd(1,1)}"></td><td id="rt1" colspan=2></td><td></td></tr>
 <tr id="snd2" style="visibility:collapse"><td id="s2"><input type="submit" ID="shr2" onClick="{jmp(this.id)}"></td><td><input type="button" value="Pri" id="sndpri2" onClick="{setSnd(2,0)}"><input type="button" value="En" id="snda2" onClick="{setSnd(2,1)}"></td><td id="rt2" colspan=2></td><td></td></tr>
