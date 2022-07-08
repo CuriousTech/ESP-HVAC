@@ -63,7 +63,7 @@ FC Shift (in minutes): Shifts the forecast for the temperature adjust. Use the s
 The web chart.  Dark gray is off, cyan is fan running, blue is compressor+fan, NG is red, HP is yellow, rh is green, the target/threshold is the wave.  The thermostat is in the hottest room in the house, so it does look warmer than it really is, but that's why there's a remote unit, and now multiple sensors.  
 ![chartpage](http://www.curioustech.net/images/hvacchart2.png)  
 
-![dualstats](http://www.curioustech.net/images/hvac.jpg)  
+![dualstats](http://www.curioustech.net/images/hvac2.jpg)  
 
 New Model
 ![model2](http://www.curioustech.net/images/esphvac2.jpg)  
@@ -72,4 +72,4 @@ Remote (this uses only a few components: the 3.3V regulator, 3 capacitors, USB c
 ![model2side](http://www.curioustech.net/images/esphvac21.jpg)  
 
 Sensor web page  
-![envmon](http://www.curioustech.net/images/sensor2.png)  
+![envmon](http://www.curioustech.net/images/sensor32.png)  
