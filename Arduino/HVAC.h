@@ -1,14 +1,17 @@
-#ifdef ESP8266
-#include <ESP8266WiFi.h>
-#endif
+#ifndef HVAC_H
+#define HVAC_H
 
 // Uncomment to compile for remote
 //#define REMOTE
 
+#define RMTNAME 0x31544d52 // RMT1
+#define RMTNAMEFULL "HVACRemote"
+
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#endif
+
 //  HVAC Control
-//
-#ifndef HVAC_H
-#define HVAC_H
 //----------------
 #ifdef ESP32
 #define P_FAN   33 // G GPIO for SSRs
