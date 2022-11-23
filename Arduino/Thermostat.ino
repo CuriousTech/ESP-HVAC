@@ -21,9 +21,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.19
-//  ESP8266 (3.0.1)  1MB (FS:64Kb)
-//  ESP32: (1.0.6 or 2.0.2) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT) or any speed, QIO, Default 4MB with spiffs
+// Build with Arduino IDE 1.8.19+
+//  ESP8266 (3.0.2)  1MB (FS:64Kb)
+//  ESP32: (2.0.5, not .4) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT) or any speed, QIO, Default 4MB with spiffs
 // For remote unit, uncomment #define REMOTE in HVAC.h
 
 #include "WiFiManager.h"
