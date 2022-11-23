@@ -43,7 +43,6 @@ ws.onmessage=function(evt){
 	a.humidl.value=+Json.rh0/10
 	a.humidh.value=+Json.rh1/10
 	a.ovrtime.value=s2t(+Json.ov)
-	a.fantime.value=s2t(+Json.fct)
 	a.awaytemp.value=+Json.ad/10
   if( +a.ovrtemp.value==0)
 	 a.ovrtemp.value= -2.0
@@ -293,7 +292,7 @@ function t2s(v)
 </tr>
 <tr>
 <td>FRESHEN</td>
-<td><input type=text size=3 id="fantime" onChange="{setVars()}"></td>
+<td><input type=text size=3 id="fantime" value="5" onChange="{setVars()}"></td>
 <td><input type="button" style="margin-left:200" value="  GO  " onClick="{setfan(3)}"></td>
 <td><input type="button" value="  A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> &nbsp; LO <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
 </td>
