@@ -25,7 +25,7 @@ union gflags
     uint32_t state:3;
     uint32_t rh:10;
     uint32_t tmdiff:9;
-    uint32_t res:9;
+    int32_t sens4:9;
   };
 };
 
@@ -40,20 +40,12 @@ union temps
   };
 };
 
-union temps2
-{
-  uint32_t u;
-  struct
-  {
-    uint32_t sens0:11;
-    uint32_t sens1:11;
-    uint32_t sens2:10;
-  };
-};
-
 struct gPoint{
   temps t;
-  temps2 t2;
+  int8_t sens0;
+  int8_t sens1;
+  int8_t sens2;
+  int8_t sens3;
   gflags bits;
 };
 
