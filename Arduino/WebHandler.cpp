@@ -645,16 +645,29 @@ void historyDump(bool bStart)
     out += gpt.bits.u & 7; // state + fan
     out += ",";
     out += gpt.t.outTemp - otMin;
-    if(gpt.t2.sens0 || gpt.t2.sens1)
+    if(hvac.m_Sensor[0].IP)
     {
       out += ",";
-      out += gpt.t2.sens0 - tempMin;
-      out += ",";
-      out += gpt.t2.sens1 - tempMin;
-      if(gpt.t2.sens2)
+      out += gpt.sens0 + gpt.t.inTemp - tempMin;
+      if(hvac.m_Sensor[1].IP)
       {
         out += ",";
-        out += gpt.t2.sens2 - tempMin;
+        out += gpt.sens1 + gpt.t.inTemp - tempMin;
+        if(hvac.m_Sensor[2].IP)
+        {
+          out += ",";
+          out += gpt.sens2 + gpt.t.inTemp - tempMin;
+          if(hvac.m_Sensor[3].IP)
+          {
+            out += ",";
+            out += gpt.sens3 + gpt.t.inTemp - tempMin;
+          }
+          if(hvac.m_Sensor[4].IP)
+          {
+            out += ",";
+            out += gpt.bits.sens4 + gpt.t.inTemp - tempMin;
+          }
+        }
       }
     }
     out += "]";
@@ -699,16 +712,29 @@ void appendDump(uint32_t startTime)
     out += gpt.bits.u & 7;
     out += ",";
     out += gpt.t.outTemp;
-    if(gpt.t2.sens0 || gpt.t2.sens1)
+    if(hvac.m_Sensor[0].IP)
     {
       out += ",";
-      out += gpt.t2.sens0;
-      out += ",";
-      out += gpt.t2.sens1;
-      if(gpt.t2.sens2)
+      out += gpt.sens0 + gpt.t.inTemp;
+      if(hvac.m_Sensor[1].IP)
       {
         out += ",";
-        out += gpt.t2.sens2;
+        out += gpt.sens1 + gpt.t.inTemp;
+        if(hvac.m_Sensor[2].IP)
+        {
+          out += ",";
+          out += gpt.sens2 + gpt.t.inTemp;
+          if(hvac.m_Sensor[3].IP)
+          {
+            out += ",";
+            out += gpt.sens3 + gpt.t.inTemp;
+            if(hvac.m_Sensor[4].IP)
+            {
+              out += ",";
+              out += gpt.bits.sens4 + gpt.t.inTemp;
+            }
+          }
+        }
       }
     }
     out += "]";
@@ -862,6 +888,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
       if(length == sizeof(forecastData) )
       {
         memcpy((void*)&display.m_fc, payload, length);
+        display.m_fc.loadDate = now(); // fix for strange data
         display.m_bUpdateFcstIdle = true;
         display.m_bFcstUpdated = true;
       }
