@@ -949,9 +949,11 @@ void Display::addGraphPoints()
   p->bits.rh = hvac.m_rh;
   p->bits.fan = hvac.getFanRunning();
   p->bits.state = hvac.getState(); 
-  p->t2.sens0 = hvac.m_Sensor[0].temp;
-  p->t2.sens1 = hvac.m_Sensor[1].temp;
-  p->t2.sens2 = hvac.m_Sensor[2].temp;
+  p->sens0 = hvac.m_Sensor[0].temp - p->t.inTemp;
+  p->sens1 = hvac.m_Sensor[1].temp - p->t.inTemp;
+  p->sens2 = hvac.m_Sensor[2].temp - p->t.inTemp;
+  p->sens3 = hvac.m_Sensor[3].temp - p->t.inTemp;
+  p->bits.sens4 = hvac.m_Sensor[4].temp - p->t.inTemp;
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
   m_points[m_pointsIdx].t.u = 0xFFFFFFFF; // mark as invalid data/end
