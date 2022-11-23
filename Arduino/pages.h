@@ -541,6 +541,8 @@ var Json
 var a=document.all
 var ws
 added=false
+clrs=['#000','#0f0','rgba(0,0,255)','rgba(255,255,255)','rgba(0,0,50)','#fa0','rgba(0,0,255,0.5)','rgba(255,255,255,0.7)','rgba(0,0,50,0.6)','rgba(55,0,255,0.7)','rgba(255,156,10,0.7)']
+
 $(document).ready(function()
 {
  myStorage1 = localStorage.getItem('myStoredText1')
@@ -624,7 +626,7 @@ $(document).ready(function()
       break
     case 'data':
       for(i=0;i<Json.d.length;i++){
-        n=Json.d[i][0]      // time, temp, rh, thrsh, state outtemp
+        n=Json.d[i][0]      // time, temp, rh, thrsh, st, ot,s0,s1,s2...
         Json.d[i][0]=tb*1000
         tb-=n
         Json.d[i][1]+=tm
@@ -744,31 +746,31 @@ function draw(){
    }
   }
 
-  if(arr[0].length>6)
+  sh=4
+  for(i=6;i<arr[0].length;i++)
   {
-  if(drawMode&4) doLines('rgba(0,0,255,0.5)',6)
-  if(drawMode&8) doLines('rgba(255,255,255,0.7)',7)
-  if(drawMode&16) doLines('rgba(0,0,50,0.6)',8)
+  if(drawMode&sh)
+     doLines(clrs[i],i)
+  sh<<=1
   }
   c.textAlign="left"
   y=graph.height()
+  c.fillStyle='#fa0'
+  c.fillText('OUT',2,y-=10)
   c.fillStyle='#000'
   c.fillText('TEMP',2,y-=10)
   c.fillStyle='#0f0'
   c.fillText('RH',2,y-=10)
-  c.fillStyle='rgba(0,0,255)'
-  c.fillText(snd[0][4],2,y-=10)
-  c.fillStyle='rgba(255,255,255)'
   y-=10
-  if(snd[1]) c.fillText(snd[1][4],2,y)
-  c.fillStyle='rgba(0,0,50)'
-  y-=10
-  if(snd[2]) c.fillText(snd[2][4],2,y)
-  c.fillStyle='#fa0'
-  c.fillText('OUT',2,y-=10)
+  for(i=0;i<snd.length;i++)
+  {
+    c.fillStyle=clrs[i+6]
+    c.fillText(snd[i][4],2,y)
+    y-=10
+  }
 
   // out temp
-  if(drawMode&32) doLines('#fa0',5,'OUT')
+  if(drawMode&32) doLines('#fa0',5)
   if(drawMode&2){
   c.strokeStyle = '#0f0'
   c.beginPath()
@@ -1165,22 +1167,24 @@ function drawFC(){
       c.fillText(date.toLocaleDateString(),getXPixel2(i),graph2.height()-8)
     }
   }
-  xOff=w/fl*fco
-  c.fillStyle = "#9050F090"
+  xOff=0
+  if(schedMode==0)
+    xOff=w/((fcl-1)*(fcFreq/60))*fco
+  c.fillStyle="#9050F090"
   c.beginPath()
   strt=cPos-fcr
   if(strt<0) strt=0
   date=new Date(fcDate*1000)
-  c.moveTo(getXPixel2(strt)-xOff,getTT(strt,0))
+  c.moveTo(getXPixel2(strt)+xOff,getTT(strt,0))
   for(i=strt+1;i<=cPos+fcr;i++)
   {
     date=new Date((fcDate+(fcFreq*i))*1000)
-    c.lineTo(getXPixel2(i)-xOff,getTT(i,0) )
+    c.lineTo(getXPixel2(i)+xOff,getTT(i,0))
   }
   for(i=cPos+fcr;i>=strt;i--)
   {
     date=new Date((fcDate+(fcFreq*i))*1000)
-    c.lineTo(getXPixel2(i)-xOff,getTT(i,ct))
+    c.lineTo(getXPixel2(i)+xOff,getTT(i,ct))
   }
   c.closePath()
   c.fill()
