@@ -330,15 +330,6 @@ void HVAC::service()
           m_Sensor[i].f.f.currWeight--;
           m_Sensor[i].timer = m_Sensor[i].timerStart;
         }
-/*      else
-        {
-          if(m_Sensor[i].f.f.Priority) // timer + pri  (no need, weight will drop to 1)
-            m_Sensor[i].f.f.Priority = 0;
-          else
-            m_Sensor[i].f.f.Enabled = 0; // timer + no pri
-
-        }
-*/
       }
     }
   }
@@ -395,7 +386,7 @@ void HVAC::service()
         m_bCoolOn = true;
         m_bRunning = true;
         break;
-    case Mode_Heat:
+      case Mode_Heat:
         if(hm == Heat_NG)  // gas
         {
           if(m_bCoolOn)
@@ -1123,7 +1114,6 @@ String HVAC::settingsJson()
   js.Var("rh0", ee.rhLevel[0]);
   js.Var("rh1", ee.rhLevel[1]);
   js.Var("fp",  ee.fanPreTime[m_modeShadow == Mode_Heat]);
-  js.Var("fct", 0);
   js.Var("at",  ee.awayTime);
   js.Var("ad",  ee.awayDelta[m_modeShadow == Mode_Heat]);
   js.Var("fcr", ee.fcRange);
@@ -1463,6 +1453,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
     case 45: // rmttemp
       snsIdx = getSensorID(ip);
       for(i = 0; i < 3; i++)
+      {
         if(ee.sensorActive[i] == m_Sensor[snsIdx].ID) // find in active list
         {
           m_Sensor[snsIdx].f.f.Enabled = 1;
@@ -1472,6 +1463,8 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
             m_Sensor[snsIdx].f.f.currWeight = 1;
           }
         }
+      }
+
       {
         char *p = psValue + strlen(psValue) - 1;
         if(*p == 'C' && ee.b.bCelcius == false)
@@ -1506,7 +1499,15 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
       {
         String s = "print;";
         s += (char *)&m_Sensor[snsIdx].ID;
-        s += " irratic sensor change ";
+        s += " irratic sensor change idx=";
+        s += snsIdx;
+        s += " ";
+        s += ip;
+        s += " ";
+
+        s += m_Sensor[i].IP;
+        s += " ";
+        
         s += String((float)m_Sensor[snsIdx].temp / 10, 1);
         s += " to ";
         s += String((float)val / 10, 1);
@@ -1529,7 +1530,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         usensorFlags sf;
         sf.val = val;
 
-        if(val & SNS_NEG)
+        if(val & SNS_NEG) // disable flags
         {
           if(sf.f.Enabled)
           {
@@ -1542,7 +1543,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
             m_Sensor[snsIdx].f.f.currWeight = 1;
           }
         }
-        else
+        else // enable flags
         {
           if(sf.f.Enabled)
           {
@@ -1640,6 +1641,7 @@ int HVAC::getSensorID(uint32_t id)
     m_Sensor[i].IP = id;
     return i;
   }
+
   return 1; // Don't return internal (0)
 }
 
