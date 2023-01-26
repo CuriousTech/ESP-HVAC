@@ -13,7 +13,6 @@
 #include <ArduinoOTA.h>
 #endif
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
-#include "WiFiManager.h"
 #include "WebHandler.h"
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonParse
@@ -54,7 +53,6 @@ AsyncWebServer server( serverPort );
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 extern HVAC hvac;
 extern Display display;
-WiFiManager wifi;  // AP page:  192.168.4.1
 
 void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
@@ -69,6 +67,11 @@ int WsClientID;
 int WsRemoteID;
 IPAddress lastIP;
 IPAddress WsClientIP;
+
+bool bConfigDone = false; // EspTouch done or creds set
+bool bStarted = false;
+uint32_t connectTimer;
+
 
 #ifdef REMOTE
 const char pageR_T[] = R"rawliteral(
@@ -152,8 +155,22 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
 
 void startServer()
 {
-  wifi.autoConnect(hostName, ee.password); // Tries configured AP, then starts softAP mode for config
-  hvac.m_notif = Note_Connecting;
+  WiFi.hostname(hostName);
+  WiFi.mode(WIFI_STA);
+
+  if ( ee.szSSID[0] )
+  {
+    WiFi.begin(ee.szSSID, ee.szSSIDPassword);
+    WiFi.setHostname(hostName);
+    bConfigDone = true;
+    hvac.m_notif = Note_Connecting;
+  }
+  else
+  {
+    hvac.m_notif = Note_EspTouch;
+    WiFi.beginSmartConfig();
+  }
+  connectTimer = now();
 
 #ifdef USE_SPIFFS
   SPIFFS.begin();
@@ -165,25 +182,20 @@ void startServer()
   server.addHandler(&ws);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    if(wifi.state() == ws_config)
-      request->send( 200, "text/html", wifi.page() );
 #ifdef REMOTE
-    else
-    {
-      String s = pageR_T;
-      s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
-      s += "WsConnected "; s += bWscConnected; s += "<br>";
-      IPAddress ip(ee.hostIp);
-      s += "HVAC IP "; s += ip.toString(); s += "<br>";
-      s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
-      s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
+    String s = pageR_T;
+    s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
+    s += "WsConnected "; s += bWscConnected; s += "<br>";
+    IPAddress ip(ee.hostIp);
+    s += "HVAC IP "; s += ip.toString(); s += "<br>";
+    s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
+    s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
 
-      s += "Now: "; s += now(); s += "<br>";
-      s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
+    s += "Now: "; s += now(); s += "<br>";
+    s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
 
-      s += pageR_B;
-      request->send( 200, "text/html", s );
-    }
+    s += pageR_B;
+    request->send( 200, "text/html", s );
 #endif
   });
 
@@ -314,27 +326,11 @@ void findHVAC() // find the HVAC on iot domain
 }
 #endif
 
-bool handleServer()
+void handleServer()
 {
-  bool bConn = false;
 #ifdef ESP8266
   MDNS.update();
 #endif
-
-  if(wifi.service() == ws_connectSuccess)
-  {
-//    Serial.println("WiFi connected");
-//    Serial.println("IP address: ");
-//    Serial.println(WiFi.localIP());
-    MDNS.begin( hostName );
-    // Add service to MDNS-SD
-    MDNS.addService("iot", "tcp", serverPort);
-    hvac.m_notif = Note_Connected;
-    bConn = true;
-#ifdef REMOTE
-    findHVAC();
-#endif
-  }
 
 #ifndef REMOTE
   static int n;
@@ -348,7 +344,6 @@ bool handleServer()
 // Handle OTA server.
   ArduinoOTA.handle();
 #endif
-  return bConn;
 }
 
 void WsSend(String s) // mostly for debug
@@ -363,10 +358,49 @@ void WscSend(String s) // remote WebSocket
 }
 #endif
 
-void secondsServer() // called once per second
+bool secondsServer() // called once per second
 {
-  if(wifi.state() != ws_connected)
-    return;
+  bool bConn = false;
+
+  if(!bConfigDone)
+  {
+    if( WiFi.smartConfigDone())
+    {
+      bConfigDone = true;
+      connectTimer = now();
+    }
+  }
+  if(bConfigDone)
+  {
+    if(WiFi.status() == WL_CONNECTED)
+    {
+      if(!bStarted)
+      {
+        MDNS.begin( hostName );
+        bStarted = true;
+        MDNS.addService("iot", "tcp", serverPort);
+        WiFi.SSID().toCharArray(ee.szSSID, sizeof(ee.szSSID)); // Get the SSID from SmartConfig or last used
+        WiFi.psk().toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
+        hvac.m_notif = Note_Connected;
+        bConn = true;
+#ifdef REMOTE
+        findHVAC();
+#endif
+      }
+    }
+    else if(now() - connectTimer > 5) // failed to connect for some reason
+    {
+      connectTimer = now();
+      ee.szSSID[0] = 0;
+      WiFi.mode(WIFI_AP_STA);
+      WiFi.beginSmartConfig();
+      bConfigDone = false;
+      bStarted = false;
+    }
+  }
+
+  if(WiFi.status() != WL_CONNECTED)
+    return bConn;
 
   ws.cleanupClients();
 
@@ -450,6 +484,7 @@ void secondsServer() // called once per second
   }
 
 #endif // !REMOTE
+  return bConn;
 }
 
 void parseParams(AsyncWebServerRequest *request)
@@ -549,10 +584,6 @@ void parseParams(AsyncWebServerRequest *request)
     String s = request->urlDecode(p->value());
 
     if(p->name() == "key");
-    else if(p->name() == "ssid")
-      s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
-    else if(p->name() == "pass")
-      wifi.setPass(s.c_str());
     else if(p->name() == "restart")
     {
 #ifdef ESP32
