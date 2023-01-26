@@ -49,8 +49,8 @@ public:
   void setSignal(int db);
   int status(void);
   bool    m_bLED[2];
-  bool    m_bUpdated;
-  bool    m_bCF;
+  bool    m_bUpdated = false;
+  bool    m_bCF = false;
   uint16_t m_dataFlags;
   uint16_t m_values[6];
 private:
@@ -58,9 +58,9 @@ private:
   void checkStatus(void);
   void sendDate(void);
   uint8_t m_cs = 2;
-  int m_status;
+  int m_status = 0;
   uint8_t m_mcuConf[2];
-  uint8_t m_signal;
+  uint8_t m_signal = 0;
 };
 
 #endif // TUYA_H
