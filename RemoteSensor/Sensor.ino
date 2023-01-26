@@ -39,7 +39,6 @@ SOFTWARE.
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
-#include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include <UdpTime.h> // https://github.com/CuriousTech/ESP07_WiFiGarageDoor/tree/master/libraries/UdpTime
@@ -57,8 +56,8 @@ SOFTWARE.
 #include "TempArray.h"
 
 // Uncomment only one
-//#include "tuya.h"  // Uncomment device in tuya.cpp
-#include "BasicSensor.h"
+#include "tuya.h"  // Uncomment device in tuya.cpp
+//#include "BasicSensor.h"
 
 int serverPort = 80;
 
@@ -77,7 +76,6 @@ int nWrongPass;
 uint32_t sleepTimer = 60; // seconds delay after startup to enter sleep (Note: even if no AP found)
 int8_t nWsConnected;
 
-WiFiManager wifi;  // AP page:  192.168.4.1
 AsyncWebServer server( serverPort );
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 int WsClientID;
@@ -103,6 +101,10 @@ BasicInterface sensor;
 #ifdef USE_OLED
 SSD1306 display(0x3c, 5, 4); // Initialize the oled display for address 0x3c, sda=5, sdc=4
 #endif
+
+bool bConfigDone = false;
+bool bStarted = false;
+uint32_t connectTimer;
 
 TempArray temps;
 
@@ -168,8 +170,6 @@ void displayStart()
 
 const char *jsonList1[] = { "cmd",
   "key",
-  "ssid",
-  "password",
   "name",
   "reset",
   "tempOffset",
@@ -242,13 +242,7 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
             verifiedIP = lastIP;
           }
           break;
-        case 1: // wifi SSID
-          strncpy((char *)&ee.szSSID, psValue, sizeof(ee.szSSID));
-          break;
-        case 2: // wifi password
-          wifi.setPass(psValue);
-          break;
-        case 3:
+        case 1:
           if(!strlen(psValue))
             break;
           strncpy(ee.szName, psValue, sizeof(ee.szName));
@@ -256,52 +250,52 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           delay(1000);
           ESP.reset();
           break;
-        case 4: // reset
+        case 2: // reset
           ee.update();
           delay(1000);
           ESP.reset();
           break;
-        case 5: // tempOffset
+        case 3: // tempOffset
           ee.tempCal = constrain(iValue, -80, 80);
           break;
-        case 6: // OLED
+        case 4: // OLED
           ee.e.bEnableOLED = iValue;
           break;
-        case 7: // TZ
+        case 5: // TZ
           ee.tz = iValue;
           break;
-        case 8: // TO
+        case 6: // TO
           ee.time_off = iValue;
           break;
-        case 9: // srate
+        case 7: // srate
           ee.sendRate = iValue;
           break;
-        case 10: // lrate
+        case 8: // lrate
           ee.logRate = iValue;
           break;
-        case 11: // pir
+        case 9: // pir
           ee.e.bPIR = iValue;
           break;
-        case 12: // pri
+        case 10: // pri
           ee.e.PriEn = iValue;
           break;
-        case 13: // prisec
+        case 11: // prisec
           ee.priSecs = iValue;
           break;
-        case 14: // led1
+        case 12: // led1
           sensor.setLED(0, iValue ? true:false);
           break;
-        case 15: // led2
+        case 13: // led2
           sensor.setLED(1, iValue ? true:false);
           break;
-        case 16: // cf
+        case 14: // cf
           sensor.setCF(iValue ? true:false);
           break;
-        case 17: // ch
+        case 15: // ch
           ee.e.bCall = iValue;
           if(iValue) CallHost(Reason_Setup, ""); // test
           break;
-        case 18: // hostip
+        case 16: // hostip
           ee.hostPort = 80;
           ee.hostIP[0] = lastIP[0];
           ee.hostIP[1] = lastIP[1];
@@ -310,31 +304,31 @@ void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
           ee.e.bCall = 1;
           CallHost(Reason_Setup, ""); // test
           break;
-        case 19: // hist
+        case 17: // hist
           temps.historyDump(true, ws, WsClientID);
           break;
-        case 20:
+        case 18:
           ee.sensorID = iValue;
           break;
-        case 21:
+        case 19:
           ee.sleep = iValue;
           break;
-        case 22:
+        case 20:
           ee.pirPin = iValue;
           break;
-        case 23:
+        case 21:
           alertIdx = constrain(iValue, 0, 15);
           break;
-        case 24: // set alertidx first
+        case 22: // set alertidx first
           ee.wAlertLevel[alertIdx] = iValue;
           break;
-        case 25:
+        case 23:
           temps.m_bSilence = iValue ? true:false;
           break;
-        case 26:
+        case 24:
           ee.rhCal = iValue;
           break;
-        case 27: // wt
+        case 25: // wt
           ee.weight = constrain(iValue, 1, 7);
           break;
       }
@@ -411,7 +405,7 @@ uint8_t qI;
 
 void checkQueue()
 {
-  if(wifi.state() != ws_connected)
+  if(WiFi.status() != WL_CONNECTED)
     return;
 
   int idx;
@@ -453,7 +447,7 @@ bool callQueue(IPAddress ip, String sUri, uint16_t port)
 
 void CallHost(reportReason r, String sStr)
 {
-  if(wifi.state() != ws_connected || ee.hostIP[0] == 0 || ee.e.bCall == false)
+  if(WiFi.status() != WL_CONNECTED || ee.hostIP[0] == 0 || ee.e.bCall == false)
     return;
 
   String sUri = "/wifi?name=\"";
@@ -488,7 +482,7 @@ void CallHost(reportReason r, String sStr)
 
 void sendTemp()
 {
-  if(wifi.state() != ws_connected || ee.hvacIP[0] == 0) // not set
+  if(WiFi.status() != WL_CONNECTED || ee.hvacIP[0] == 0) // not set
     return;
 
   uint8_t sentWt;
@@ -625,7 +619,21 @@ void setup()
   display.display();
 #endif
 
-  wifi.autoConnect(ee.szName, ee.szControlPassword);
+  WiFi.hostname(ee.szName);
+  WiFi.mode(WIFI_STA);
+
+  if ( ee.szSSID[0] )
+  {
+    WiFi.begin(ee.szSSID, ee.szSSIDPassword);
+    WiFi.setHostname(ee.szName);
+    bConfigDone = true;
+  }
+  else
+  {
+    Serial.println("No SSID. Waiting for EspTouch.");
+    WiFi.beginSmartConfig();
+  }
+  connectTimer = now();
 
   SPIFFS.begin();
   server.addHandler(new SPIFFSEditor("admin", ee.szControlPassword));
@@ -635,15 +643,10 @@ void setup()
   server.addHandler(&ws);
 
   server.on( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    if(wifi.state() == ws_config)
-      request->send( 200, "text/html", wifi.page() );
-    else
-    {
-      parseParams(request);
-      bDataMode = true;
-//      request->send(SPIFFS, "/index.html");
-      request->send_P(200, "text/html", page_index);
-    }
+    parseParams(request);
+    bDataMode = true;
+//  request->send(SPIFFS, "/index.html");
+    request->send_P(200, "text/html", page_index);
   });
   server.on( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
@@ -699,6 +702,8 @@ void setup()
   temps.init(sensor.m_dataFlags);
   if(ee.weight == 0)
     ee.weight = 1;
+  if(ee.pirPin)
+    pinMode(ee.pirPin, INPUT);
 }
 
 void loop()
@@ -711,19 +716,10 @@ void loop()
 #ifdef OTA_ENABLE
   ArduinoOTA.handle();
 #endif
-  if(wifi.state() == ws_connected && ee.e.bUseTime)
+  if(WiFi.status() == WL_CONNECTED && ee.e.bUseTime)
   {
     if(utime.check(ee.tz))
       temps.m_bValidDate = true;
-  }
-  if(wifi.service() == ws_connectSuccess)
-  {
-    MDNS.begin( ee.szName );
-    MDNS.addService("iot", "tcp", serverPort);
-    if(ee.e.bUseTime) // Host and HVAC return current time
-      utime.start();
-    findHVAC();
-    CallHost(Reason_Setup, "");
   }
 
   if(ee.pirPin)
@@ -737,6 +733,7 @@ void loop()
         CallHost(Reason_Motion, "");
         if(ee.e.bPIR && bPIRTrigger)
           sendTemp();
+        WsSend("print;Motion");
       }
     }
   }
@@ -761,6 +758,47 @@ void loop()
   {
     sec_save = second();
 
+    if(!bConfigDone)
+    {
+      if( WiFi.smartConfigDone())
+      {
+        Serial.println("SmartConfig set");
+        bConfigDone = true;
+        connectTimer = now();
+      }
+    }
+    if(bConfigDone)
+    {
+      if(WiFi.status() == WL_CONNECTED)
+      {
+        if(!bStarted)
+        {
+          Serial.println("WiFi Connected");
+          MDNS.begin( ee.szName );
+          bStarted = true;
+          MDNS.addService("iot", "tcp", serverPort);
+          WiFi.SSID().toCharArray(ee.szSSID, sizeof(ee.szSSID)); // Get the SSID from SmartConfig or last used
+          WiFi.psk().toCharArray(ee.szSSIDPassword, sizeof(ee.szSSIDPassword) );
+          ee.update();
+
+          if(ee.e.bUseTime) // Host and HVAC return current time
+            utime.start();
+          findHVAC();
+          CallHost(Reason_Setup, "");
+        }
+      }
+      else if(now() - connectTimer > 10) // failed to connect for some reason
+      {
+        Serial.println("Connect failed. Starting SmartConfig");
+        connectTimer = now();
+        ee.szSSID[0] = 0;
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.beginSmartConfig();
+        bConfigDone = false;
+        bStarted = false;
+      }
+    }
+
     if(hour_save != hour())
     {
       hour_save = hour();
@@ -777,7 +815,7 @@ void loop()
     if(displayTimer) // temp display on thing
       displayTimer--;
 
-    if(sleepTimer && nWsConnected == 0 && wifi.state() != ws_config) // don't sleep until all ws connections are closed
+    if(sleepTimer && nWsConnected == 0 && WiFi.status() == WL_CONNECTED) // don't sleep until all ws connections are closed
     {
       if(--sleepTimer == 0)
       {
@@ -822,19 +860,19 @@ void loop()
     }
   }
 
-  if(wifi.state() == ws_config) // WiFi cfg prints AP IP
+  if(WiFi.status() != WL_CONNECTED)
   {
     delay(40);
     sensor.setLED(0, !sensor.m_bLED[0] );
     return;
-  }
-  else if(wifi.state() == ws_connecting) // WiFi connect will draw OLED
+  }/*
+  else if(wifi.state() == ws_connecting)
   {
     sensor.setLED(0, true);
     delay(8);
     sensor.setLED(0, false);
     return;
-  }
+  }*/
 
 #ifdef USE_OLED
   static bool bClear;
