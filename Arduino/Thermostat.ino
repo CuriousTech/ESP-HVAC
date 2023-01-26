@@ -21,12 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Build with Arduino IDE 1.8.19+
-//  ESP8266 (3.0.2)  1MB (FS:64Kb)
-//  ESP32: (2.0.5, not .4) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT) or any speed, QIO, Default 4MB with spiffs
+// Build with Arduino IDE 1.8.19
+//  ESP8266 (3.1.1)  1MB (FS:64Kb)
+//  ESP32: (2.0.6) ESP Dev Module, 115200 baud, 80MHz (WiFi/BT) or any speed, QIO, Default 4MB with spiffs
 // For remote unit, uncomment #define REMOTE in HVAC.h
 
-#include "WiFiManager.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <TimeLib.h> // http://www.pjrc.com/teensy/td_libs_Time.html
 #include <UdpTime.h> // https://github.com/CuriousTech/ESP07_WiFiGarageDoor/tree/master/libraries/UdpTime
@@ -42,10 +41,10 @@ SOFTWARE.
 //#define SER_SWAP https://github.com/esp8266/Arduino/blob/master/doc/reference.md
 
 // Uncomment only one of these
-#include <SHT21.h> // https://github.com/CuriousTech/ESP8266-HVAC/tree/master/Libraries/SHT21
+#include <SHT21.h> // //Libraries/SHT21
 //#include <DHT.h>  // http://www.github.com/markruys/arduino-DHT
 //#include <DallasTemperature.h> //DallasTemperature from library mamanger
-//#include <AM2320.h>
+//#include <AM2320.h> // //Libraries/AM2320
 
 //----- Pin Configuration - See HVAC.h for the rest -
 #ifdef ESP32
@@ -168,8 +167,7 @@ void loop()
     if(lastDay == -1)
       lastDay = day() - 1;
   }
-  if(handleServer()) // handles mDNS, web (returns true when connection made)
-    uTime.start();
+  handleServer(); // handles mDNS, web
 #ifdef SHT21_H
   if(sht.service())
   {
@@ -199,7 +197,8 @@ void loop()
   if(sec_save != second()) // only do stuff once per second
   {
     sec_save = second();
-    secondsServer(); // once per second stuff)
+    if(secondsServer()) // once per second stuff, returns true once on connect
+      uTime.start();
     display.oneSec();
     hvac.service();   // all HVAC code
 
