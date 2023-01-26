@@ -4,7 +4,7 @@
 // Uncomment to compile for remote
 //#define REMOTE
 
-#define RMTNAME 0x31544d52 // RMT1
+#define RMTNAME 0x31544d52 // 1TMR reversed sensor ID
 #define RMTNAMEFULL "HVACRemote"
 
 #ifdef ESP8266
@@ -78,6 +78,7 @@ enum Notif
   Note_Network, // Sound errors below this point
   Note_Forecast,
   Note_Filter,
+  Note_EspTouch,
 };
 
 enum HeatMode
@@ -246,7 +247,7 @@ private:
   uint16_t m_remoteTimeout; // timeout for remote sensor
   uint16_t m_remoteTimer;   // in seconds
   uint16_t m_humidTimer;    // timer for humidifier cost
-  int8_t   m_furnaceFan;    // fake fan timer
+  int8_t   m_furnaceFan;    // fake fan timer (actually half watts)
 };
 
 #endif
