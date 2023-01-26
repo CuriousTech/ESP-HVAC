@@ -5,8 +5,8 @@
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 
 void startServer(void);
-bool handleServer(void);
-void secondsServer(void);
+void handleServer(void);
+bool secondsServer(void);
 void parseParams(AsyncWebServerRequest *request);
 String dataJson(void);
 void WsSend(String s);
