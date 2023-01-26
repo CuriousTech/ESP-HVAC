@@ -32,7 +32,7 @@ public:
   int8_t    tz = -5;               // Timezone offset
   eflags    e = {0,1,1,1,0,0,0}; // PirEn, bPIR, bCall, bCF, bUseTime, bEnableOLED, res
   char      szName[32] = "Sensor1";
-  uint32_t  sensorID = '1SNS';
+  uint32_t  sensorID = 0x31534e53; // '1SNS';
   int8_t    tempCal = 0;
   uint16_t  sendRate = 15;
   uint16_t  logRate = 60;
