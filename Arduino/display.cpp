@@ -7,7 +7,6 @@
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
 #endif
 #include "eeMem.h"
-#include "WiFiManager.h"
 #ifdef USE_AUDIO
 #include "music.h"
 Music mus;
@@ -15,12 +14,11 @@ Music mus;
 
 Nextion nex;
 extern HVAC hvac;
-extern WiFiManager wifi;
 extern void WsSend(String s);
 
 void Display::init()
 {
-  if(wifi.state() == ws_config) // don't interfere with SSID config
+  if(WiFi.status() != WL_CONNECTED) // don't interfere with SSID config
     return;
   memset(m_points, 255, sizeof(m_points));
   memset(m_fc.Data, -127, sizeof(m_fc.Data));
@@ -39,7 +37,7 @@ void Display::init()
 // called each second
 void Display::oneSec()
 {
-  if(wifi.state() == ws_config)
+  if(WiFi.status() != WL_CONNECTED)
     return;
   updateClock();
   updateRunIndicator(false); // running stuff
@@ -133,17 +131,11 @@ void Display::checkNextion() // all the Nextion recieved commands
           m_backlightTimer = NEX_TIMEOUT;
           switch(btn)
           {
-            case 6: // cool hi
-            case 7: // cool lo
-            case 8: // heat hi
-            case 9: // heat lo
+            case 6 ... 9: // cool hi, lo, heat hi, lo
               hvac.m_bLink = (m_adjustMode == btn-6);
               m_adjustMode = btn-6;
               break;
-            case 15: // cool hi
-            case 16: // cool lo
-            case 17: // heat hi
-            case 18: // heat lo
+            case 15 ... 18: // cool hi, lo, heat hi, lo
               hvac.m_bLink = (m_adjustMode == btn-15);
               m_adjustMode = btn-15;
               break;
@@ -244,7 +236,7 @@ void Display::checkNextion() // all the Nextion recieved commands
           }
           break;
         case Page_SSID: // Selection page t1=ID 2 ~ t16=ID 17
-          wifi.setSSID(cBuf[2]-2);
+          WiFi.SSID(cBuf[2]-2).toCharArray(ee.szSSID, sizeof(ee.szSSID) );
           nex.refreshItem("t0"); // Just to terminate any debug strings in the Nextion
           nex.setPage("keyboard"); // go to keyboard
           nex.itemText(1, "Enter Password");
@@ -277,7 +269,14 @@ void Display::checkNextion() // all the Nextion recieved commands
           break;
         case 3: // AP password
           nex.setPage("Thermostat");
-          wifi.setPass(cBuf + 1);
+          strncpy(ee.szSSIDPassword, cBuf + 1, sizeof(ee.szSSIDPassword) );
+          ee.update();
+          delay(500);
+#ifdef ESP32
+          ESP.restart();
+#else
+          ESP.reset();
+#endif
           break;
       }
       screen(true); // back to main page
@@ -606,6 +605,9 @@ void Display::updateNotification(bool bRef)
     case Note_RemoteOn:
       s = "Remote On";
       break;
+    case Note_EspTouch:
+      s = "Use EspTouch App";
+      break;
   }
   nex.itemText(12, s);
   if(s != "")
@@ -629,7 +631,7 @@ void Display::updateNotification(bool bRef)
 // false: cycle to next screensaver
 bool Display::screen(bool bOn)
 {
-  if(wifi.state() == ws_config )
+  if(WiFi.status() != WL_CONNECTED )
     return false;
   static bool bOldOn = true;
 
