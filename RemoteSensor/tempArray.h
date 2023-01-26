@@ -5,7 +5,7 @@
 #include <ESPAsyncWebServer.h>
 #include "defs.h"
 
-typedef union mbits
+union mbits
 {
   uint32_t u[2];
   struct
