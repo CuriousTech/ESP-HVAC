@@ -1486,7 +1486,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
           break;
         }
       }
-      if(val < (ee.b.bCelcius ? 180:650) || val > (ee.b.bCelcius ? 370:990) )
+      if(val < (ee.b.bCelcius ? 156:600) || val > (ee.b.bCelcius ? 370:990) )
       {
         String s = "print;";
         s += (char *)&m_Sensor[snsIdx].ID;
@@ -1502,7 +1502,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         s += " irratic sensor change idx=";
         s += snsIdx;
         s += " ";
-        s += ip;
+        s += ip.toString();
         s += " ";
 
         s += m_Sensor[i].IP;
@@ -1513,12 +1513,8 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         s += String((float)val / 10, 1);
         WsSend(s);
         deactivateSensor(snsIdx);
-        m_Sensor[snsIdx].temp = val;
       }
-      else
-      {
-        m_Sensor[snsIdx].temp = val;
-      }
+      m_Sensor[snsIdx].temp = val;
       m_Sensor[snsIdx].tm = now();
       break;
     case 46: // rmtrh
