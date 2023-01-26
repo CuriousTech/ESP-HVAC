@@ -64,15 +64,15 @@ void TempArray::logLH(uint16_t Values[], LHLog log[], int idx)
   if(Values[DE_CO2] > log[idx].co2[1])  log[idx].co2[1] = Values[DE_CO2];
   checkAlert("CO2", true, Values[DE_CO2], ee.wAlertLevel[5]);
 
-  if(Values[DE_VOC] < log[idx].voc[0])  log[idx].voc[0] = Values[DE_VOC];
-  checkAlert("VOC", false, Values[DE_VOC], ee.wAlertLevel[6]);
-  if(Values[DE_VOC] > log[idx].voc[1])  log[idx].voc[1] = Values[DE_VOC];
-  checkAlert("VOC", true, Values[DE_VOC], ee.wAlertLevel[7]);
-
   if(Values[DE_CH2O] < log[idx].ch2o[0]) log[idx].ch2o[0] = Values[DE_CH2O];
-  checkAlert("CH2O", false, Values[DE_CH2O], ee.wAlertLevel[8]);
+  checkAlert("CH2O", false, Values[DE_CH2O], ee.wAlertLevel[6]);
   if(Values[DE_CH2O] > log[idx].ch2o[1]) log[idx].ch2o[1] = Values[DE_CH2O];
-  checkAlert("CH2O", true, Values[DE_CH2O], ee.wAlertLevel[9]);
+  checkAlert("CH2O", true, Values[DE_CH2O], ee.wAlertLevel[7]);
+
+  if(Values[DE_VOC] < log[idx].voc[0])  log[idx].voc[0] = Values[DE_VOC];
+  checkAlert("VOC", false, Values[DE_VOC], ee.wAlertLevel[8]);
+  if(Values[DE_VOC] > log[idx].voc[1])  log[idx].voc[1] = Values[DE_VOC];
+  checkAlert("VOC", true, Values[DE_VOC], ee.wAlertLevel[9]);
 }
 
 void TempArray::checkAlert(String sName, bool bUD, uint16_t nNow, uint16_t nAlert)
