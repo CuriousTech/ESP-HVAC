@@ -2,6 +2,7 @@
 #include "display.h"
 #include "Nextion.h"
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
+#include "jsonstring.h"
 #include <TimeLib.h>
 #ifdef ESP8266
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
@@ -18,9 +19,6 @@ extern void WsSend(String s);
 
 void Display::init()
 {
-  if(WiFi.status() != WL_CONNECTED) // don't interfere with SSID config
-    return;
-  memset(m_points, 255, sizeof(m_points));
   memset(m_fc.Data, -127, sizeof(m_fc.Data));
   m_fc.Date = 0;
   nex.FFF(); // Just to end any debug strings in the Nextion
@@ -562,10 +560,9 @@ void Display::Note(char *cNote)
 {
   screen(true);
   nex.itemText(12, cNote);
-  String s = "alert;{\"text\":\"";
-  s += cNote;
-  s += "\"}";
-  WsSend(s);
+  jsonString js("alert");
+  js.Var("text", cNote);
+  WsSend(js.Close());
 }
 
 // update the notification text box
@@ -614,8 +611,9 @@ void Display::updateNotification(bool bRef)
   {
     if(bRef == false) // refresh shouldn't be resent
     {
-      s = "alert;{\"text\":\"" + s + "\"}";
-      WsSend(s);
+      jsonString js("alert");
+      js.Var("text", s);
+      WsSend(js.Close());
     }
 #ifdef USE_AUDIO
     if(bRef == false || hvac.m_notif >= Note_Network) // once / repeats if important
@@ -958,7 +956,7 @@ void Display::addGraphPoints()
   p->bits.sens4 = hvac.m_Sensor[4].temp - p->t.inTemp;
   if(++m_pointsIdx >= GPTS)
     m_pointsIdx = 0;
-  m_points[m_pointsIdx].t.u = 0xFFFFFFFF; // mark as invalid data/end
+  m_points[m_pointsIdx].t.u = 0; // mark as invalid data/end
 }
 
 // Draw the last 25 hours
@@ -1030,7 +1028,7 @@ void Display::drawPoints(int w, uint16_t color)
 
   for(int x = 309, x2 = 310; x >= 10; x--)
   {
-    if(m_points[i].t.u == 0xFFFFFFFF)
+    if(m_points[i].t.u == 0)
       return;
     switch(w)
     {
@@ -1058,7 +1056,7 @@ void Display::drawPointsRh(uint16_t color)
   const int yOff = 240-10;
   int y, y2 = m_points[i].bits.rh;
 
-  if(m_points[i].t.u == 0xFFFFFFFF)
+  if(m_points[i].t.u == 0)
     return; // not enough data
 
   y2 = y2 * 55 / 250; // 0~100 to 0~240
@@ -1069,7 +1067,7 @@ void Display::drawPointsRh(uint16_t color)
       i = GPTS-1;
 
     y = m_points[i].bits.rh;
-    if(m_points[i].t.u == 0xFFFFFFFF)
+    if(m_points[i].t.u == 0)
       return;
     y = y * 55 / 250;
 
@@ -1093,7 +1091,7 @@ void Display::drawPointsTemp()
 
   for(int x = 309; x >= 10; x--)
   {
-    if(m_points[i].t.u == 0xFFFFFFFF)
+    if(m_points[i].t.u == 0)
       break; // end
     y = (constrain(m_points[i].t.inTemp, m_tempLow, m_tempHigh) - m_tempLow) * 220 / (m_tempHigh-m_tempLow);
     if(y != y2)
@@ -1136,7 +1134,7 @@ bool Display::getGrapthPoints(gPoint *pts, int n)
     return false;
   int idx = m_pointsIdx - 1 - n; // 0 = last entry
   if(idx < 0) idx += GPTS;
-  if(m_points[idx].t.u == 0xFFFFFFFF) // invalid data
+  if(m_points[idx].t.u == 0) // invalid data
     return false;
   memcpy(pts, &m_points[idx], sizeof(gPoint));
   return true;
@@ -1152,7 +1150,7 @@ int Display::minPointVal(int n)
   while(i != m_pointsIdx)
   {
     int val;
-    if(m_points[i].t.u == 0xFFFFFFFF)
+    if(m_points[i].t.u == 0)
       break;
     switch(n)
     {
