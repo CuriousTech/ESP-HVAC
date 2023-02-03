@@ -11,17 +11,15 @@
 class JsonParse
 {
 public:
-  JsonParse(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue));
-  bool  addList(const char **pList);
-  void  process(char *event, char *data);
+  JsonParse(void (*callback)(int16_t iName, int iValue, char *psValue));
+  void  setList(const char **pList);
+  void  process(char *data);
 
 private:
   char *skipwhite(char *p);
-  void  (*m_callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
+  void  (*m_callback)(int16_t iName, int iValue, char *psValue);
 
-#define LIST_CNT 8
-  const char **m_jsonList[LIST_CNT];
-  uint8_t m_jsonCnt;
+  const char **m_jsonList;
 };
 
 #endif // JSONPARSE_H
