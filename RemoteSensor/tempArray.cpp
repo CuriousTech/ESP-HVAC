@@ -82,7 +82,7 @@ void TempArray::checkAlert(String sName, bool bUD, uint16_t nNow, uint16_t nAler
 
   if( (bUD && nNow > nAlert) || (!bUD && nNow < nAlert) )
   {
-    String s = "alert;{\"text\":\"";
+    String s = "{\"cmd\":\"alert\",\"text\":\"";
     s += sName;
     s += bUD ? " above " : " below ";
     s += nAlert;
@@ -94,9 +94,9 @@ void TempArray::checkAlert(String sName, bool bUD, uint16_t nNow, uint16_t nAler
   }
 }
 
-void TempArray::rangeAlert(char *name, int16_t val)
+void TempArray::rangeAlert(const char *name, int16_t val)
 {
-  String s = "alert;{\"text\":\"";
+  String s = "{\"cmd\":\"alert\",\"text\":\"";
   s += name;
   s += " diff out of range ";
   s += val;
@@ -246,7 +246,7 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
 
     jsonString js("ref");
     js.Var("tb"  , m_lastDate); // date of first entry
-    char *labels[] = {"Temp", "Rh", "CO2", "CH2O", "VOC", NULL};
+    const char *labels[] = {"Temp", "Rh", "CO2", "CH2O", "VOC", NULL};
     js.Array("label", labels);
     uint16_t decimals[] = {1, 1, 0, 0, 0};
     js.Array("dec", decimals, sizeof(decimals)/sizeof(uint16_t));
@@ -257,7 +257,7 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
     if( get(aidx, 0) == false)
     {
       bSending = false;
-      ws.text(WsClientID, "data;{\"d\":[]}");
+      ws.text(WsClientID, "{\"cmd\":\"data\",{\"d\":[]}");
       return;
     }
   }
@@ -285,7 +285,7 @@ void TempArray::historyDump(bool bStart, AsyncWebSocket &ws, int WsClientID)
   String out;
   out.reserve(CHUNK_SIZE + 100);
 
-  out = "data;{\"d\":[";
+  out = "{\"cmd\":\"data\",\"d\":[";
 
   bool bC = false;
 
@@ -350,12 +350,12 @@ bool TempArray::logDump(bool bStart, AsyncWebSocket &ws, int WsClientID, int log
     case 0:// Weekly
       pLog = m_weekly;
       nCount = 52;
-      out = "weekly;{\"d\":[";
+      out = "{\"cmd\":\"weekly\",\"d\":[";
       break;
     case 1:// daily
       pLog = m_daily;
       nCount = 7;
-      out = "daily;{\"d\":[";
+      out = "{\"cmd\":\"daily\",\"d\":[";
       break;
   }
 
@@ -409,7 +409,7 @@ bool TempArray::logDump(bool bStart, AsyncWebSocket &ws, int WsClientID, int log
 
 void TempArray::sendNew(uint16_t Values[], uint32_t date, AsyncWebSocket &ws, int WsClientID)
 {
-  String out = "data2;{\"d\":[[";
+  String out = "{\"cmd\":\"data2\",\"d\":[[";
 
   out += m_lastDate;
   out += ",";
