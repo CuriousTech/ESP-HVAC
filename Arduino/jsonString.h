@@ -1,3 +1,5 @@
+#include "eeMem.h"
+
 class jsonString
 {
 public:
@@ -5,9 +7,12 @@ public:
   {
     m_cnt = 0;
     if(rsv) s.reserve(rsv);
+    s = String("{");
     if(pLabel)
-      s = pLabel, s += ";";
-    s += "{";
+    {
+      s += "\"cmd\":\"";
+      s += pLabel, s += "\",";
+    }
   }
         
   String Close(void)
