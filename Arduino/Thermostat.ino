@@ -128,11 +128,10 @@ void setup()
 #ifdef SER_SWAP
   Serial.swap(); //swap to gpio 15/13
 #endif
-
   ee.init();
-  startServer();
   hvac.init();
   display.init();
+  startServer();
 
 #ifdef SHT21_H
   sht.init();
