@@ -12,7 +12,7 @@ JsonClient KEYWORD1
 # Methods and Functions (KEYWORD2)
 ###################################
 
-addList	KEYWORD2
+setList	KEYWORD2
 begin	KEYWORD2
 service	KEYWORD2
 end	KEYWORD2
