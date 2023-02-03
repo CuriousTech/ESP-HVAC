@@ -80,7 +80,7 @@ AsyncWebServer server( serverPort );
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 int WsClientID;
 
-void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
+void jsonCallback(int16_t iName, int iValue, char *psValue);
 JsonParse jsonParse(jsonCallback);
 void jsonPushCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
 JsonClient jsonPush(jsonPushCallback);
@@ -168,7 +168,7 @@ void displayStart()
   displayTimer = 30;
 }
 
-const char *jsonList1[] = { "cmd",
+const char *jsonList1[] = {
   "key",
   "name",
   "reset",
@@ -210,14 +210,14 @@ void parseParams(AsyncWebServerRequest *request)
     String s = request->urlDecode(p->value());
 
     uint8_t idx;
-    for(idx = 1; jsonList1[idx]; idx++)
+    for(idx = 0; jsonList1[idx]; idx++)
       if( p->name().equals(jsonList1[idx]) )
         break;
     if(jsonList1[idx])
     {
       int iValue = s.toInt();
       if(s == "true") iValue = 1;
-      jsonCallback(0, idx - 1, iValue, (char *)s.c_str());
+      jsonCallback(idx, iValue, (char *)s.c_str());
     }
   }
 }
@@ -225,113 +225,109 @@ void parseParams(AsyncWebServerRequest *request)
 bool bKeyGood;
 bool bDataMode;
 
-void jsonCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
+void jsonCallback(int16_t iName, int iValue, char *psValue)
 {
-  if(bKeyGood == false && iName) return;  // only allow key set
+  if(bKeyGood == false && iName != 0 && iName != 17 ) // allow hist
+    return;  // only allow key set
   static int alertIdx;
 
-  switch(iEvent)
+  switch(iName)
   {
-    case 0: // cmd
-      switch(iName)
+    case 0: // key
+      if(!strcmp(psValue, ee.szControlPassword)) // first item must be key
       {
-        case 0: // key
-          if(!strcmp(psValue, ee.szControlPassword)) // first item must be key
-          {
-            bKeyGood = true;
-            verifiedIP = lastIP;
-          }
-          break;
-        case 1:
-          if(!strlen(psValue))
-            break;
-          strncpy(ee.szName, psValue, sizeof(ee.szName));
-          ee.update();
-          delay(1000);
-          ESP.reset();
-          break;
-        case 2: // reset
-          ee.update();
-          delay(1000);
-          ESP.reset();
-          break;
-        case 3: // tempOffset
-          ee.tempCal = constrain(iValue, -80, 80);
-          break;
-        case 4: // OLED
-          ee.e.bEnableOLED = iValue;
-          break;
-        case 5: // TZ
-          ee.tz = iValue;
-          break;
-        case 6: // TO
-          ee.time_off = iValue;
-          break;
-        case 7: // srate
-          ee.sendRate = iValue;
-          break;
-        case 8: // lrate
-          ee.logRate = iValue;
-          break;
-        case 9: // pir
-          ee.e.bPIR = iValue;
-          break;
-        case 10: // pri
-          ee.e.PriEn = iValue;
-          break;
-        case 11: // prisec
-          ee.priSecs = iValue;
-          break;
-        case 12: // led1
-          sensor.setLED(0, iValue ? true:false);
-          break;
-        case 13: // led2
-          sensor.setLED(1, iValue ? true:false);
-          break;
-        case 14: // cf
-          sensor.setCF(iValue ? true:false);
-          break;
-        case 15: // ch
-          ee.e.bCall = iValue;
-          if(iValue) CallHost(Reason_Setup, ""); // test
-          break;
-        case 16: // hostip
-          ee.hostPort = 80;
-          ee.hostIP[0] = lastIP[0];
-          ee.hostIP[1] = lastIP[1];
-          ee.hostIP[2] = lastIP[2];
-          ee.hostIP[3] = lastIP[3];
-          ee.e.bCall = 1;
-          CallHost(Reason_Setup, ""); // test
-          break;
-        case 17: // hist
-          temps.historyDump(true, ws, WsClientID);
-          break;
-        case 18:
-          ee.sensorID = iValue;
-          break;
-        case 19:
-          ee.sleep = iValue;
-          break;
-        case 20:
-          ee.pirPin = iValue;
-          break;
-        case 21:
-          alertIdx = constrain(iValue, 0, 15);
-          break;
-        case 22: // set alertidx first
-          ee.wAlertLevel[alertIdx] = iValue;
-          break;
-        case 23:
-          temps.m_bSilence = iValue ? true:false;
-          break;
-        case 24:
-          ee.rhCal = iValue;
-          break;
-        case 25: // wt
-          ee.weight = constrain(iValue, 1, 7);
-          break;
+        bKeyGood = true;
+        verifiedIP = lastIP;
       }
+      break;
+    case 1: // device name
+      if(!strlen(psValue))
+        break;
+      strncpy(ee.szName, psValue, sizeof(ee.szName));
+      ee.update();
+      delay(1000);
+      ESP.reset();
+      break;
+    case 2: // reset
+      ee.update();
+      delay(1000);
+      ESP.reset();
+      break;
+    case 3: // tempOffset
+      ee.tempCal = constrain(iValue, -80, 80);
+      break;
+    case 4: // OLED
+      ee.e.bEnableOLED = iValue;
+      break;
+    case 5: // TZ
+      ee.tz = iValue;
+      break;
+    case 6: // TO
+      ee.time_off = iValue;
+      break;
+    case 7: // srate
+      ee.sendRate = iValue;
+      break;
+    case 8: // lrate
+      ee.logRate = iValue;
+      break;
+    case 9: // pir
+      ee.e.bPIR = iValue;
+      break;
+    case 10: // pri
+      ee.e.PriEn = iValue;
+      break;
+    case 11: // prisec
+      ee.priSecs = iValue;
+      break;
+    case 12: // led1
+      sensor.setLED(0, iValue ? true:false);
+      break;
+    case 13: // led2
+      sensor.setLED(1, iValue ? true:false);
+      break;
+    case 14: // cf
+      sensor.setCF(iValue ? true:false);
+      break;
+    case 15: // ch
+      ee.e.bCall = iValue;
+      if(iValue) CallHost(Reason_Setup, ""); // test
+      break;
+    case 16: // hostip
+      ee.hostPort = 80;
+      ee.hostIP[0] = lastIP[0];
+      ee.hostIP[1] = lastIP[1];
+      ee.hostIP[2] = lastIP[2];
+      ee.hostIP[3] = lastIP[3];
+      ee.e.bCall = 1;
+      CallHost(Reason_Setup, ""); // test
+      break;
+    case 17: // hist
+      temps.historyDump(true, ws, WsClientID);
+      break;
+    case 18:
+      ee.sensorID = iValue;
+      break;
+    case 19:
+      ee.sleep = iValue;
+      break;
+    case 20:
+      ee.pirPin = iValue;
+      break;
+    case 21:
+      alertIdx = constrain(iValue, 0, 15);
+      break;
+    case 22: // set alertidx first
+      ee.wAlertLevel[alertIdx] = iValue;
+      break;
+    case 23:
+      temps.m_bSilence = iValue ? true:false;
+      break;
+    case 24:
+      ee.rhCal = iValue;
+      break;
+    case 25: // wt
+      ee.weight = constrain(iValue, 1, 7);
       break;
   }
 }
@@ -359,7 +355,7 @@ String timeFmt(bool do_sec, bool do_M)
   return r;
 }
 
-const char *jsonListPush[] = { "time",
+const char *jsonListPush[] = { "",
   "time", // 0
   "ppkw",
   NULL
@@ -434,7 +430,9 @@ bool callQueue(IPAddress ip, String sUri, uint16_t port)
   }
   if(idx == CQ_CNT) // nothing to do
   {
-    WsSend("print; Q full");
+    jsonString js("print");
+    js.Var("text", "Q full");
+    WsSend(js.Close());
     return false;
   }
 
@@ -575,16 +573,11 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         if(info->opcode == WS_TEXT){
           data[len] = 0;
 
-          char *pCmd = strtok((char *)data, ";"); // assume format is "event;{json:x}"
-          char *pData = strtok(NULL, "");
-
-          if(pCmd == NULL || pData == NULL) break;
-
           uint32_t ip = client->remoteIP();
           WsClientID = client->id();
 
           bKeyGood = (ip && verifiedIP == ip) ? true:false; // if this IP sent a good key, no need for more
-          jsonParse.process(pCmd, pData);
+          jsonParse.process((char *)data);
           if(bKeyGood)
             verifiedIP = ip;
         }
@@ -600,10 +593,9 @@ void WsSend(String s)
 
 void alert(String txt)
 {
-  String s = "alert;{\"text\":\"";
-  s += txt;
-  s += "\"}";
-  ws.textAll(s);
+  jsonString js("alert");
+  js.Var("text", txt);
+  ws.textAll(js.Close());
 }
 
 void setup()
@@ -695,7 +687,7 @@ void setup()
   });
 #endif
 
-  jsonParse.addList(jsonList1);
+  jsonParse.setList(jsonList1);
   sensor.setLED(0, false);
   if(ee.sendRate == 0) ee.sendRate = 60;
   sleepTimer = ee.sleep;
@@ -733,7 +725,9 @@ void loop()
         CallHost(Reason_Motion, "");
         if(ee.e.bPIR && bPIRTrigger)
           sendTemp();
-        WsSend("print;Motion");
+        jsonString js("print");
+        js.Var("text", "Motion");
+        WsSend(js.Close());
       }
     }
   }
