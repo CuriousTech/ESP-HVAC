@@ -1,18 +1,16 @@
 //  HvacRemote script running on PngMagic  http://www.curioustech.net/pngmagic.html
 // Device is set to a fixed IP in the router
 
-	hvacUrl = 'ws://192.168.0.103/ws'
+	hvacUrl = 'ws://192.168.31.46/ws'
 	password = 'password'
 
 	kwh = 3600 // killowatt hours (compressor+fan)
-	ppkwh = 0.151  // electric price per KWH  (price / KWH)
+	ppkwh = 0.153  // electric price per KWH  (price / KWH)
 	ccfs	= 0.70 / (60*60) // NatGas cost per hour divided into seconds
 
-	modes = new Array('Off', 'Cool', 'Heat', 'Auto')
+	modes = new Array('Off', 'Cool', 'Heat', 'Auto','Cycle')
 
-	btnX = 120
-	btnY = 40
-	btnW = 38
+	fontSize  = 20
 
 	if(Reg.overrideTemp == 0)
 		Reg.overrideTemp = -1.2
@@ -23,11 +21,14 @@
 	var mode
 	var last
 	var last1, last2
+	var cycleState = 0
+	var lastCycleTimer = 0
+	var cycleTotal = 0
 
 	Pm.Window('HvacRemote')
 
-	Gdi.Width = 208 // resize drawing area
-	Gdi.Height = 250
+	Gdi.Width = 300 // resize drawing area
+	Gdi.Height = 340
 
 	Http.Close()
 	if(!Http.Connected)
@@ -40,6 +41,9 @@ function OnCall(msg, event, data, d2)
 {
 	switch(msg)
 	{
+		case 'HTTPCONNECTED':
+			Pm.Echo('HVAC Connected')
+			break
 		case 'HTTPSTATUS':
 			switch(+event)
 			{
@@ -53,11 +57,17 @@ function OnCall(msg, event, data, d2)
 			break
 		case 'HTTPDATA':
 			timeout = new Date()
-//Pm.Echo(data)
 			if(data.length) procLine(data)
 			break
 		case 'HTTPCLOSE':
-			Pm.Echo( 'HvacRemote WS closed ' + data)
+			switch(+data)
+			{
+				case 400: data += ' Bad request'; break
+				case 408: data += ' Request timeout'; break
+				case 12002: data += ' Timeout'; break
+				case 12017: data += ' ERROR_INTERNET_OPERATION_CANCELLED'; break
+			}
+			Pm.Echo( 'HVAC WS closed ' + data)
 			break
 
 		case 'BUTTON':
@@ -72,15 +82,16 @@ function OnCall(msg, event, data, d2)
 					filterMins = 0
 					break
 				case 2:		// fan
-					fanMode = (fanMode+1) % 3; SetVar('fanmode', fanMode)
+					fanMode = (fanMode+1) % 2; SetVar('fanmode', fanMode)
 					break
-				case 3:		// mode
-					mode = (mode + 1) & 3; SetVar('mode', mode)
+				case 3:		// Unused
+					SetVar('fw', 300)
 					break
 				case 4:		// mode
-					heatMode = (heatMode+1) % 3; SetVar('heatMode', heatMode)
+					mode = (mode + 1) % 5; SetVar('mode', mode)
 					break
-				case 5:		// Unused
+				case 5:		// heat mode
+					heatMode = (heatMode+1) % 3; SetVar('heatMode', heatMode)
 					break
 				case 6:		// cool H up
 					setTemp(1, coolTempH + 0.1, 1); SetVar('cooltemph', (coolTempH * 10).toFixed())
@@ -141,23 +152,21 @@ function OnTimer()
 	if(Http.Connected)
 		return
 	Http.Connect('HVAC', hvacUrl)
-Pm.Echo('HVAC reconnect')
 }
 
 function SetVar(v, val)
 {
-	Http.Send( 'cmd;{key:' + password + ',' + v + ':' + val + '}'  )
-	Pm.Echo( 'cmd;{key:' + password + ',' + v + ':' + val + '}'  )
+	Http.Send( '{key:' + password + ',' + v + ':' + val + '}'  )
 }
 
 function procLine(data)
 {
 	if(data.length < 2) return
-	parts = data.split(';')
+//Pm.Echo(data)
 	json = !(/[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(
-		parts[1].replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + parts[1] + ')')
+		data.replace(/"(\\.|[^"\\])*"/g, ''))) && eval('(' + data + ')')
 
-	switch(parts[0])
+	switch(json.cmd)
 	{
 		case 'settings':
 			mode = +json.m
@@ -203,18 +212,21 @@ function procLine(data)
 
 //Pm.Echo('HV ' + inTemp + ' ' + rh)
 
-			if(Pm.FindWindow( 'History' ))
+			if(Pm.FindWindow( 'HvacHistory' ))
 				Pm.History( 'REFRESH' )
 			Draw()
-			LogTemps()
-			Pm.X10('STATTEMP', inTemp + '° ' + rh + '% > ' + targetTemp + '° ')
+			LogTemps(json.snd)
+			Pm.Server('STATTEMP', inTemp + '° ' + rh + '% > ' + targetTemp + '° ')
+			break
+		case 'update':
 			break
 		case 'alert':
 			date = new Date()
-			Pm.Echo('HVAC Alert: ' + date.toLocaleTimeString() + ' ' + parts[1])
+			Pm.Echo('HVAC Alert: ' + date.toLocaleTimeString() + ' ' + json.text)
 			break
 		case 'print':
-			Pm.Echo( 'HVAC  ' + parts[1])
+			date = new Date()
+			Pm.Echo( 'HVAC  '  + date.toLocaleTimeString() + ' '  + json.text)
 			break
 		default:
 			Pm.Echo('HVAC Unknown event: ' + data)
@@ -273,6 +285,10 @@ function Draw()
 {
 	Gdi.Clear(0) // transaprent
 
+	btnW = fontSize * 3
+	btnX = Gdi.Width - btnW * 2 - 4
+	btnY = fontSize * 2 + 14
+
 	// rounded window
 	Gdi.Brush( Gdi.Argb( 160, 0, 0, 0) )
 	Gdi.FillRectangle(0, 0, Gdi.Width-1, Gdi.Height-1)
@@ -280,7 +296,7 @@ function Draw()
 	Gdi.Rectangle(0, 0, Gdi.Width-1, Gdi.Height-1)
 
 	// Title
-	Gdi.Font( 'Courier New', 15, 'BoldItalic')
+	Gdi.Font( 'Courier New', fontSize, 'BoldItalic')
 	Gdi.Brush( Gdi.Argb(255, 255, 230, 25) )
 	Gdi.Text( 'HVAC Remote', 5, 1 )
 
@@ -288,26 +304,27 @@ function Draw()
 	Gdi.Brush( color )
 	Gdi.Text( 'X', Gdi.Width-17, 1 )
 
-	Gdi.Font( 'Arial' , 11, 'Regular')
+	Gdi.Font( 'Arial' , fontSize  -1, 'Regular')
 	Gdi.Brush( Gdi.Argb(255, 255, 255, 255) )
 
 	date = new Date()
-	Gdi.Text( date.toLocaleTimeString(), Gdi.Width-84, 2 )
-	Gdi.Font( 'Arial' , 13, 'Regular')
+	Gdi.Text( date.toLocaleTimeString(), Gdi.Width - fontSize * 6.4, 2 )
+
+	Gdi.Font( 'Arial' , fontSize, 'Regular')
 
 	x = 5
-	y = 22
+	y = fontSize  + 4
 	if(hvacJson == undefined || coolTempH == undefined)
 		return
 
 	Gdi.Text('In: ' + inTemp + '°', x, y)
-	Gdi.Text( '>' + targetTemp + '°  ' + rh + '%', x + 54, y)
+	Gdi.Text( '>' + targetTemp + '°  ' + rh + '%', x + fontSize * 4, y)
 
-	Gdi.Text('O:' + outTemp + '°', x + 150, y)
+	Gdi.Text('O:' + outTemp + '°', x + fontSize * 11, y)
 
 	y = btnY
-	Gdi.Text('Fan:', x, y); 	Gdi.Text(fan ? "On" : "Off", x + 100, y, 'Right')
-	y += 20
+	Gdi.Text('Fan:', x, y); 	Gdi.Text(fan ? "On" : "Off", x + fontSize * 5, y, 'Right')
+	y += fontSize + 4
 
 	s = 'huh'
 	switch(mode)
@@ -316,57 +333,58 @@ function Draw()
 		case 1: s = 'Cooling'; break
 		case 2: s = 'Heating'; break
 		case 3: s = 'eHeating'; break
+		case 4: s = 'Cycling'; break
 	}
 
-	bh = 18
+	bh = fontSize  + 3
 
 	Gdi.Text('Run:', x, y)
-	Gdi.Text(running ? s : "Off", x + 100, y, 'Right')
+	Gdi.Text(running ? s : "Off", x + fontSize * 7, y, 'Right')
 	y += bh
 
-	Gdi.Text('Cool Hi:', x, y); 	Gdi.Text(coolTempH.toFixed(1) + '°', x + 112, y, 'Right')
+	Gdi.Text('Cool Hi:', x, y); 	Gdi.Text(coolTempH.toFixed(1) + '°', x + fontSize * 8, y, 'Right')
 	y += bh
-	Gdi.Text('Cool Lo:', x, y); 	Gdi.Text(coolTempL.toFixed(1) + '°', x + 112, y, 'Right')
+	Gdi.Text('Cool Lo:', x, y); 	Gdi.Text(coolTempL.toFixed(1) + '°', x + fontSize * 8, y, 'Right')
 	y += bh
-	Gdi.Text('Heat Hi:', x, y); 	Gdi.Text(heatTempH.toFixed(1) + '°', x + 112, y, 'Right')
+	Gdi.Text('Heat Hi:', x, y); 	Gdi.Text(heatTempH.toFixed(1) + '°', x + fontSize * 8, y, 'Right')
 	y += bh
-	Gdi.Text('Heat Lo:', x, y); 	Gdi.Text(heatTempL.toFixed(1) + '°', x + 112, y, 'Right')
+	Gdi.Text('Heat Lo:', x, y); 	Gdi.Text(heatTempL.toFixed(1) + '°', x + fontSize * 8, y, 'Right')
 	y += bh
-	Gdi.Text('Threshold:', x, y); 	Gdi.Text(cycleThresh.toFixed(1) + '°', x + 112, y, 'Right')
+	Gdi.Text('Threshold:', x, y); 	Gdi.Text(cycleThresh.toFixed(1) + '°', x + fontSize * 8, y, 'Right')
 	y += bh
-	Gdi.Text('ovr Time:', x, y); 	Gdi.Text(overrideTime , x + 112, y, 'Time')
+	Gdi.Text('ovr Time:', x, y); 	Gdi.Text(overrideTime , x + fontSize * 8, y, 'Time')
 	y += bh
 	a = +Reg.overrideTemp
-	Gdi.Text('Override:', x, y);  Gdi.Text(a.toFixed(1) + '°' , x + 112, y, 'Right')
+	Gdi.Text('Override:', x, y);  Gdi.Text(a.toFixed(1) + '°' , x + fontSize * 8, y, 'Right')
 
 	if(ovrActive)
 		Gdi.Pen(Gdi.Argb(255,255,20,20), 2 )	// Button square
 	else
 		Gdi.Pen(Gdi.Argb(255,20,20,255), 2 )	// Button square
-	Gdi.Rectangle(x, y, 64, 15, 2)
-	Pm.Button(x, y, 64, 15)
+	Gdi.Rectangle(x, y, fontSize * 4, fontSize, 2)
+	Pm.Button(x, y, fontSize * 4, fontSize)
 
-	y = Gdi.Height - 36
+	y = Gdi.Height - fontSize * 2.4
 
  	if(mode == 1 || (mode==2 && heatMode == 0))  // cool or HP
 		cost = ppkwh * runTotal / (1000*60*60) * kwh
 	else
 		cost = ccfs * runTotal * cfm
 
-	Gdi.Text('Filter:', x, y);  Gdi.Text(filterMins*60, x + 100, y, 'Time')
+	Gdi.Text('Filter:', x, y);  Gdi.Text(filterMins*60, x + fontSize * 7.5, y, 'Time')
 	Gdi.Pen(Gdi.Argb(255,20,20,255), 2 )	// Button square
-	Pm.Button(x, y, 100, 15)
-	Gdi.Rectangle(x, y, 100, 15, 2)
-	Gdi.Text('Cost:', x+104, y); 	Gdi.Text( '$' +cost.toFixed(2) , x + 190, y, 'Right')
+	Pm.Button(x, y, fontSize * 8, fontSize)
+	Gdi.Rectangle(x, y, fontSize * 7.8, fontSize, 2)
+	Gdi.Text('Cost:', x + fontSize * 7.8, y); 	Gdi.Text( '$' +cost.toFixed(2) , x + fontSize * 14, y, 'Right')
 
 	y += bh
-	Gdi.Text('Cycle:', x, y); 	Gdi.Text( cycleTimer, x + 100, y, 'Time')
-	Gdi.Text('Total:', x+104, y); 	Gdi.Text(runTotal, x + 190, y, 'Time')
+	Gdi.Text('Cycle:', x, y); 	Gdi.Text( cycleTimer, x + fontSize * 6, y, 'Time')
+	Gdi.Text('Total:', x+fontSize * 7, y); 	Gdi.Text(runTotal, x + fontSize * 14, y, 'Time')
 
 	heatModes = Array('HP', 'NG', 'Auto')
-	fanModes = Array('Auto', 'On', 'Cyc')
-	buttons = Array(fanModes[fanMode], modes[mode],
-		heatModes[heatMode], ' ',
+	fanModes = Array('Auto', 'On')
+	buttons = Array(fanModes[fanMode], ' ',
+		modes[mode], heatModes[heatMode],
 		'+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-', '+', '-' )
 
 	for (n = 0, row = 0; row < buttons.length / 2; row++)
@@ -396,7 +414,7 @@ function ShadowText(str, x, y, clr)
 	Gdi.Text( str, x, y, 'Center')
 }
 
-function LogTemps( )
+function LogTemps(snd )
 {
 	if(cycleThresh == undefined)
 		return
@@ -408,6 +426,13 @@ function LogTemps( )
 		last1  = last2
 		last2 = inTemp
 		return
+	}
+	if(state != cycleState)
+	{
+		cycleState = state
+		cycleTotal += cycleTimer
+		if(state == 0 && cycleTimer != lastCycleTimer && cycleTimer)
+			Pm.Echo('Cycle = ' + cycleTimer + ' total = ' + cycleTotal)
 	}
 	last = state+fan
 	last1  = last2
@@ -423,8 +448,13 @@ function LogTemps( )
 	if(mode != Reg.hvacMode)
 	{
 		Reg.hvacMode = mode
-		Pm.Echo('mode change')
+		Pm.Echo('HVAC mode change')
 	}
-
-	Pm.Log( 'statTemp.log', hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + ttL + ',' + ttH.toFixed(1)+ ',' + rh)
+	s = hvacJson.t + ',' + state + ',' + fan + ',' + inTemp + ',' + ttL + ',' + ttH.toFixed(1)+ ',' + rh
+	for(i=0; i < snd.length; i++)
+	{
+		s += ',' + snd[i][1]/10
+		s +=  ',' + snd[i][2]/10
+	}
+	Pm.Log( 'statTemp.log', s)
 }
