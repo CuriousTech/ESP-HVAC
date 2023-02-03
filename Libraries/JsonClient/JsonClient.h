@@ -32,12 +32,12 @@ enum JC_Status
 class JsonClient
 {
 public:
-  JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize = 1024);
-  bool  addList(const char **pList);
+  JsonClient(void (*callback)(int16_t iName, int iValue, char *psValue), uint16_t nSize = 1024);
+  bool  setList(const char **pList);
   bool  begin(const char *pHost, const char *pPath, uint16_t port, bool bKeepAlive = false, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = TIMEOUT);
   bool  begin(IPAddress ip, const char *pPath, uint16_t port, bool bKeepAlive = false, bool bPost = false, const char **pHeaders = NULL, char *pData = NULL, uint16_t to = TIMEOUT);
   void  end(void);
-  void  process(char *event, char *data);
+  void  process(char *data);
   int   status(void);
 
 private:
@@ -46,7 +46,7 @@ private:
   void  processLine(void);
   void  sendHeader(const char *pHeaderName, const char *pHeaderValue, AsyncClient* client);
   void  sendHeader(const char *pHeaderName, int nHeaderValue, AsyncClient* client);
-  void  (*m_callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
+  void  (*m_callback)(int16_t iName, int iValue, char *psValue);
   char *skipwhite(char *p);
 
   AsyncClient m_ac;
@@ -62,10 +62,9 @@ private:
   char m_szPath[128];
   char m_szData[256];
 #define LIST_CNT 8
-  const char **m_jsonList[LIST_CNT];
+  const char **m_jsonList;
   const char **m_pHeaders;
   uint16_t m_bufcnt;
-  uint16_t m_event;
   uint16_t m_nPort;
   uint16_t m_nBufSize;
   char     *m_pBuffer;
@@ -75,7 +74,6 @@ private:
   int8_t m_inBrace;
   int8_t m_inBracket;
   int8_t m_retryCnt;
-  uint8_t m_jsonCnt;
   int8_t  m_Status;
   bool    m_bKeepAlive;
   bool    m_bPost;
