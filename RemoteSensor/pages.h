@@ -47,11 +47,8 @@ ws.onopen=function(evt){setVar('hist',0)}
 ws.onclose=function(evt){alert("Connection closed");}
 ws.onmessage=function(evt){
 console.log(evt.data)
- lines=evt.data.split(';')
- event=lines[0]
- data=lines[1]
- d=JSON.parse(data)
- switch(event)
+ d=JSON.parse(evt.data)
+ switch(d.cmd)
  {
   case 'settings':
     oledon=d.o
@@ -144,7 +141,7 @@ console.log(evt.data)
 
 function setVar(varName, value)
 {
-  ws.send('cmd;{"key":"'+a.myKey.value+'","'+varName+'":'+value+'}')
+  ws.send('{"key":"'+a.myKey.value+'","'+varName+'":'+value+'}')
 }
 
 function led1()
