@@ -177,7 +177,7 @@ void HVAC::updateVar(int iName, int iValue)// host values (sent to remote)
 void HVAC::sendCmd(const char *szName, int value)
 {
 #ifdef REMOTE
-  jsonString js("cmd");
+  jsonString js;
   js.Var("key", ee.password);
   js.Var((char *)szName, value);
   WscSend(js.Close());
@@ -390,7 +390,11 @@ void HVAC::service()
         if(hm == Heat_NG)  // gas
         {
           if(m_bCoolOn)
-            WsSend("print;Error: NG heat start conflict");
+          {
+            jsonString js("print");
+            js.Var("text", "NG heat start conflict");
+            WsSend(js.Close());
+          }
           else
           {
             digitalWrite(P_HEAT, HEAT_ON);
@@ -502,13 +506,16 @@ void HVAC::tempCheck()
         if( m_Sensor[i].f.f.Warn == 0)
         {
           m_Sensor[i].f.f.Warn = 1;
-          String s = "print;";
+          String s = "";
           s += (char*)&m_Sensor[i].ID;
           s += " sensor data expired ";
           s += (now() - m_Sensor[i].tm);
           s += "s ";
           s += m_Sensor[i].tm;
-          WsSend(s);
+
+          jsonString js("print");
+          js.Var("text", s);
+          WsSend(js.Close());
         }
         if(now() - m_Sensor[i].tm > 3*60) // Inactive 3 minutes. Remove the sensor
         {
@@ -1021,7 +1028,7 @@ void HVAC::updateIndoorTemp(int16_t Temp, int16_t rh)
     sendCmd("rmtname", RMTNAME); // RMT1
     String s = String(m_localTemp);
     s += (ee.b.bCelcius) ? 'C' : 'F'; // append C or F to the temp value
-    jsonString js("cmd");
+    jsonString js;
     js.Var("key", ee.password);
     js.Var("rmttemp", s);
     WscSend(js.Close());
@@ -1238,7 +1245,7 @@ int HVAC::CmdIdx(String s )
 {
   int iCmd;
   // skip the top 4 (event, key, data)
-  for(iCmd = 5; cmdList[iCmd]; iCmd++)
+  for(iCmd = 4; cmdList[iCmd]; iCmd++)
   {
     if( s.equalsIgnoreCase( String(cmdList[iCmd]) ) )
       break;
@@ -1271,6 +1278,7 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
   int c = CmdIdx( sCmd );
   if(ee.b.bLock && c!= 51)
     return;
+  
   int i;
   uint8_t oldFlags;
 
@@ -1477,27 +1485,31 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         }
         else if(*p != 'F' && *p != 'C')
         {
-          String s = "print;";
+          String s = "";
           s += (char *)&m_Sensor[snsIdx].ID;
           s += " has no temp unit: ";
           s += psValue;
-          WsSend(s);
+          jsonString js("print");
+          js.Var("text", s);
+          WsSend(js.Close());
           deactivateSensor(snsIdx);
           break;
         }
       }
       if(val < (ee.b.bCelcius ? 156:600) || val > (ee.b.bCelcius ? 370:990) )
       {
-        String s = "print;";
+        String s = "";
         s += (char *)&m_Sensor[snsIdx].ID;
         s += " sensor range error ";
         s += String((float)val / 10, 1);
-        WsSend(s);
+        jsonString js("print");
+        js.Var("text", s);
+        WsSend(js.Close());
         deactivateSensor(snsIdx);
       }
       else if(m_Sensor[snsIdx].temp && (val < m_Sensor[snsIdx].temp - 20 || val > m_Sensor[snsIdx].temp + 20) )
       {
-        String s = "print;";
+        String s = "";
         s += (char *)&m_Sensor[snsIdx].ID;
         s += " irratic sensor change idx=";
         s += snsIdx;
@@ -1511,7 +1523,9 @@ void HVAC::setVar(String sCmd, int val, char *psValue, IPAddress ip)
         s += String((float)m_Sensor[snsIdx].temp / 10, 1);
         s += " to ";
         s += String((float)val / 10, 1);
-        WsSend(s);
+        jsonString js("print");
+        js.Var("text", s);
+        WsSend(js.Close());
         deactivateSensor(snsIdx);
       }
       m_Sensor[snsIdx].temp = val;
