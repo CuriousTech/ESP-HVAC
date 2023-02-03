@@ -17,18 +17,15 @@ var myToken=localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.46/ws")
+//ws=new WebSocket("ws://192.168.31.125/ws")
 ws.onopen=function(evt){}
 ws.onclose=function(evt){alert("Connection closed.");}
 
 ws.onmessage=function(evt){
  console.log(evt.data)
- lines=evt.data.split(';')
- event=lines[0]
- data=lines[1]
- if(event=='settings')
+ Json=JSON.parse(evt.data)
+ if(Json.cmd=='settings')
  {
-	Json=JSON.parse(data)
    	mode=+Json.m
 	autoMode=+Json.am
 	heatMode=+Json.hm
@@ -47,9 +44,8 @@ ws.onmessage=function(evt){
   if( +a.ovrtemp.value==0)
 	 a.ovrtemp.value= -2.0
  }
- else if(event == 'state')
+ else if(Json.cmd=='state')
  {
-	Json=JSON.parse(data)
 	running=+Json.r
 	fan=+Json.fr
 	rh=+Json.rh
@@ -69,16 +65,16 @@ ws.onmessage=function(evt){
 	a.hmCell.setAttribute('class',hon?'style5':'style1')
 	setAtt()
  }
- else if(event=='alert')
+ else if(Json.cmd=='alert')
  {
-	alert(data)
+	alert(Json.text)
  }
 }
 }
 
 function setVar(varName, value)
 {
- ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+ ws.send('{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function setfan(n)
@@ -182,7 +178,7 @@ function cancelOvr()
 
 function setVars()
 {
- s='cmd;{"key":"'+myToken+'"'
+ s='{"key":"'+myToken+'"'
  s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()+',"cooltempl":'+(+a.cooll.value*10).toFixed()
  s+=',"heattemph":'+(+a.heath.value*10).toFixed()+',"heattempl":'+(+a.heatl.value*10).toFixed()
  s+=',"overridetime":'+t2s(a.ovrtime.value)+',"fancycletime":'+t2s(a.fantime.value)
