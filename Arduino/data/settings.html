@@ -17,17 +17,14 @@ var ws
 function startEvents()
 {
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.46/ws")
+//ws=new WebSocket("ws://192.168.31.125/ws")
 ws.onopen=function(evt){}
 ws.onclose=function(evt){alert("Connection closed.");}
 
 ws.onmessage = function(evt){
  console.log(evt.data)
- lines=evt.data.split(';')
- event=lines[0]
- data=lines[1]
- Json=JSON.parse(data)
- if(event == 'settings')
+ Json=JSON.parse(evt.data)
+ if(Json.cmd == 'settings')
  {
 	a.idlemin.value=s2t(+Json.im)
 	a.cycmin.value=s2t(+Json.cn)
@@ -48,15 +45,15 @@ ws.onmessage = function(evt){
 	a.far.value=s2t(+Json.far)
 	a.cal.value=+Json.cal/10
  }
- else if(event == 'state')
+ else if(Json.cmd == 'state')
  {
 	a.loc.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
 	snd=Json.snd
 	if(snd) setSenders()
  }
- else if(event == 'alert')
+ else if(Json.cmd == 'alert')
  {
-	alert(data)
+	alert(Json.text)
  }
 }
 }
@@ -88,7 +85,7 @@ function jmp(v)
 
 function setVar(varName, value)
 {
-	ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+	ws.send('{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
 function setSnd(n,v)
