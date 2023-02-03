@@ -53,15 +53,12 @@ $(document).ready(function()
  if(myStorage1  != null) myToken=myStorage1
  ws=new WebSocket("ws://"+window.location.host+"/ws")
 // ws=new WebSocket("ws://192.168.31.46/ws")
- ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
+ ws.onopen=function(evt){ws.send('{"sum":0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
 	console.log(evt.data)
-	lines=evt.data.split(';')
-	event=lines[0]
-	data=lines[1]
-	Json=JSON.parse(data)
-	switch(event)
+	Json=JSON.parse(evt.data)
+	switch(Json.cmd)
 	{
 		case 'settings':
 			ppkwh=+Json.ppk/1000
@@ -94,12 +91,12 @@ $(document).ready(function()
 			draw()
 			break
 		case 'alert':
-			alert(data)
+			alert(Json.text)
 			break
 		case 'print':
 			break
 		case 'sum':
-			ws.send('cmd;{data:0}')
+			ws.send('{data:0}')
 			dys=Json.day
 			mns=Json.mon
 			fc=Json.fc
@@ -155,7 +152,7 @@ $(document).ready(function()
  setInterval(function(){
   s=0
   if(arr.length) s=(arr[0][0]/1000).toFixed()
-  ws.send('cmd;{data:'+s+'}'); },60000)
+  ws.send('{data:'+s+'}'); },60000)
 });
 
 function draw(){
@@ -412,7 +409,7 @@ function stateColor(s)
 
 function setVar(varName,value)
 {
-	ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+	ws.send('{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function secsToTime(sec)
