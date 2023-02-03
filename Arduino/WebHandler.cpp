@@ -54,7 +54,7 @@ AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 extern HVAC hvac;
 extern Display display;
 
-void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue);
+void remoteCallback(int16_t iName, int iValue, char *psValue);
 JsonParse remoteParse(remoteCallback);
 
 #ifdef REMOTE
@@ -91,20 +91,21 @@ const char pageR_B[] = R"rawliteral(
 </html>
 )rawliteral";
 
+const char *jsonListState[] = { "cmd", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
+
 // values sent at an interval of 30 seconds unless they change sooner
-const char *jsonList1[] = { "state", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
-const char *jsonList2[] = { "settings", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "tu", "ov", "rhm", "rh0", "rh1", NULL };
 const char *cmdList[] = { "cmd",
   "key",
   "data",
   "sum",
   NULL};
 #else
-const char *jsonList1[] = { "state",  "rmttemp", "rmtrh", NULL };
+const char *jsonListState[] = { "cmd",  "rmttemp", "rmtrh", NULL };
 extern const char *cmdList[];
 #endif
 
-const char *jsonList3[] = { "alert", NULL };
+const char *jsonListSettings[] = { "cmd", "m", "am", "hm", "fm", "ot", "ht", "c0", "c1", "h0", "h1", "im", "cn", "cx", "ct", "tu", "ov", "rhm", "rh0", "rh1", NULL };
+const char *jsonListAlert[] = { "cmd", "text", NULL };
 
 void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {  //Handle WebSocket event
@@ -117,7 +118,7 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
       if(rebooted)
       {
         rebooted = false;
-        client->text("alert;Restarted");
+        client->text( "{\"cmd\":\"alert\",\"text\":\"Restarted\"}" );
       }
       client->text( hvac.settingsJson() );
       client->text( dataJson() );
@@ -140,13 +141,11 @@ void onWsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventT
         //the whole message is in a single frame and we got all of it's data
         if(info->opcode == WS_TEXT){
           data[len] = 0;
-          char *pCmd = strtok((char *)data, ";"); // assume format is "name;{json:x}"
-          char *pData = strtok(NULL, "");
-          if(pCmd == NULL || pData == NULL) break;
           bKeyGood = false; // for callback (all commands need a key)
           WsClientID = client->id();
           WsClientIP = client->remoteIP();
-          remoteParse.process(pCmd, pData);
+
+          remoteParse.process((char*)data);
         }
       }
       break;
@@ -194,6 +193,11 @@ void startServer()
     s += "Now: "; s += now(); s += "<br>";
     s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
 
+    s += "it: "; s += hvac.m_inTemp; s += "<br>";
+    s += "tempi: "; s += hvac.m_localTemp; s += "<br>";
+    s += "rhi: "; s += hvac.m_localRh; s += "<br>";
+    s += "rh: "; s += hvac.m_rh; s += "<br>";
+
     s += pageR_B;
     request->send( 200, "text/html", s );
 #endif
@@ -238,7 +242,7 @@ void startServer()
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/styles.css");
 #else
-    request->send_P(200, "text/html", page_styles);
+    request->send_P(200, "text/css", page_styles);
 #endif
   });
 #endif // !REMOTE
@@ -278,16 +282,13 @@ void startServer()
 
   server.begin();
 
-  remoteParse.addList(jsonList1);
 #ifdef REMOTE
-  remoteParse.addList(jsonList2);
 //  ee.hostIp[0] = 192; // force IP of HVAC if needed
 //  ee.hostIp[1] = 168;
 //  ee.hostIp[2] = 31;
 //  ee.hostIp[3] = 46;
 #endif
-  remoteParse.addList(cmdList);
-  remoteParse.addList(jsonList3);
+  remoteParse.setList(cmdList);
 
 #ifdef OTA_ENABLE
   ArduinoOTA.setHostname(hostName);
@@ -298,7 +299,13 @@ void startServer()
     ee.filterMinutes = hvac.m_filterMinutes;
     if(ee.check())
       ee.update();
+    jsonString js("alert");
+    js.Var("text", "OTA Update Started");
+    ws.textAll(js.Close());
+    ws.closeAll();
+#ifdef USE_SPIFFS
     SPIFFS.end();
+#endif
   });
 #endif
 }
@@ -420,7 +427,7 @@ bool secondsServer() // called once per second
   }
 
   static uint8_t start = 4; // give it time to settle before initial connect
-  if(start && wifi.state() == ws_connected)
+  if(start && WiFi.status() == WL_CONNECTED)
     if(--start == 0)
         startListener();
 
@@ -429,7 +436,7 @@ bool secondsServer() // called once per second
     display.m_bUpdateFcst = false;
     display.m_bUpdateFcstIdle = false;
     nUpdateDelay = 60;
-    WscSend("cmd;{\"bin\":1}"); // request forcast data
+    WscSend("{\"bin\":0}"); // request forcast data
   }
 #else  // !Remote
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
@@ -467,7 +474,11 @@ bool secondsServer() // called once per second
     display.m_bFcstUpdated = true;
   }
   else if(stat == FCS_Fail)
-   WsSend("alert;Forecast failed");
+  {
+    jsonString js("alert");
+    js.Var("text", "Forecast failed");
+    WsSend(js.Close());
+  }
   stat = openWeatherFC.checkStatus();
   if(stat == FCS_Done)
   {
@@ -476,7 +487,11 @@ bool secondsServer() // called once per second
     display.m_bFcstUpdated = true;
   }
   else if(stat == FCS_Fail)
-   WsSend("alert;OpenWeatherMasp failed");
+  {
+    jsonString js("alert");
+    js.Var("text", "OpenWeatherMap failed");
+    WsSend(js.Close());
+  }
 
   if(display.m_bFcstUpdated && WsRemoteID)
   {
@@ -493,7 +508,6 @@ void parseParams(AsyncWebServerRequest *request)
     return;
 
 #ifdef REMOTE
-  int val;
 
   for ( uint8_t i = 0; i < request->params(); i++ )
   {
@@ -535,12 +549,6 @@ void parseParams(AsyncWebServerRequest *request)
           break;
       case 'Z': // Timezone
           ee.tz = val;
-          break;
-      case 's': // SSID
-          s.toCharArray(ee.szSSID, sizeof(ee.szSSID));
-          break;
-      case 'p': // AP password
-          wifi.setPass(s.c_str());
           break;
     }
   }
@@ -611,9 +619,9 @@ String dataJson()
 void historyDump(bool bStart)
 {
 #ifndef REMOTE
-  static bool bSending;
-  static int entryIdx;
-  static int tempMin;
+  static bool bSending = false;
+  static int entryIdx = 0;
+  static int tempMin = 0;
   static int lMin;
   static int hMin;
   static int rhMin;
@@ -655,7 +663,7 @@ void historyDump(bool bStart)
 #define CHUNK_SIZE 800
   out.reserve(CHUNK_SIZE + 100);
 
-  out = "data;{\"d\":[";
+  out = "{\"cmd\":\"data\",\"d\":[";
 
   bool bC = false;
 
@@ -713,14 +721,14 @@ void historyDump(bool bStart)
   else
     bSending = false;
   if(bSending == false)
-    ws.text(WsClientID, "draw;{}"); // tell page to draw after all is sent
+    ws.text(WsClientID, "{\"cmd\":\"draw\"}"); // tell page to draw after all is sent
 #endif
 }
 
 void appendDump(uint32_t startTime)
 {
 #ifndef REMOTE
-  String out = "data2;{\"d\":[";
+  String out = "{\"cmd\":\"data2\",\"d\":[";
 
   uint32_t tb = display.m_lastPDate;
   bool bC = false;
@@ -778,60 +786,70 @@ void appendDump(uint32_t startTime)
 #endif
 }
 
-void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
+void remoteCallback(int16_t iName, int iValue, char *psValue)
 {
+  static int8_t cmd = 0;
+
 #ifdef REMOTE
-  switch(iEvent)
+  switch(iName)
   {
-    case 0: // state
-      hvac.updateVar(iName, iValue);
-      break;
-    case 1: // settings
-      hvac.setSettings(iName, iValue);
-      break;
-    case 2: // cmdList
-      switch(iName)
+    case 0: // cmd
+      if(!strcmp(psValue, "settings"))
       {
-        case 0: // key
-          break;
-        case 1: // data
-          break;
-        case 2: // sum
-          break;
+        remoteParse.setList(jsonListSettings);
+        cmd = 1;
       }
+      else if(!strcmp(psValue, "state"))
+      {
+        remoteParse.setList(jsonListState);
+        cmd = 2;
+      }
+      else if(!strcmp(psValue, "alert"))
+      {
+        remoteParse.setList(jsonListAlert);
+        cmd = 3;
+      }
+      else
+      {
+        remoteParse.setList(cmdList);
+        cmd = 0;            
+      }
+      break;
+  }
+  if(iName) switch(cmd)
+  {
+    case 0: // cmd
+      break;
+    case 1: //settings
+      hvac.setSettings(iName - 1, iValue);
+      break;
+    case 2: // state
+      hvac.updateVar(iName - 1, iValue);
       break;
     case 3: // alert
       display.Note(psValue);
       break;
   }
+
 #else
-  switch(iEvent)
+  switch(cmd) // Should always be 0
   {
-    case 0: // state
-      switch(iName)
-      {
-        case 0: // temp
-          hvac.setVar("rmttemp", iValue, psValue, WsClientIP);
-          break;
-        case 1: // rh
-          hvac.setVar("rmtrh", iValue, psValue, WsClientIP);
-          break;
-      }
-      break;
-    case 1: // cmd
-      if(iName == 0) // 0 = key
+    case 0: // key
+      if(iName == 1) // 0 = key
       {
         if(!strcmp(psValue, ee.password)) // first item must be key
+        {
           bKeyGood = true;
+        }
       }
-      else if(iName == 1) // 1 = data
+      else if(iName == 2) // 2 = data
       {
         if(iValue) appendDump(iValue);
         else historyDump(true);
       }
-      else if(iName == 2) // 2 = summary
+      else if(iName == 3) // 3 = summary
       {
-        String out = String("sum;{\"mon\":[");
+        String out = String("{\"cmd\":\"sum\",\"mon\":[");
 
         for(int i = 0; i < 12; i++)
         {
@@ -870,26 +888,37 @@ void remoteCallback(int16_t iEvent, uint16_t iName, int iValue, char *psValue)
         out += "]}";
         ws.text(WsClientID, out);
       }
-      else if(iName == 3) // 3 = bin
+      else if(iName == 4) // 4 = bin
       {
         WsRemoteID = WsClientID; // Only remote uses binary
         switch(iValue)
         {
-          case 1: // forecast data
+          case 0: // forecast data
             ws.binary(WsClientID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
             break;
         }
       }
-      else // 4+
+      else if(bKeyGood && iName >= 5)
       {
-        if(bKeyGood)
-          hvac.setVar(cmdList[iName+1], iValue, psValue, WsClientIP); // 5 is "fanmode"
+        hvac.setVar(cmdList[iName], iValue, psValue, WsClientIP); // 5 is "fanmode"
       }
       break;
-    case 2: // alert
+    case 2: // state
+      switch(iName)
+      {
+        case 0: // temp
+          hvac.setVar("rmttemp", iValue, psValue, WsClientIP);
+          break;
+        case 1: // rh
+          hvac.setVar("rmtrh", iValue, psValue, WsClientIP);
+          break;
+      }
+      break;
+    case 3: // alert
       display.Note(psValue);
       break;
   }
+
 #endif
 }
 
@@ -908,12 +937,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
         hvac.m_notif = Note_None;
       break;
     case WStype_TEXT:
-      {
-        char *pCmd = strtok((char *)payload, ";");
-        char *pData = strtok(NULL, "");
-        if(pCmd == NULL || pData == NULL) break;
-        remoteParse.process(pCmd, pData);
-      }
+      remoteParse.process((char*)payload);
       break;
     case WStype_BIN:
       if(length == sizeof(forecastData) )
