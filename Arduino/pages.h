@@ -18,19 +18,16 @@ var myToken=localStorage.getItem('myStoredText1')
 function startEvents()
 {
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.46/ws")
+//ws=new WebSocket("ws://192.168.31.125/ws")
 ws.onopen=function(evt){}
 ws.onclose=function(evt){alert("Connection closed.");}
 
 ws.onmessage=function(evt){
  console.log(evt.data)
- lines=evt.data.split(';')
- event=lines[0]
- data=lines[1]
- if(event=='settings')
+ Json=JSON.parse(evt.data)
+ if(Json.cmd=='settings')
  {
-  Json=JSON.parse(data)
-    mode=+Json.m
+  mode=+Json.m
   autoMode=+Json.am
   heatMode=+Json.hm
   fanMode=+Json.fm
@@ -44,23 +41,21 @@ ws.onmessage=function(evt){
   a.humidl.value=+Json.rh0/10
   a.humidh.value=+Json.rh1/10
   a.ovrtime.value=s2t(+Json.ov)
-  a.fantime.value=s2t(+Json.fct)
   a.awaytemp.value=+Json.ad/10
   if( +a.ovrtemp.value==0)
    a.ovrtemp.value= -2.0
  }
- else if(event == 'state')
+ else if(Json.cmd=='state')
  {
-  Json=JSON.parse(data)
   running=+Json.r
   fan=+Json.fr
   rh=+Json.rh
   away=+Json.aw
   a.time.innerHTML=(new Date(+Json.t*1000)).toLocaleTimeString()
-  a.intemp.innerHTML=(+Json.it/10).toFixed(1)
+  a.intemp.innerHTML=(+Json.it/10).toFixed(1)+'&deg;'
   a.rh.value=(+Json.rh/10).toFixed(1)+'%'
-  a.target.innerHTML=(+Json.tt/10).toFixed(1)
-  a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)
+  a.target.innerHTML=(+Json.tt/10).toFixed(1)+'&deg;'
+  a.outtemp.innerHTML=(+Json.ot/10).toFixed(1)+'&deg;'
   a.cyctimer.innerHTML=secsToTime(+Json.ct)
   a.runtotal.value=secsToTime(+Json.rt)
   a.filter.value=s2t(+Json.fm)
@@ -71,16 +66,16 @@ ws.onmessage=function(evt){
   a.hmCell.setAttribute('class',hon?'style5':'style1')
   setAtt()
  }
- else if(event=='alert')
+ else if(Json.cmd=='alert')
  {
-  alert(data)
+  alert(Json.text)
  }
 }
 }
 
 function setVar(varName, value)
 {
- ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+ ws.send('{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function setfan(n)
@@ -184,7 +179,7 @@ function cancelOvr()
 
 function setVars()
 {
- s='cmd;{"key":"'+myToken+'"'
+ s='{"key":"'+myToken+'"'
  s+=',"cooltemph":'+(+a.coolh.value*10).toFixed()+',"cooltempl":'+(+a.cooll.value*10).toFixed()
  s+=',"heattemph":'+(+a.heath.value*10).toFixed()+',"heattempl":'+(+a.heatl.value*10).toFixed()
  s+=',"overridetime":'+t2s(a.ovrtime.value)+',"fancycletime":'+t2s(a.fantime.value)
@@ -227,10 +222,10 @@ function t2s(v)
 <font size=4>
 <table style="width: 418px; height: 22px;" cellspacing="0">
 <tr>
-<td>IN</td><td><div id="intemp" class="style2">in</div></td><td>&deg;</td><td> &gt;</td>
-<td><div id="target" class="style2">trg</div></td><td>&deg; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
-<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td>&deg; &nbsp; &nbsp; </td>
-<td> &nbsp; &nbsp; &nbsp; </td>
+<td>IN</td><td><div id="intemp" class="style2">in</div></td><td> &gt;</td>
+<td><div id="target" class="style2">trg</div></td><td>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; </td>
+<td>OUT</td><td><div id="outtemp" class="style2">out</div></td><td> &nbsp; &nbsp; &nbsp; </td>
+<td><div id="time"></div></td>
 </tr>
 </table>
 </font>
@@ -252,7 +247,7 @@ function t2s(v)
 <td>&nbsp;</td><td></td><td></td><td></td>
 </tr>
 <tr>
-<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td><div id="time"></div></td>
+<td>COOL HI</td><td><input type=text size=3 id="coolh" onChange="{setVars()}"></td><td><input type="button" value="+1" onClick="{incCool(1)}"></td><td></td>
 </tr>
 <tr>
 <td style="width: 81px">COOL LO</td>
@@ -294,7 +289,7 @@ function t2s(v)
 </tr>
 <tr>
 <td>FRESHEN</td>
-<td><input type=text size=3 id="fantime" onChange="{setVars()}"></td>
+<td><input type=text size=3 id="fantime" value="5" onChange="{setVars()}"></td>
 <td><input type="button" style="margin-left:200" value="  GO  " onClick="{setfan(3)}"></td>
 <td><input type="button" value="  A1 " name="hmAuto1" onClick="{setHumidMode(3)}"> &nbsp; LO <input type=text size=2 id="humidl" onchange="{setVar('humidl',(+this.value*10).toFixed())}">
 </td>
@@ -337,17 +332,14 @@ var ws
 function startEvents()
 {
 ws=new WebSocket("ws://"+window.location.host+"/ws")
-//ws=new WebSocket("ws://192.168.31.46/ws")
+//ws=new WebSocket("ws://192.168.31.125/ws")
 ws.onopen=function(evt){}
 ws.onclose=function(evt){alert("Connection closed.");}
 
 ws.onmessage = function(evt){
  console.log(evt.data)
- lines=evt.data.split(';')
- event=lines[0]
- data=lines[1]
- Json=JSON.parse(data)
- if(event == 'settings')
+ Json=JSON.parse(evt.data)
+ if(Json.cmd == 'settings')
  {
   a.idlemin.value=s2t(+Json.im)
   a.cycmin.value=s2t(+Json.cn)
@@ -368,15 +360,15 @@ ws.onmessage = function(evt){
   a.far.value=s2t(+Json.far)
   a.cal.value=+Json.cal/10
  }
- else if(event == 'state')
+ else if(Json.cmd == 'state')
  {
   a.loc.innerHTML=(+Json.it/10).toFixed(1)+' '+(+Json.rh/10).toFixed(1)+'%'
   snd=Json.snd
   if(snd) setSenders()
  }
- else if(event == 'alert')
+ else if(Json.cmd == 'alert')
  {
-  alert(data)
+  alert(Json.text)
  }
 }
 }
@@ -408,7 +400,7 @@ function jmp(v)
 
 function setVar(varName, value)
 {
-  ws.send('cmd;{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
+  ws.send('{"key":"'+a.myToken.value+'","'+varName+'":'+value+'}')
 }
 
 function setSnd(n,v)
@@ -549,15 +541,12 @@ $(document).ready(function()
  if(myStorage1  != null) myToken=myStorage1
  ws=new WebSocket("ws://"+window.location.host+"/ws")
 // ws=new WebSocket("ws://192.168.31.46/ws")
- ws.onopen=function(evt){ws.send('cmd;{sum:0}')}
+ ws.onopen=function(evt){ws.send('{"sum":0}')}
  ws.onclose=function(evt){alert("Connection closed.")}
  ws.onmessage = function(evt){
   console.log(evt.data)
-  lines=evt.data.split(';')
-  event=lines[0]
-  data=lines[1]
-  Json=JSON.parse(data)
-  switch(event)
+  Json=JSON.parse(evt.data)
+  switch(Json.cmd)
   {
     case 'settings':
       ppkwh=+Json.ppk/1000
@@ -590,12 +579,12 @@ $(document).ready(function()
       draw()
       break
     case 'alert':
-      alert(data)
+      alert(Json.text)
       break
     case 'print':
       break
     case 'sum':
-      ws.send('cmd;{data:0}')
+      ws.send('{data:0}')
       dys=Json.day
       mns=Json.mon
       fc=Json.fc
@@ -651,7 +640,7 @@ $(document).ready(function()
  setInterval(function(){
   s=0
   if(arr.length) s=(arr[0][0]/1000).toFixed()
-  ws.send('cmd;{data:'+s+'}'); },60000)
+  ws.send('{data:'+s+'}'); },60000)
 });
 
 function draw(){
@@ -908,7 +897,7 @@ function stateColor(s)
 
 function setVar(varName,value)
 {
-  ws.send('cmd;{"key":"'+myToken+'","'+varName+'":'+value+'}')
+  ws.send('{"key":"'+myToken+'","'+varName+'":'+value+'}')
 }
 
 function secsToTime(sec)
@@ -1362,12 +1351,13 @@ background: rgb(80,160,255);
 background: linear-gradient(0deg, rgba(80,160,255,1) 0%, rgba(79,79,79,1) 100%);
 background-clip: padding-box;
 }
-.style5 {
+.style5{
 border-radius: 1px;
 box-shadow: 2px 2px 10px #000000;
 background: rgb(0,160,224);
 background: linear-gradient(0deg, rgba(0,160,224,1) 0%, rgba(0,224,224,1) 100%);
-}})rawliteral";
+}
+)rawliteral";
 
 const uint8_t favicon[] PROGMEM = {
   0x1F, 0x8B, 0x08, 0x08, 0x70, 0xC9, 0xE2, 0x59, 0x04, 0x00, 0x66, 0x61, 0x76, 0x69, 0x63, 0x6F, 
