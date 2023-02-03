@@ -5,18 +5,15 @@
   This library is free software; you can redistribute it and/or modify it under the terms of the GNU GPL 2.1 or later.
 
   1024 byte limit for data received
-  8 lists max per instance
 */
 #include "JsonClient.h"
 
 // Initialize instance with a callback (event list index, name index from 0, integer value, string value)
-JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iValue, char *psValue), uint16_t nSize )
+JsonClient::JsonClient(void (*callback)(int16_t iName, int iValue, char *psValue), uint16_t nSize )
 {
   m_callback = callback;
   m_Status = JC_IDLE;
-  m_jsonCnt = 0;
   m_bufcnt = 0;
-  m_event = 0;
   m_bKeepAlive = false;
   m_szPath[0] = 0;
   m_nBufSize = nSize;
@@ -29,14 +26,9 @@ JsonClient::JsonClient(void (*callback)(int16_t iEvent, uint16_t iName, int iVal
 // add a json list {"event name", "valname1", "valname2", "valname3", NULL}
 // If first string is "" or NULL, the data is expected as JSON without an event name
 // If second string is "" or NULL, the event name is expected, but the "data:" string is assumed non-JSON
-bool JsonClient::addList(const char **pList)
+bool JsonClient::setList(const char **pList)
 {
-  for(int i = 0; i < m_jsonCnt; i++)
-    if(m_jsonList[i] == pList)
-      return true;
-  if(m_jsonCnt >= LIST_CNT)
-    return false;
-  m_jsonList[m_jsonCnt++] = pList;
+  m_jsonList = pList;
   return true;
 }
 
@@ -70,8 +62,6 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
     m_timer = 0;
     return false;
   }
-  m_jsonCnt = 0;
-  m_event = 0;
   m_bufcnt = 0;
   strncpy(m_szPath, pPath, sizeof(m_szPath) );
   m_szData[0] = 0;
@@ -90,21 +80,24 @@ bool JsonClient::begin(const char *pPath, uint16_t port, bool bKeepAlive, bool b
   return connect();
 }
 
-void JsonClient::process(char *event, char *data)
+void JsonClient::process(char *data)
 {
-  m_event = 0;
+  int nSize = strlen(data) + 1;
 
-  strcpy(m_pBuffer, "event:");
-  strcat(m_pBuffer, event);
-  strcat(m_pBuffer, "\r\n");
-  m_bufcnt = strlen(m_pBuffer);
-  processLine();
+  if(m_pBuffer && m_nBufSize < nSize)
+  {
+    delete m_pBuffer;
+    m_pBuffer = NULL;
+  }
+  if(m_nBufSize < nSize)
+    m_nBufSize = nSize;
+  if(m_pBuffer == NULL)
+     m_pBuffer = new char[m_nBufSize];
 
-  strcpy(m_pBuffer, "data:");
-  strcat(m_pBuffer, data);
-  strcat(m_pBuffer, "\r\n");
-  m_bufcnt = strlen(m_pBuffer);
+  m_bufcnt = nSize - 1;
+  strcpy(m_pBuffer, data);
   processLine();
+   m_callback( -1, JC_DONE, (char *)"");
 }
 
 // not used normally
@@ -151,7 +144,7 @@ bool JsonClient::connect()
   if( m_retryCnt > RETRIES)
   {
     m_Status = JC_RETRY_FAIL;
-    m_callback(-1, m_Status, m_nPort, m_pszHost);
+    m_callback(-1, m_Status, m_pszHost);
     m_Status = JC_IDLE;
     return false;
   }
@@ -172,7 +165,7 @@ bool JsonClient::connect()
   }
 
   m_Status = JC_NO_CONNECT;
-  m_callback(-1, m_Status, m_nPort, m_pszHost);
+  m_callback(-1, m_Status, m_pszHost);
   m_Status = JC_IDLE;
   m_retryCnt++;
   return false;
@@ -190,7 +183,7 @@ void JsonClient::_onDisconnect(AsyncClient* client)
         m_pBuffer[m_bufcnt] = '\0';
         processLine();
     }
-    m_callback(-1, m_Status, m_nPort, m_pszHost);
+    m_callback(-1, m_Status, m_pszHost);
     m_Status = JC_IDLE;
     return;
   }
@@ -202,7 +195,7 @@ void JsonClient::_onTimeout(AsyncClient* client, uint32_t time)
   (void)client;
 
   m_Status = JC_TIMEOUT;
-  m_callback(-1, m_Status, m_nPort, m_pszHost);
+  m_callback(-1, m_Status, m_pszHost);
   m_Status = JC_IDLE;
 }
 
@@ -245,7 +238,7 @@ void JsonClient::_onConnect(AsyncClient* client)
 
   m_brace = 0;
   m_Status = JC_CONNECTED;
-  m_callback(-1, m_Status, m_nPort, m_pszHost);
+  m_callback(-1, m_Status, m_pszHost);
 }
 
 void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
@@ -274,7 +267,7 @@ void JsonClient::_onData(AsyncClient* client, char* data, size_t len)
 
 void JsonClient::processLine()
 {
-  if(m_jsonCnt == 0)
+  if(m_jsonList == NULL)
     return;
 
   char *pPair[2]; // param:data pair
@@ -285,6 +278,7 @@ void JsonClient::processLine()
   {
     p = skipwhite(p);
     if(*p == '{'){p++; m_brace++;}
+    if(*p == '['){p++; m_bracket++;}
     if(*p == ',') p++;
     p = skipwhite(p);
 
@@ -299,42 +293,54 @@ void JsonClient::processLine()
     {
       while(*p && *p != ':') p++;
     }
-    if(*p != ':') return;
+    if(*p != ':')
+      return;
+
     *p++ = 0;
     p = skipwhite(p);
-    if(*p == '{'){p++; m_brace++; continue;} // data: {
-
     bInQ = false;
-    if(*p == '"'){p++; bInQ = true;}
+    if(*p == '{') m_inBrace = m_brace+1; // data: {
+    else if(*p == '['){p++; m_inBracket = m_bracket+1;} // data: [
+    else if(*p == '"'){p++; bInQ = true;}
     pPair[1] = p;
     if(bInQ)
     {
        while(*p && *p!= '"') p++;
        if(*p == '"') *p++ = 0;
-    }else
+    }else if(m_inBrace)
     {
-      while(*p && *p != ',' && *p != '}' && *p != '\r' && *p != '\n') p++;
-      if(*p == '}') m_brace--;
-      *p++ = 0;
-    }
+      while(*p && m_inBrace != m_brace){
+        p++;
+        if(*p == '{') m_inBrace++;
+        if(*p == '}') m_inBrace--;
+      }
+      if(*p=='}') p++;
+    }else if(m_inBracket)
+    {
+      while(*p && m_inBracket != m_bracket){
+        p++;
+        if(*p == '[') m_inBracket++;
+        if(*p == ']') m_inBracket--;
+      }
+      if(*p == ']') *p++ = 0;
+    }else while(*p && *p != ',' && *p != '\r' && *p != '\n' && *p != '}') p++;
+    if(*p) *p++ = 0;
     p = skipwhite(p);
-    if(*p == '}'){*p++ = 0; m_brace--;}
+    if(*p == ',') *p++ = 0;
+
+    m_inBracket = 0;
+    m_inBrace = 0;
+    p = skipwhite(p);
 
     if(pPair[0][0])
     {
-      if(!strcmp(pPair[0], "event") && m_jsonList[0][0]) // need event names
+      for(int i = 0; m_jsonList[i]; i++)
       {
-        for(int i = 0; i < m_jsonCnt; i++)
-          if(!strcmp(pPair[1], m_jsonList[i][0]))
-            m_event = i;
-      }
-      else for(int i = 1; m_jsonList[m_event][i]; i++)
-      {
-        if(!strcmp(pPair[0], m_jsonList[m_event][i]))
+        if( !strcmp(pPair[0], m_jsonList[i]) )
         {
-            int n = atol(pPair[1]);
+            int32_t n = atoi(pPair[1]);
             if(!strcmp(pPair[1], "true")) n = 1; // bool case
-            m_callback(m_event, i-1, n, pPair[1]);
+            m_callback( i, n, pPair[1]);
             break;
         }
       }
