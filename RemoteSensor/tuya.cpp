@@ -5,18 +5,18 @@
 #include <UdpTime.h>
 #include "defs.h"
 
-#define BWAR01 // BlitzWolf BW-AR01
+//#define BWAR01 // BlitzWolf BW-AR01
 
 //#define DEBUG
 #define BAUD 9600
 
 #ifdef BWAR01 // BlitzWolf BW-AR01
-#define WIFI_LED  13  // high = on
-#define BTN   14   // button (reset button)
+#define WIFI_LED 13  // high = on
+#define BTN      14   // button (reset button)
 #else // Tuya WIFI Temperature Humidity Smart Sensor Clock Digital Display - Type A (must replace with ESP8266 and add resistors to IO15 and REST, cut trace to REST)
 #define ESP_LED   2  // low = on
 #define WIFI_LED  4  // high = on
-#define BTN   13  // C/F button (connected to MCU as well)
+#define BTN      13  // C/F button (connected to MCU as well)
 #endif
 
 extern UdpTime utime;
@@ -95,7 +95,7 @@ int TuyaInterface::service(int8_t tcal, int8_t rhcal)
           for(int a = 0; a < len; a++)
             chk += inBuffer[a];
 #ifdef DEBUG
-          String s = "print;RX ";
+          String s = "{\"cmd\":\"print\",\"text\":\"RX ";
           s += len;
           s += " ";
           for(int a = 0; a < len; a++)
@@ -103,6 +103,7 @@ int TuyaInterface::service(int8_t tcal, int8_t rhcal)
             s += " ";
             s += String(inBuffer[a], 16);
           }
+          s += "\"}";
           WsSend(s);
 #endif
           if( inBuffer[len] == chk) // good checksum
@@ -187,8 +188,9 @@ int TuyaInterface::service(int8_t tcal, int8_t rhcal)
                     break;
                   default:
                    {
-                      String s = "print;uknown register ";
+                      String s = "{\"cmd\":\"print\",\"text\":\"unknown register ";
                       s += inBuffer[0];
+                      s += "\"}";
                       WsSend(s);
                     }
                     break;
@@ -207,8 +209,9 @@ int TuyaInterface::service(int8_t tcal, int8_t rhcal)
                 break;
               default:
                 {
-                  String s = "print; Tuya cmd unknown ";
+                  String s = "{\"cmd\":\"print\",\"text\":\"Tuya cmd unknown ";
                   s += cmd;
+                  s += "\"}";
                   WsSend(s);
                 }
                 break;
@@ -241,6 +244,7 @@ int TuyaInterface::service(int8_t tcal, int8_t rhcal)
 //    if( bBtn ) // release
 //      setCF( !m_bCF );
   }
+  return 0;
 }
 
 int TuyaInterface::status()
@@ -308,7 +312,7 @@ bool TuyaInterface::writeSerial(uint8_t cmd, uint8_t *p, uint16_t len)
   buf[6 + len] = (uint8_t)chk;
 
 #ifdef DEBUG
-  String s = "print;TX ";
+  String s = "{\"cmd\":\"print\",\"text\":\"TX ";
   s += len;
   s += " ";
   for(int a = 0; a < len+7; a++)
@@ -316,6 +320,7 @@ bool TuyaInterface::writeSerial(uint8_t cmd, uint8_t *p, uint16_t len)
     s += " ";
     s += String(buf[a], 16);
   }
+  s += "\"}";
   WsSend(s);
 #endif
   return Serial.write(buf, 7 + len);
