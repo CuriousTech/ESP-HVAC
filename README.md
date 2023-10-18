@@ -1,6 +1,9 @@
 # ESP-HVAC (ESP8266 & ESP-32)
 WiFi Smart Omniscient HVAC Touchscreen Theromstat  
 
+This project is discontinued (except for bugfixes and support code changes). New work will be on 
+[WT32-SC01-HVAC](https://github.com/CuriousTech/WT32-SC01-HVAC)  
+
 <b>2018 Model:</b> The new model was redesigned with a cooler switching regulator (~20mA idle, with a dim screen), smaller ($16.50 from OSHPark) more options for the temp/RH sensor, and the rotory encoder was removed, but has a header for an external encoder or buttons. The only difference in connections is the SCL/SDA were accidentaly reversed on the onboard SHTxx chip. Pics should be at the bottom.  
 
 Notes about the Nextion: The baudrate is bauds=115200 in the main initialize varaibles. This will allow it to communicate at the highest speed.  
