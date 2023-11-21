@@ -79,6 +79,7 @@ enum Notif
   Note_Forecast,
   Note_Filter,
   Note_EspTouch,
+  Note_Found,
 };
 
 enum HeatMode
@@ -185,6 +186,7 @@ public:
   void    monthTotal(int m, int dys);
 
   int16_t  m_outTemp;       // adjusted current temp *10
+  int16_t  m_outRh;
   int16_t  m_inTemp;        // current indoor temperature *10
   int16_t  m_rh;
   int16_t  m_localTemp;     // this device's temperature *10
