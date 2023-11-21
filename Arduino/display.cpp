@@ -19,7 +19,8 @@ extern void WsSend(String s);
 
 void Display::init()
 {
-  memset(m_fc.Data, -127, sizeof(m_fc.Data));
+  for(int i = 0; i < FC_CNT; i++)
+    m_fc.Data[i].temp = -1000;
   m_fc.Date = 0;
   nex.FFF(); // Just to end any debug strings in the Nextion
   nex.reset();
@@ -360,7 +361,7 @@ bool Display::drawForecast(bool bRef)
     return false;
   }
 
-  for(fcCnt = 0; fcCnt < FC_CNT && m_fc.Data[fcCnt] != -127; fcCnt++) // get current time in forecast and valid count
+  for(fcCnt = 0; fcCnt < FC_CNT && m_fc.Data[fcCnt].temp != -1000; fcCnt++) // get current time in forecast and valid count
   {
     if( tm < now() )
     {
@@ -369,7 +370,7 @@ bool Display::drawForecast(bool bRef)
     }
   }
 
-  if(fcCnt >= FC_CNT || m_fc.Data[fcOff] == -127 ) // outdated
+  if(fcCnt >= FC_CNT || m_fc.Data[fcOff].temp == -1000 ) // outdated
   {
     if(m_bUpdateFcstIdle)
       m_bUpdateFcst = true;
@@ -382,13 +383,13 @@ bool Display::drawForecast(bool bRef)
     if(rng > ee.fcRange) rng = ee.fcRange;
 
     // Update min/max
-    int8_t tmin = m_fc.Data[fcOff];
-    int8_t tmax = m_fc.Data[fcOff];
+    int16_t tmin = m_fc.Data[fcOff].temp;
+    int16_t tmax = m_fc.Data[fcOff].temp;
 
     // Get min/max of current forecast
     for(int i = fcOff + 1; i < fcOff+rng && i < FC_CNT; i++)
     {
-      int8_t t = m_fc.Data[i];
+      int16_t t = m_fc.Data[i].temp;
       if(tmin > t) tmin = t;
       if(tmax < t) tmax = t;
     }
@@ -413,8 +414,8 @@ bool Display::drawForecast(bool bRef)
   }
 
     // Update min/max
-    int8_t tmin = m_fc.Data[0];
-    int8_t tmax = m_fc.Data[0];
+    int16_t tmin = m_fc.Data[0].temp;
+    int16_t tmax = m_fc.Data[0].temp;
 
     int rng = fcCnt;
     if(rng > ee.fcDisplay) rng = ee.fcDisplay; // shorten to user display range
@@ -422,7 +423,7 @@ bool Display::drawForecast(bool bRef)
     // Get min/max of current forecast
     for(int i = fcOff; i < fcOff+rng && i < FC_CNT; i++)
     {
-      int8_t t = m_fc.Data[i];
+      int16_t t = m_fc.Data[i].temp;
       if(tmin > t) tmin = t;
       if(tmax < t) tmax = t;
     }
@@ -448,17 +449,17 @@ bool Display::drawForecast(bool bRef)
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return true;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (m_fc.Data[fcOff] - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (m_fc.Data[fcOff].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
   int day = weekday()-1;              // current day
 
   int h = 0;
 
-  for(int i = fcOff; i < fcOff+rng && m_fc.Data[i] != -127; i++) // should be 41 data points (close to 300ms)
+  for(int i = fcOff; i < fcOff+rng && m_fc.Data[i].temp != -1000; i++) // should be 41 data points (close to 300ms)
   {
  
-    int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i] - tmin) * (Fc_Height-2) / (tmax-tmin);
+    int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
@@ -493,11 +494,11 @@ bool Display::drawForecast(bool bRef)
 }
 
 // get value at current minute between hours
-int Display::tween(int8_t t1, int8_t t2, int m, int r)
+int Display::tween(int16_t t1, int16_t t2, int m, int r)
 {
   if(r == 0) r = 1; // div by zero check
   float t = (float)(t2 - t1) * (m * 100 / r) / 100;
-  return (int)((t + (float)t1) * 10);
+  return (int)(t + (float)t1);
 }
 
 void Display::displayOutTemp()
@@ -512,7 +513,7 @@ void Display::displayOutTemp()
 
   if( tmNow >= fcTm)
   {
-    for(iH = 0; tmNow > fcTm && m_fc.Data[iH] != -127 && iH < FC_CNT - 1; iH++)
+    for(iH = 0; tmNow > fcTm && m_fc.Data[iH].temp != -1000 && iH < FC_CNT - 1; iH++)
       fcTm += m_fc.Freq;
  
     if(iH)
@@ -525,7 +526,7 @@ void Display::displayOutTemp()
   }
 
   int r = m_fc.Freq / 60; // usually 3 hour range (180 m)
-  int outTempReal = tween(m_fc.Data[iH], m_fc.Data[iH+1], m, r);
+  int outTempReal = tween(m_fc.Data[iH].temp, m_fc.Data[iH+1].temp, m, r);
   int outTempShift = outTempReal;
   int fcOffset = ee.fcOffset[hvac.m_modeShadow == Mode_Heat];
 
@@ -547,7 +548,7 @@ void Display::displayOutTemp()
     fcOffset -= r;
   }
 
-  outTempShift = tween(m_fc.Data[iH], m_fc.Data[iH+1], m, r);
+  outTempShift = tween(m_fc.Data[iH].temp, m_fc.Data[iH+1].temp, m, r);
 
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
@@ -604,6 +605,9 @@ void Display::updateNotification(bool bRef)
       break;
     case Note_EspTouch:
       s = "Use EspTouch App";
+      break;
+    case Note_Found:
+      s = "HVAC Found";
       break;
   }
   nex.itemText(12, s);
