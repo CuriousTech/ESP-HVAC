@@ -1,7 +1,7 @@
 // Do all the web stuff here
 
 #define OTA_ENABLE  //uncomment to enable Arduino IDE Over The Air update code
-#define USE_SPIFFS  // saves 11K of program space, loses 800 bytes dynamic (ESP8266 64K SPIFFS)
+//#define USE_SPIFFS  // saves 11K of program space, loses 800 bytes dynamic (ESP8266 64K SPIFFS)
 
 #ifdef ESP32
 #include <ESPmDNS.h>
@@ -16,6 +16,7 @@
 #include "WebHandler.h"
 #include "HVAC.h"
 #include <JsonParse.h> // https://github.com/CuriousTech/ESP-HVAC/tree/master/Libraries/JsonParse
+#include "jsonString.h"
 
 #ifdef REMOTE
 #include <WebSocketsClient.h> // https://github.com/Links2004/arduinoWebSockets
@@ -72,8 +73,6 @@ bool bConfigDone = false; // EspTouch done or creds set
 bool bStarted = false;
 uint32_t connectTimer;
 
-
-#ifdef REMOTE
 const char pageR_T[] = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -90,6 +89,8 @@ const char pageR_B[] = R"rawliteral(
 </body>
 </html>
 )rawliteral";
+
+#ifdef REMOTE
 
 const char *jsonListState[] = { "cmd", "r", "fr", "s", "it", "rh", "tt", "fm", "ot", "ol", "oh", "ct", "ft", "rt", "h", "lt", "lh", "rmt", NULL };
 
@@ -181,7 +182,7 @@ void startServer()
   server.addHandler(&ws);
 
   server.on ( "/", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-#ifdef REMOTE
+#ifdef REMOTE // This can change any time. Just used for debug to view vars
     String s = pageR_T;
     s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
     s += "WsConnected "; s += bWscConnected; s += "<br>";
@@ -203,15 +204,44 @@ void startServer()
 #endif
   });
 
-  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // for quick commands
+  // This can change. Just used to view vars
+  server.on ( "/info", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
+    String s = pageR_T;
+    s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
+    IPAddress ip(ee.hostIp);
+    s += "HVAC IP "; s += ip.toString(); s += "<br>";
+    s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
+    s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
+
+    s += "Now: "; s += now(); s += "<br>";
+    s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
+
+    s += "it: "; s += hvac.m_inTemp; s += "<br>";
+    s += "tempi: "; s += hvac.m_localTemp; s += "<br>";
+    s += "rhi: "; s += hvac.m_localRh; s += "<br>";
+    s += "rh: "; s += hvac.m_rh; s += "<br>";
+
+    s += pageR_B;
+    request->send( 200, "text/html", s );
+  });
+
+  // For quick commands. Also used by remotes
+  server.on ( "/s", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     parseParams(request);
-    request->send ( 200, "text/html", "OK" );
+    String s = "OK\r\n\r\n";
+    jsonString js;
+    js.Var("outtemp", hvac.m_outTemp);
+    js.Var("outrh", hvac.m_outRh);
+    s += js.Close();
+    s += "\r\n";
+    request->send ( 200, "text/html", s );
   });
 
   server.on ( "/json", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
     request->send ( 200, "text/json",  hvac.settingsJson());
   });
 
+  // Main page
 #ifndef REMOTE
   server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // Hidden instead of / due to being externally accessible. Use your own here.
     parseParams(request);
@@ -327,6 +357,7 @@ void findHVAC() // find the HVAC on iot domain
       ee.hostIp[1] = MDNS.IP(i)[1];
       ee.hostIp[2] = MDNS.IP(i)[2];
       ee.hostIp[3] = MDNS.IP(i)[3];
+      hvac.m_notif = Note_Found;
       break;
     }
   }
@@ -383,6 +414,7 @@ bool secondsServer() // called once per second
     {
       if(!bStarted)
       {
+//        WiFi.mode(WIFI_STA); // Stop broadcasting SSID
         MDNS.begin( hostName );
         bStarted = true;
         MDNS.addService("iot", "tcp", serverPort);
@@ -395,10 +427,10 @@ bool secondsServer() // called once per second
 #endif
       }
     }
-    else if(now() - connectTimer > 5) // failed to connect for some reason
+    else if(now() - connectTimer > 10) // failed to connect for some reason
     {
       connectTimer = now();
-      ee.szSSID[0] = 0;
+//      ee.szSSID[0] = 0;
       WiFi.mode(WIFI_AP_STA);
       WiFi.beginSmartConfig();
       bConfigDone = false;
@@ -436,7 +468,7 @@ bool secondsServer() // called once per second
     display.m_bUpdateFcst = false;
     display.m_bUpdateFcstIdle = false;
     nUpdateDelay = 60;
-    WscSend("{\"bin\":0}"); // request forcast data
+    WscSend("{\"bin\":1}"); // request forcast data
   }
 #else  // !Remote
   String s = hvac.settingsJsonMod(); // returns "{}" if nothing has changed
@@ -493,10 +525,10 @@ bool secondsServer() // called once per second
     WsSend(js.Close());
   }
 
-  if(display.m_bFcstUpdated && WsRemoteID)
-  {
-    ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
-  }
+//  if(display.m_bFcstUpdated && WsRemoteID)
+//  {
+//    ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
+//  }
 
 #endif // !REMOTE
   return bConn;
@@ -819,6 +851,7 @@ void remoteCallback(int16_t iName, int iValue, char *psValue)
   if(iName) switch(cmd)
   {
     case 0: // cmd
+      findHVAC();
       break;
     case 1: //settings
       hvac.setSettings(iName - 1, iValue);
@@ -880,11 +913,12 @@ void remoteCallback(int16_t iName, int iValue, char *psValue)
         out += ",\"fcFreq\":";
         out += display.m_fc.Freq;
         out += ",\"fc\":[";
-        for(int i = 0; display.m_fc.Data[i] != -127 && i < FC_CNT; i++)
+
+        for(uint8_t i = 0; display.m_fc.Data[i].temp != -1000 && i < FC_CNT; i++)
         {
           if(i) out += ",";
-          out += display.m_fc.Data[i];
-        }        
+          out += display.m_fc.Data[i].temp;
+        }
         out += "]}";
         ws.text(WsClientID, out);
       }
@@ -893,7 +927,9 @@ void remoteCallback(int16_t iName, int iValue, char *psValue)
         WsRemoteID = WsClientID; // Only remote uses binary
         switch(iValue)
         {
-          case 0: // forecast data
+          case 0: // forecast data (old format)
+            break;
+          case 1:
             ws.binary(WsClientID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
             break;
         }
