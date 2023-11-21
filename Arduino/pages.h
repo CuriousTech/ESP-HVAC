@@ -1072,12 +1072,12 @@ function drawFC(){
   doBorder(graph2)
 
   c.lineWidth=1
-  min=150
-  max=-30
+  min=1500
+  max=-300
   for(i=0;i<fc.length;i++)
   {
-    if(min>fc[i]) min=fc[i]
-    if(max<fc[i]) max=fc[i]
+    if(min>fc[i]/10) min=fc[i]/10
+    if(max<fc[i]/10) max=fc[i]/10
   }
   max++
   yRange=max-min
@@ -1196,15 +1196,15 @@ function getTT(i,th)
 {
  if(schedMode==0)
  {
-  min2=150
-  max2=-30
+  min2=1500
+  max2=-300
   strt1=i-fcr
   if(strt1<0) strt1=0
   for(j=strt1;j<i+fcr;j++)
   {
     if(j<fc.length){
-      if(min2>fc[j]) min2=fc[j]
-      if(max2<fc[j]) max2=fc[j]
+      if(min2>fc[j]/10) min2=fc[j]/10
+      if(max2<fc[j]/10) max2=fc[j]/10
     }
   }
   tt=(fc[i]-min2)*iRng/(max2-min2)+iMin+th
