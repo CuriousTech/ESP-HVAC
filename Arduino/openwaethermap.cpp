@@ -73,7 +73,7 @@ int OpenWeather::makeroom(uint32_t newTm)
     return 0;
   uint32_t tm2 = m_pfd->Date;
   int fcIdx;
-  for(fcIdx = 0; fcIdx < FC_CNT-4 && m_pfd->Data[fcIdx] != -127; fcIdx++)
+  for(fcIdx = 0; fcIdx < FC_CNT-4 && m_pfd->Data[fcIdx].temp != -1000; fcIdx++)
   {
     if(tm2 >= newTm)
       break;
@@ -83,7 +83,7 @@ int OpenWeather::makeroom(uint32_t newTm)
   {
     int n = fcIdx - (FC_CNT - m_fcCnt - 1);
     uint8_t *p = (uint8_t*)m_pfd->Data;
-    memcpy(p, p + n, FC_CNT - n); // make room
+    memcpy(p, p + (n*sizeof(forecastItem)), FC_CNT - (n*sizeof(forecastItem)) ); // make room
     m_pfd->Date += m_pfd->Freq * n;
     fcIdx -= n;
   }
@@ -128,7 +128,7 @@ void OpenWeather::_onDisconnect(AsyncClient* client)
   }
 
   processJson(p, 0, jsonListOw);
-  m_pfd->Data[m_fcIdx] = -127;
+  m_pfd->Data[m_fcIdx].temp = -1000;
   delete m_pBuffer;
 }
 
@@ -213,6 +213,7 @@ void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *p
             };
             processJson(psValue, 3, jsonList);
         }
+        if(m_fcIdx < m_fcCnt) m_fcIdx++;
         break;
       }
       break;
@@ -220,10 +221,10 @@ void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *p
       switch(iName)
       {
         case 0: // temp
-          m_pfd->Data[m_fcIdx] = iValue;
-          m_fcIdx++;
+          m_pfd->Data[m_fcIdx].temp = (atof(psValue)*10);
           break;
         case 5: // humidity
+          m_pfd->Data[m_fcIdx].humidity = (atoi(psValue)*10);
           break;
       }
       break;
@@ -231,6 +232,7 @@ void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *p
       switch(iName)
       {
         case 0: // id
+          m_pfd->Data[m_fcIdx].id = atoi(psValue);
           break;
         case 1: // main
           break;
