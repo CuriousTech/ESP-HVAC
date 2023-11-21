@@ -11,14 +11,14 @@ Forecast::Forecast()
 
 void Forecast::start(IPAddress serverIP, uint16_t port, forecastData *pfd, bool bCelcius)
 {
-    if(m_ac.connected() || m_ac.connecting())
-      return;
-    m_pfd = pfd;
-    m_status = FCS_Busy;
-    m_bCelcius = bCelcius;
-    m_serverIP = serverIP;
-    if(!m_ac.connect(serverIP, port))
-      m_status = FCS_ConnectError;
+  if(m_ac.connected() || m_ac.connecting())
+    return;
+  m_pfd = pfd;
+  m_status = FCS_Busy;
+  m_bCelcius = bCelcius;
+  m_serverIP = serverIP;
+  if(!m_ac.connect(serverIP, port))
+    m_status = FCS_ConnectError;
 }
 
 int Forecast::checkStatus()
@@ -65,7 +65,7 @@ int Forecast::makeroom(uint32_t newTm)
     return 0;
   uint32_t tm2 = m_pfd->Date;
   int fcIdx;
-  for(fcIdx = 0; fcIdx < FC_CNT-4 && m_pfd->Data[fcIdx] != -127; fcIdx++)
+  for(fcIdx = 0; fcIdx < FC_CNT-4 && m_pfd->Data[fcIdx].temp != -1000; fcIdx++)
   {
     if(tm2 >= newTm)
       break;
@@ -75,14 +75,15 @@ int Forecast::makeroom(uint32_t newTm)
   {
     int n = fcIdx - (FC_CNT - 56);
     uint8_t *p = (uint8_t*)m_pfd->Data;
-    memcpy(p, p + n, FC_CNT - n); // make room
+    memcpy(p, p + (n*sizeof(forecastItem)), FC_CNT - (n*sizeof(forecastItem)) ); // make room
+    uint32_t od = m_pfd->Date;
     m_pfd->Date += m_pfd->Freq * n;
     fcIdx -= n;
   }
   return fcIdx;
 }
 
-// read data as comma delimited 'time,temp,rh' per line
+// read data as comma delimited 'time,temp,r,h,code' per line
 void Forecast::_onDisconnect(AsyncClient* client)
 {
   (void)client;
@@ -91,6 +92,7 @@ void Forecast::_onDisconnect(AsyncClient* client)
   m_status = FCS_Done;
   if(p == NULL)
     return;
+
   if(m_bufIdx == 0)
   {
     delete m_pBuffer;
@@ -104,7 +106,7 @@ void Forecast::_onDisconnect(AsyncClient* client)
   while(fcIdx < FC_CNT-1 && *p)
   {
     uint32_t tm = atoi(p);
-    if(tm > 15336576) // skip the headers
+    if(tm > 1700516696) // skip the headers
     {
       if(!bFirst)
       {
@@ -121,12 +123,22 @@ void Forecast::_onDisconnect(AsyncClient* client)
       while(*p && *p != ',') p ++;
       if(*p == ',') p ++;
       else break;
-      m_pfd->Data[fcIdx] = atoi(p);
+      m_pfd->Data[fcIdx].temp = (atof(p)*10);
+      while(*p && *p != ',') p ++;
+      if(*p == ',') p ++;
+      else break;
+      m_pfd->Data[fcIdx].humidity = (atof(p)*10);
+      while(*p && *p != ',') p ++;
+      if(*p == ',') p ++;
+      {
+        m_pfd->Data[fcIdx].id = atoi(p);
+      }
       fcIdx++;
     }
+
     while(*p && *p != '\r' && *p != '\n') p ++;
     while(*p == '\r' || *p == '\n') p ++;
   }
-  m_pfd->Data[fcIdx] = -127;
+  m_pfd->Data[fcIdx].temp = -1000;
   delete m_pBuffer;
 }
