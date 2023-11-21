@@ -10,12 +10,27 @@
 
 #define FC_CNT 74
 
+struct forecastItem
+{
+  int16_t temp;
+  int16_t humidity;
+  int16_t id;
+};
+
 struct forecastData
 {
   uint32_t Date;
   uint32_t loadDate;
   uint16_t Freq;
-  int8_t Data[FC_CNT];
+  forecastItem Data[FC_CNT];
+};
+
+struct forecastDataOld
+{
+  uint32_t Date;
+  uint32_t loadDate;
+  uint16_t Freq;
+  int8_t   Data[FC_CNT];
 };
 
 enum FCS_Status
@@ -43,7 +58,7 @@ private:
   IPAddress m_serverIP;
   AsyncClient m_ac;
   forecastData *m_pfd;
-#define FCBUF_SIZE 1200
+#define FCBUF_SIZE 1400
   char *m_pBuffer = NULL;
   int m_bufIdx;
   bool m_bDone = false;
