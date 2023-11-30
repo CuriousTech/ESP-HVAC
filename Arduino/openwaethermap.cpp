@@ -213,7 +213,7 @@ void OpenWeather::callback(int8_t iEvent, uint8_t iName, int32_t iValue, char *p
             };
             processJson(psValue, 3, jsonList);
         }
-        if(m_fcIdx < m_fcCnt) m_fcIdx++;
+        if(m_fcIdx < FC_CNT - 1) m_fcIdx++;
         break;
       }
       break;
