@@ -439,7 +439,7 @@ bool Display::drawForecast(bool bRef)
   // temp scale
   for(int i = 0; i <= 3; i++)
   {
-    nex.text(3, y-6, 0, rgb16(0, 31, 31), String(t)); // font height/2=6?
+    nex.text(3, y-6, 0, rgb16(0, 31, 31), String(t/10)); // font height/2=6?
     y += incy;
     t -= dec;
   }
