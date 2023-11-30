@@ -370,7 +370,9 @@ void handleServer()
   MDNS.update();
 #endif
 
-#ifndef REMOTE
+#ifdef REMOTE
+  wsc.loop();
+#else
   static int n;
   if(++n >= 10)
   {
