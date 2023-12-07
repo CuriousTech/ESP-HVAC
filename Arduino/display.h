@@ -84,7 +84,6 @@ private:
   void drawPointsTemp(void);
   uint16_t stateColor(gflags v);
   void Lines(void);
-  int  tween(int16_t t1, int16_t t2, int m, int r);
 
   uint16_t m_backlightTimer = NEX_TIMEOUT;
 #define GPTS 640 // 320 px width - (10+10) padding
@@ -98,11 +97,7 @@ private:
   int m_tempMax;
 public:
   uint32_t m_lastPDate = 0;
-  forecastData m_fc;
   uint8_t m_adjustMode = 0; // which of 4 temps to adjust with rotary encoder/buttons
-  bool    m_bUpdateFcst = true;
-  bool    m_bUpdateFcstIdle = true;
-  bool    m_bFcstUpdated = false;
 };
 
 #endif // DISPLAY_H
