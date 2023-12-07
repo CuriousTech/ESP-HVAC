@@ -33,7 +33,6 @@
 #include "pages.h"
 #include "jsonstring.h"
 #include "forecast.h"
-#include "Openweathermap.h"
 //-----------------
 int serverPort = 80;
 
@@ -42,12 +41,12 @@ const char *hostName = RMTNAMEFULL;
 WebSocketsClient wsc;
 bool bWscConnected;
 #else
-const char *hostName = "HVAC";
+const char *hostName = HOSTNAME;
 IPAddress ipFcServer(192,168,31,100);    // local forecast server and port
 int nFcPort = 80;
-Forecast localFC;
-OpenWeather openWeatherFC;
 #endif
+
+Forecast FC;
 
 //-----------------
 AsyncWebServer server( serverPort );
@@ -188,11 +187,11 @@ void startServer()
     s += "WsConnected "; s += bWscConnected; s += "<br>";
     IPAddress ip(ee.hostIp);
     s += "HVAC IP "; s += ip.toString(); s += "<br>";
-    s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
-    s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
+    s += "FcstIdle "; s += FC.m_bUpdateFcstIdle; s += "<br>";
+    s += "UpdateFcst "; s += FC.m_bUpdateFcst; s += "<br>";
 
     s += "Now: "; s += now(); s += "<br>";
-    s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
+    s += "FcDate: "; s += FC.m_fc.loadDate; s += "<br>";
 
     s += "it: "; s += hvac.m_inTemp; s += "<br>";
     s += "tempi: "; s += hvac.m_localTemp; s += "<br>";
@@ -210,11 +209,11 @@ void startServer()
     s += "RemoteStream "; s += hvac.m_bRemoteStream; s += "<br>";
     IPAddress ip(ee.hostIp);
     s += "HVAC IP "; s += ip.toString(); s += "<br>";
-    s += "FcstIdle "; s += display.m_bUpdateFcstIdle; s += "<br>";
-    s += "UpdateFcst "; s += display.m_bUpdateFcst; s += "<br>";
+    s += "FcstIdle "; s += FC.m_bUpdateFcstIdle; s += "<br>";
+    s += "UpdateFcst "; s += FC.m_bUpdateFcst; s += "<br>";
 
     s += "Now: "; s += now(); s += "<br>";
-    s += "FcDate: "; s += display.m_fc.loadDate; s += "<br>";
+    s += "FcDate: "; s += FC.m_fc.loadDate; s += "<br>";
 
     s += "it: "; s += hvac.m_inTemp; s += "<br>";
     s += "tempi: "; s += hvac.m_localTemp; s += "<br>";
@@ -244,7 +243,6 @@ void startServer()
   // Main page
 #ifndef REMOTE
   server.on ( "/iot", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){ // Hidden instead of / due to being externally accessible. Use your own here.
-    parseParams(request);
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/index.html");
 #else
@@ -252,7 +250,6 @@ void startServer()
 #endif
   });
   server.on ( "/settings", HTTP_GET | HTTP_POST, [](AsyncWebServerRequest *request){
-    parseParams(request);
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/settings.html");
 #else
@@ -260,7 +257,6 @@ void startServer()
 #endif
   });
   server.on ( "/chart.html", HTTP_GET, [](AsyncWebServerRequest *request){
-    parseParams(request);
 #ifdef USE_SPIFFS
     request->send(SPIFFS, "/chart.html");
 #else
@@ -449,9 +445,9 @@ bool secondsServer() // called once per second
   if(nUpdateDelay)
     nUpdateDelay--;
 
-  if(now() > display.m_fc.loadDate + (3600*6) && (nUpdateDelay == 0) ) // > 6 hours old
+  if(now() > FC.m_fc.loadDate + (3600*6) && (nUpdateDelay == 0) ) // > 6 hours old
   {
-    display.m_bUpdateFcst = true;
+    FC.m_bUpdateFcst = true;
   }
 
 #ifdef REMOTE
@@ -465,10 +461,10 @@ bool secondsServer() // called once per second
     if(--start == 0)
         startListener();
 
-  if(display.m_bUpdateFcst && bWscConnected && (nUpdateDelay == 0))
+  if(FC.m_bUpdateFcst && bWscConnected && (nUpdateDelay == 0))
   {
-    display.m_bUpdateFcst = false;
-    display.m_bUpdateFcstIdle = false;
+    FC.m_bUpdateFcst = false;
+    FC.m_bUpdateFcstIdle = false;
     nUpdateDelay = 60;
     WscSend("{\"bin\":1}"); // request forcast data
   }
@@ -483,53 +479,34 @@ bool secondsServer() // called once per second
   if(nWrongPass)
     nWrongPass--;
 
-  if(display.m_bUpdateFcst && display.m_bUpdateFcstIdle && nUpdateDelay == 0)
+  if(FC.m_bUpdateFcst && FC.m_bUpdateFcstIdle && nUpdateDelay == 0)
   {
-    display.m_bUpdateFcst = false;
-    display.m_bUpdateFcstIdle = false;
+    FC.m_bUpdateFcst = false;
+    FC.m_bUpdateFcstIdle = false;
     nUpdateDelay = 60; // delay retries by 1 minute
     switch(ee.b.nFcstSource)
     {
-      case 0:
-        localFC.start(ipFcServer, nFcPort, &display.m_fc, ee.b.bCelcius);    // get preformatted data from local server
-        break;
       case 1:
-        openWeatherFC.start(&display.m_fc, ee.b.bCelcius, ee.cityID);    // get data from OpenWeatherMap 5 day
+        FC.start(ipFcServer, nFcPort, ee.b.bCelcius, 0);    // get preformatted data from local server
+      case 0:
+        FC.start(ipFcServer, nFcPort, ee.b.bCelcius, 1);    // get OpenWeatherMap file from local server
+        break;
+      case 2:
+        FC.start(ee.cityID, ee.b.bCelcius);    // get data from OpenWeatherMap 5 day
         break;
     }
   }
 
-  int stat;
-  stat = localFC.checkStatus();
-  if(stat == FCS_Done)
-  {
-    display.m_fc.loadDate = now();
-    display.m_bUpdateFcstIdle = true;
-    display.m_bFcstUpdated = true;
-  }
-  else if(stat == FCS_Fail)
+  if(FC.checkStatus() == FCS_Fail)
   {
     jsonString js("alert");
     js.Var("text", "Forecast failed");
     WsSend(js.Close());
   }
-  stat = openWeatherFC.checkStatus();
-  if(stat == FCS_Done)
-  {
-    display.m_fc.loadDate = now();
-    display.m_bUpdateFcstIdle = true;
-    display.m_bFcstUpdated = true;
-  }
-  else if(stat == FCS_Fail)
-  {
-    jsonString js("alert");
-    js.Var("text", "OpenWeatherMap failed");
-    WsSend(js.Close());
-  }
 
-//  if(display.m_bFcstUpdated && WsRemoteID)
+//  if(FC.m_bFcstUpdated && WsRemoteID)
 //  {
-//    ws.binary(WsRemoteID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
+//    ws.binary(WsRemoteID, (uint8_t*)&FC.m_fc, sizeof(FC.m_fc));
 //  }
 
 #endif // !REMOTE
@@ -555,7 +532,7 @@ void parseParams(AsyncWebServerRequest *request)
           ee.adj = val;
           break;
       case 'f': // get forecast
-          display.m_bUpdateFcst = true;
+          FC.m_bUpdateFcst = true;
           break;
       case 'H': // host  (from browser type: hTtp://thisip/?H=hostip)
           {
@@ -637,7 +614,7 @@ void parseParams(AsyncWebServerRequest *request)
     else
     {
       if(p->name() == "fc")
-        display.m_bUpdateFcst = true;
+        FC.m_bUpdateFcst = true;
       hvac.setVar(p->name(), s.toInt(), (char *)s.c_str(), ip );
     }
   }
@@ -911,15 +888,15 @@ void remoteCallback(int16_t iName, int iValue, char *psValue)
         }
         out += "],";
         out += "\"fcDate\":";
-        out += display.m_fc.Date;
+        out += FC.m_fc.Date;
         out += ",\"fcFreq\":";
-        out += display.m_fc.Freq;
+        out += FC.m_fc.Freq;
         out += ",\"fc\":[";
 
-        for(uint8_t i = 0; display.m_fc.Data[i].temp != -1000 && i < FC_CNT; i++)
+        for(uint8_t i = 0; FC.m_fc.Data[i].temp != -1000 && i < FC_CNT; i++)
         {
           if(i) out += ",";
-          out += display.m_fc.Data[i].temp;
+          out += FC.m_fc.Data[i].temp;
         }
         out += "]}";
         ws.text(WsClientID, out);
@@ -932,7 +909,7 @@ void remoteCallback(int16_t iName, int iValue, char *psValue)
           case 0: // forecast data (old format)
             break;
           case 1:
-            ws.binary(WsClientID, (uint8_t*)&display.m_fc, sizeof(display.m_fc));
+            ws.binary(WsClientID, (uint8_t*)&FC.m_fc, sizeof(FC.m_fc));
             break;
         }
       }
@@ -980,10 +957,10 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t length)
     case WStype_BIN:
       if(length == sizeof(forecastData) )
       {
-        memcpy((void*)&display.m_fc, payload, length);
-        display.m_fc.loadDate = now(); // fix for strange data
-        display.m_bUpdateFcstIdle = true;
-        display.m_bFcstUpdated = true;
+        memcpy((void*)&FC.m_fc, payload, length);
+        FC.m_fc.loadDate = now(); // fix for strange data
+        FC.m_bUpdateFcstIdle = true;
+        FC.m_bFcstUpdated = true;
       }
       break;
   }
