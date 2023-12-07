@@ -1,11 +1,12 @@
 #ifndef HVAC_H
 #define HVAC_H
 
-// Uncomment to compile for remote
+// Uncomment to build remote
 //#define REMOTE
 
+#define HOSTNAME "HVAC"
 #define RMTNAME 0x31544d52 // 1TMR reversed sensor ID
-#define RMTNAMEFULL "HVACRemote"
+#define RMTNAMEFULL "HVACRemote1"
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -196,7 +197,7 @@ public:
   uint8_t  m_notif;
   bool     m_bRemoteStream; // remote is streaming temp/rh
   bool     m_bRemoteDisconnect;
-  int8_t   m_outMin, m_outMax;
+  int16_t   m_outMin, m_outMax;
   uint16_t m_iSecs[3];
   bool     m_bLink;         // link adjust mode
   uint8_t  m_DST;
