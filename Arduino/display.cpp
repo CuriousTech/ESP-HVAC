@@ -4,6 +4,7 @@
 #include <ESPAsyncWebServer.h> // https://github.com/me-no-dev/ESPAsyncWebServer
 #include "jsonstring.h"
 #include <TimeLib.h>
+#include "forecast.h"
 #ifdef ESP8266
 #include <ESP8266mDNS.h> // for WiFi.RSSI()
 #endif
@@ -15,19 +16,18 @@ Music mus;
 
 Nextion nex;
 extern HVAC hvac;
+extern Forecast FC;
 extern void WsSend(String s);
 
 void Display::init()
 {
-  for(int i = 0; i < FC_CNT; i++)
-    m_fc.Data[i].temp = -1000;
-  m_fc.Date = 0;
   nex.FFF(); // Just to end any debug strings in the Nextion
   nex.reset();
   screen( true ); // brighten the screen if it just reset
   refreshAll();
   nex.itemPic(9, ee.b.bLock ? 20:21);
   updateNotification(true);
+  FC.init( (ee.tz+hvac.m_DST)*3600 );
 #ifdef USE_AUDIO
   mus.init();
 #endif
@@ -61,9 +61,9 @@ void Display::oneSec()
     lastFan = hvac.getFanRunning();
   }
 
-  if(nex.getPage() == Page_Thermostat && m_bFcstUpdated)
+  if(nex.getPage() == Page_Thermostat && FC.m_bFcstUpdated)
   {
-    m_bFcstUpdated = false;
+    FC.m_bFcstUpdated = false;
     drawForecast(true);
   }
 }
@@ -350,57 +350,20 @@ void Display::displayTime()
 
 bool Display::drawForecast(bool bRef)
 {
-  int fcOff = 0;
-  int fcCnt = 0;
-  uint32_t tm = m_fc.Date;
-
-  if(m_fc.Date == 0) // no data yet
+  if(FC.m_fc.Date == 0) // no data yet
   {
-    if(m_bUpdateFcstIdle)
-      m_bUpdateFcst = true;
+    if(FC.m_bUpdateFcstIdle)
+      FC.m_bUpdateFcst = true;
     return false;
   }
 
-  for(fcCnt = 0; fcCnt < FC_CNT && m_fc.Data[fcCnt].temp != -1000; fcCnt++) // get current time in forecast and valid count
-  {
-    if( tm < now() )
-    {
-      fcOff = fcCnt;
-      tm += m_fc.Freq;
-    }
-  }
+  int8_t fcOff;
+  int8_t fcDispOff = 0;
+  int8_t fcCnt;
+  uint32_t tm;
 
-  if(fcCnt >= FC_CNT || m_fc.Data[fcOff].temp == -1000 ) // outdated
-  {
-    if(m_bUpdateFcstIdle)
-      m_bUpdateFcst = true;
+  if(!FC.getCurrentIndex(fcOff, fcCnt, tm))
     return false;
-  }
-
-  if(bRef)
-  {
-    int rng = fcCnt;
-    if(rng > ee.fcRange) rng = ee.fcRange;
-
-    // Update min/max
-    int16_t tmin = m_fc.Data[fcOff].temp;
-    int16_t tmax = m_fc.Data[fcOff].temp;
-
-    // Get min/max of current forecast
-    for(int i = fcOff + 1; i < fcOff+rng && i < FC_CNT; i++)
-    {
-      int16_t t = m_fc.Data[i].temp;
-      if(tmin > t) tmin = t;
-      if(tmax < t) tmax = t;
-    }
-
-    if(tmin == tmax) tmax++;   // div by 0 check
-
-    hvac.m_outMin = tmin;
-    hvac.m_outMax = tmax;
-  }
-
-  displayOutTemp(); // update temp for HVAC
 
   if(nex.getPage()) // on different page
     return true;
@@ -413,22 +376,24 @@ bool Display::drawForecast(bool bRef)
     delay(5);
   }
 
-    // Update min/max
-    int16_t tmin = m_fc.Data[0].temp;
-    int16_t tmax = m_fc.Data[0].temp;
+  tmElements_t tmE;
+  breakTime(FC.m_fc.Date + ((ee.tz+hvac.m_DST)*3600) + (fcOff * FC.m_fc.Freq), tmE); // get current hour
 
-    int rng = fcCnt;
-    if(rng > ee.fcDisplay) rng = ee.fcDisplay; // shorten to user display range
+  if(fcOff >= (tmE.Hour / 3) )
+    fcDispOff = fcOff - (tmE.Hour / 3); // shift back to start of day
+  else
+    fcDispOff = fcOff; // else just shift the first day
 
-    // Get min/max of current forecast
-    for(int i = fcOff; i < fcOff+rng && i < FC_CNT; i++)
-    {
-      int16_t t = m_fc.Data[i].temp;
-      if(tmin > t) tmin = t;
-      if(tmax < t) tmax = t;
-    }
+  breakTime(FC.m_fc.Date + ((ee.tz+hvac.m_DST)*3600) + (fcDispOff * FC.m_fc.Freq), tmE);  // get current hour after adjusting for display offset
 
-    if(tmin == tmax) tmax++;   // div by 0 check
+  int8_t hrng = fcCnt - fcDispOff;
+  if(hrng > ee.fcDisplay)
+    hrng = ee.fcDisplay; // shorten to user display range
+
+  // Update min/max
+  int16_t tmin;
+  int16_t tmax;
+  FC.getMinMax(tmin, tmax, fcDispOff, hrng);
 
   int16_t y = Fc_Top+1;
   int16_t incy = (Fc_Height-4) / 3;
@@ -444,22 +409,21 @@ bool Display::drawForecast(bool bRef)
     t -= dec;
   }
 
-  int hrs = rng * m_fc.Freq / 3600; // normally 180ish hours
+  int hrs = hrng * FC.m_fc.Freq / 3600; // normally 180ish hours
   int day_x = 0;
   if((tmax-tmin) == 0 || hrs <= 0) // divide by 0
     return true;
 
-  int y2 = Fc_Top+Fc_Height - 1 - (m_fc.Data[fcOff].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+  int y2 = Fc_Top+Fc_Height - 1 - (FC.m_fc.Data[fcOff].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
   int x2 = Fc_Left;
   int hOld = 0;
-  int day = weekday()-1;              // current day
+  uint8_t wkday = tmE.Wday - 1;              // current DOW
 
   int h = 0;
 
-  for(int i = fcOff; i < fcOff+rng && m_fc.Data[i].temp != -1000; i++) // should be 41 data points (close to 300ms)
+  for(int i = fcOff; i < fcOff+hrng && FC.m_fc.Data[i].temp != -1000; i++) // should be 41 data points (close to 300ms)
   {
- 
-    int y1 = Fc_Top+Fc_Height - 1 - (m_fc.Data[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
+    int y1 = Fc_Top+Fc_Height - 1 - (FC.m_fc.Data[i].temp - tmin) * (Fc_Height-2) / (tmax-tmin);
     int x1 = Fc_Left + h * (Fc_Width-1) / hrs;
 
     nex.line(x2, y2, x1, y1, rgb16(31, 0, 0) ); // red
@@ -470,9 +434,9 @@ bool Display::drawForecast(bool bRef)
       nex.line(x1, Fc_Top+1, x1, Fc_Top+Fc_Height-2, rgb16(20, 41, 20) ); // (light gray)
       if(x1 - 14 > Fc_Left) // fix 1st day too far left
       {
-        nex.text(day_x = x1 - 27, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
+        nex.text(day_x = x1 - 27, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[wkday]); // cyan
       }
-      if(++day > 6) day = 0;
+      if(++wkday > 6) wkday = 0;
     }
     if( hOld < 12 && h24 >= 12) // noon (dark line)
     {
@@ -485,70 +449,23 @@ bool Display::drawForecast(bool bRef)
 #endif
     x2 = x1;
     y2 = y1;
-    h += m_fc.Freq / 3600;
+    h += FC.m_fc.Freq / 3600;
   }
   day_x += 28;
   if(day_x < Fc_Left+Fc_Width - (8*3) )  // last partial day
-    nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[day]); // cyan
+    nex.text(day_x, Fc_Top+Fc_Height+1, 1, rgb16(0, 63, 31), _days_short[wkday]); // cyan
   return true;
-}
-
-// get value at current minute between hours
-int Display::tween(int16_t t1, int16_t t2, int m, int r)
-{
-  if(r == 0) r = 1; // div by zero check
-  float t = (float)(t2 - t1) * (m * 100 / r) / 100;
-  return (int)(t + (float)t1);
 }
 
 void Display::displayOutTemp()
 {
-  if(m_fc.Date == 0) // not read yet or time not set
+  if(FC.m_fc.Date == 0) // not read yet or time not set
     return;
 
-  int iH = 0;
-  int m = minute();
-  uint32_t tmNow = now() - ((ee.tz+hvac.m_DST)*3600);
-  uint32_t fcTm = m_fc.Date;
+  FC.getMinMax(hvac.m_outMin, hvac.m_outMax, 0, ee.fcRange);
 
-  if( tmNow >= fcTm)
-  {
-    for(iH = 0; tmNow > fcTm && m_fc.Data[iH].temp != -1000 && iH < FC_CNT - 1; iH++)
-      fcTm += m_fc.Freq;
- 
-    if(iH)
-    {
-      iH--; // set iH to current 3 hour frame
-      fcTm -= m_fc.Freq;
-    }
-    m = (tmNow - fcTm) / 60;  // offset = minutes past forecast
-    if(m > m_fc.Freq/60) m = minute();
-  }
-
-  int r = m_fc.Freq / 60; // usually 3 hour range (180 m)
-  int outTempReal = tween(m_fc.Data[iH].temp, m_fc.Data[iH+1].temp, m, r);
-  int outTempShift = outTempReal;
-  int fcOffset = ee.fcOffset[hvac.m_modeShadow == Mode_Heat];
-
-  m += fcOffset % 60;
-  if(m < 0) m += 60;
-  if(m >= r)
-  {
-    iH++;
-    m -= r;
-  }
-  if(fcOffset <= r) while(fcOffset <= r && iH)
-  {
-    iH--;
-    fcOffset += r;
-  }
-  while(fcOffset >= r)
-  {
-    iH++;
-    fcOffset -= r;
-  }
-
-  outTempShift = tween(m_fc.Data[iH].temp, m_fc.Data[iH+1].temp, m, r);
+  int outTempShift;
+  int outTempReal = FC.getCurrentTemp(outTempShift, ee.fcOffset[hvac.m_modeShadow == Mode_Heat] );
 
   if(nex.getPage() == Page_Thermostat)
     nex.itemFp(1, outTempReal);
