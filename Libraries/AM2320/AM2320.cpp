@@ -88,7 +88,7 @@ bool AM2320::_read_registers(int startAddress, int numByte) {
     return true;
 }
 
-uint16_t AM2320::crc16(byte *byte, int numByte) {
+uint16_t AM2320::crc16(uint8_t *byte, int numByte) {
     uint16_t crc = 0xFFFF;          // 16-bit crc register
 
     while (numByte > 0) {               // loop until process all bytes
