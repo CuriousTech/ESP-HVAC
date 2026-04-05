@@ -38,7 +38,7 @@ class AM2320 {
     private:
         uint8_t _buf[8];
         bool _read_registers(int startAddress, int numByte);
-		uint16_t crc16(byte *byte, int numByte);
+		uint16_t crc16(uint8_t *byte, int numByte);
 };
 
 #endif
